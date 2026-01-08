@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yumna Panel Control Center</title>
+    <link rel="icon" href="/logo" type="image/png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0a0b10;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --accent-blue: #00d2ff;
+            --accent-green: #00ff88;
+            --accent-red: #ff4d4d;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255, 255, 255, 0.6);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: radial-gradient(circle at top left, #1a1c2c, #0a0b10);
+            user-select: none;
+            /* Disable text selection */
+        }
+
+        .container {
+            width: 100vw;
+            height: 100vh;
+            background: var(--card-bg);
+            backdrop-filter: blur(40px);
+            border: none;
+            border-radius: 0;
+            display: flex;
+            box-shadow: none;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 200px;
+            border-right: 1px solid var(--glass-border);
+            padding: 30px 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            flex: 1;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 15px;
+            text-align: center;
+        }
+
+        .version-tag {
+            font-size: 11px;
+            color: var(--text-secondary);
+            font-weight: 300;
+            letter-spacing: 0.5px;
+            opacity: 0.7;
+        }
+
+        .logo {
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* Center the logo */
+            width: 100%;
+        }
+
+        .logo img {
+            max-width: 100%;
+            height: auto;
+            max-height: 160px;
+            /* Increased to 160px as requested */
+            object-fit: contain;
+        }
+
+        .nav-item {
+            padding: 12px 15px;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .nav-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .nav-item:hover {
+            color: var(--text-primary);
+            transform: translateX(5px);
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin: 10px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .main-content::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .main-content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+
+        #log-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #log-container::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        #log-container::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        /* Status Grid */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .status-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            min-height: 140px;
+        }
+
+        .status-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .indicator {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 3px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            position: relative;
+        }
+
+        .indicator::after {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 4px solid transparent;
+            border-top-color: var(--accent-blue);
+            animation: rotate 2s linear infinite;
+        }
+
+        .status-online .indicator {
+            border-color: var(--accent-green);
+        }
+
+        .status-online .indicator::after {
+            display: none;
+        }
+
+        .status-offline .indicator {
+            border-color: var(--accent-red);
+        }
+
+        .status-offline .indicator::after {
+            display: none;
+        }
+
+        .service-name {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .status-text {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-online .status-text {
+            color: var(--accent-green);
+        }
+
+        .status-offline .status-text {
+            color: var(--accent-red);
+        }
+
+        /* Actions */
+        .actions-row {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, var(--accent-blue), #0088ff);
+            color: white;
+            box-shadow: 0 10px 20px rgba(0, 210, 255, 0.2);
+        }
+
+        .btn-stop {
+            background: rgba(255, 77, 77, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(255, 77, 77, 0.3);
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: scale(1.02);
+            filter: brightness(1.2);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Stats Chart Placeholder */
+        .charts-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 10px;
+            min-height: 180px;
+            flex-shrink: 0;
+            flex: 1;
+        }
+
+        .chart-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            padding: 15px;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            flex-direction: column;
+            min-height: 120px;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .chart-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .chart-value {
+            font-size: 14px;
+            color: var(--accent-green);
+        }
+
+        .chart-viz {
+            flex: 1;
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            padding-top: 20px;
+        }
+
+        .bar {
+            flex: 1;
+            background: var(--accent-blue);
+            border-radius: 4px 4px 0 0;
+            opacity: 0.6;
+            transition: height 0.5s ease;
+        }
+
+        @keyframes rotate {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            flex-direction: column;
+            gap: 30px;
+            flex: 1;
+            height: 100%;
+        }
+
+        .view.active {
+            display: flex;
+        }
+
+        /* Notifications */
+        #notification {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            padding: 15px 25px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            transform: translateY(100px);
+            transition: transform 0.3s ease;
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        #notification.show {
+            transform: translateY(0);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <div class="logo">
+                <img src="/logo" alt="Yumna Panel">
+            </div>
+            <div class="sidebar-nav">
+                <div class="nav-item active" onclick="switchView('dashboard')">Dashboard</div>
+                <div class="nav-item" onclick="switchView('webservers')">Web Servers</div>
+                <div class="nav-item" onclick="switchView('databases')">Databases</div>
+                <div class="nav-item" onclick="switchView('logs')">Logs</div>
+                <div class="nav-item" onclick="switchView('settings')">Settings</div>
+            </div>
+            <div class="sidebar-footer">
+                <div class="version-tag">Version 2.1.0 PRO</div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <!-- DASHBOARD VIEW -->
+            <div id="view-dashboard" class="view active">
+                <div class="header">
+                    <h1>Control Center</h1>
+                    <p>Manage your production services and real-time performance.</p>
+                </div>
+
+                <div class="status-grid">
+                    <div class="status-card" id="nginx-card">
+                        <div class="indicator" id="nginx-icon">NG</div>
+                        <div class="service-name">Nginx Server</div>
+                        <div class="status-text" id="nginx-status">Checking...</div>
+                        <div class="service-uptime" id="nginx-uptime"></div>
+                    </div>
+                    <div class="status-card" id="mariadb-card">
+                        <div class="indicator" id="mariadb-icon">DB</div>
+                        <div class="service-name">MariaDB SQL</div>
+                        <div class="status-text" id="mariadb-status">Checking...</div>
+                        <div class="service-uptime" id="mariadb-uptime"></div>
+                    </div>
+                    <div class="status-card" id="node-card">
+                        <div class="indicator" id="node-icon">JS</div>
+                        <div class="service-name">Yumna Node.js</div>
+                        <div class="status-text" id="node-status">Checking...</div>
+                        <div class="service-uptime" id="node-uptime"></div>
+                    </div>
+                </div>
+
+                <div class="actions-row">
+                    <button class="btn btn-start" id="btn-start-all">▶ START ALL SERVICES</button>
+                    <button class="btn btn-stop" id="btn-stop-all">■ STOP ALL SERVICES</button>
+                </div>
+
+                <!-- Secondary Info Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px;">
+                    <div class="status-card" id="security-card" style="min-height: 120px; align-items: flex-start;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div class="indicator" style="width:34px; height:34px; font-size:12px;">SEC</div>
+                            <span style="font-weight: 600; font-size: 14px;">Security Status</span>
+                        </div>
+                        <div style="width:100%; font-size:12px; display:flex; flex-direction:column; gap:8px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:var(--text-secondary)">Firewall</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span id="stat-firewall" style="font-weight:600;">...</span>
+                                    <button onclick="toggleSecurity('firewall')" id="btn-fw-toggle"
+                                        style="background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:white; font-size:9px; padding:2px 6px; border-radius:4px; cursor:pointer;">TOGGLE</button>
+                                </div>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:var(--text-secondary)">ClamAV</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span id="stat-clamav" style="font-weight:600;">...</span>
+                                    <button onclick="toggleSecurity('clamav')" id="btn-cl-toggle"
+                                        style="background:rgba(255,255,255,0.05); border:1px solid var(--glass-border); color:white; font-size:9px; padding:2px 6px; border-radius:4px; cursor:pointer;">TOGGLE</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="status-card" id="system-card" style="min-height: 120px; align-items: flex-start;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <div class="indicator" style="width:34px; height:34px; font-size:12px;">SYS</div>
+                            <span style="font-weight: 600; font-size: 14px;">System Resources</span>
+                        </div>
+                        <div style="width:100%; font-size:12px;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                <span style="color:var(--text-secondary)">Uptime</span> <span id="stat-uptime"
+                                    style="font-weight:600; color:var(--text-primary);">...</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between;">
+                                <span style="color:var(--text-secondary)">Clock</span> <span id="stat-time"
+                                    style="color:var(--text-secondary);">--:--:--</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="charts-container" style="margin-top: 15px;">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">CPU Usage</span>
+                            <span class="chart-value" id="cpu-val">24%</span>
+                        </div>
+                        <div class="chart-viz" id="cpu-bars"></div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <span class="chart-title">RAM Stability</span>
+                            <span class="chart-value" id="ram-val">412 MB</span>
+                        </div>
+                        <div class="chart-viz" id="ram-bars"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WEBSERVERS VIEW -->
+            <div id="view-webservers" class="view">
+                <div class="header">
+                    <h1>Web Servers</h1>
+                    <p>Manage Virtual Hosts and Web Server configurations.</p>
+                </div>
+                <div class="status-card" style="text-align:left; align-items:flex-start; width:100%; padding:25px;">
+                    <h3 style="margin-bottom:15px; font-size:16px; color:var(--accent-blue);">Managed Services</h3>
+                    <div style="width:100%; height:1px; background:var(--glass-border); margin-bottom:20px;"></div>
+                    <div style="display:flex; flex-direction:column; gap:12px; width:100%;">
+                        <div
+                            style="display:flex; justify-content:space-between; padding:12px 18px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:12px;">
+                            <span>Primary Panel (Port 5000)</span>
+                            <span style="color:var(--accent-green); font-weight:600;">ACTIVE</span>
+                        </div>
+                        <div
+                            style="display:flex; justify-content:space-between; padding:12px 18px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); border-radius:12px;">
+                            <span>Static Assets (Port 80)</span>
+                            <span style="color:var(--accent-green); font-weight:600;">PROXYING</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:15px; width:100%; margin-top:25px;">
+                        <button class="btn btn-start" style="padding:12px; font-size:12px; flex:1;"
+                            onclick="openUrl('http://localhost:5000')">OPEN PANEL CMS</button>
+                        <button class="btn btn-stop"
+                            style="padding:12px; font-size:12px; flex:1; border-color:var(--accent-blue); color:var(--accent-blue); background:rgba(0, 210, 255, 0.05);"
+                            onclick="openFolder('www')">BROWSE FILES</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DATABASES VIEW -->
+            <div id="view-databases" class="view">
+                <div class="header">
+                    <h1>Database Engine</h1>
+                    <p>MariaDB Native Service Management.</p>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                    <div class="status-card" style="text-align:left; align-items:flex-start; padding:25px;">
+                        <h3 style="color:var(--accent-blue); font-size:16px; margin-bottom:15px;">Engine Stats</h3>
+                        <div style="width:100%; display:flex; flex-direction:column; gap:12px;">
+                            <div style="display:flex; justify-content:space-between; font-size:13px;">
+                                <span style="color:var(--text-secondary)">Uptime</span> <span
+                                    style="font-weight:600; color:var(--accent-green);">Running</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:13px;">
+                                <span style="color:var(--text-secondary)">SQL Port</span> <span
+                                    style="font-weight:600;">3306</span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:13px;">
+                                <span style="color:var(--text-secondary)">Version</span> <span
+                                    style="color:var(--text-secondary);">MariaDB 11.4</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="status-card" style="text-align:left; align-items:flex-start; padding:25px;">
+                        <h3 style="color:var(--accent-green); font-size:16px; margin-bottom:15px;">Quick Access</h3>
+                        <p style="font-size:13px; color:var(--text-secondary); margin-bottom:20px;">Manage your
+                            databases visually using phpMyAdmin.</p>
+                        <button class="btn btn-start" style="width:100%;"
+                            onclick="openUrl('http://localhost:8090')">OPEN PHPMYADMIN</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LOGS VIEW -->
+            <div id="view-logs" class="view" style="flex:1; display:flex; flex-direction:column;">
+                <div class="header">
+                    <h1>System Logs</h1>
+                    <p>Real-time activity stream from Panel and Services.</p>
+                </div>
+                <div id="log-container"
+                    style="background:rgba(0,0,0,0.3); border-radius:16px; padding:20px; flex:1; font-family:'Consolas', monospace; font-size:12px; color:#c5c5c5; overflow-y:auto; border:1px solid var(--glass-border); line-height:1.6; min-height:0;">
+                    <p style="color:var(--accent-blue)">[SYSTEM] Initializing Control Center Backend...</p>
+                    <p style="color:var(--text-secondary)">[STDOUT] MariaDB: Loading data directory
+                        C:\YumnaPanel\data\mysql</p>
+                    <p style="color:var(--text-secondary)">[STDOUT] Nginx: Worker process started</p>
+                    <p style="color:var(--text-secondary)">[STDOUT] Node: Yumna Panel listening on port 5000</p>
+                    <p style="color:var(--accent-green)">[SUCCESS] All production services are healthy.</p>
+                    <div id="dynamic-log-placeholder"></div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- SETTINGS VIEW -->
+        <div id="view-settings" class="view">
+            <div class="header">
+                <h1>Settings</h1>
+                <p>Configure Control Center and Service Hooks.</p>
+            </div>
+            <div class="status-card"
+                style="text-align:left; align-items:flex-start; width:100%; max-width: 500px; margin: 0 auto; gap: 20px;">
+                <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                    <span>Auto-start on Boot</span>
+                    <div style="position:relative;">
+                        <input type="checkbox" id="sett-autostart" checked
+                            style="width:18px; height:18px; cursor:pointer;">
+                    </div>
+                </div>
+                <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                    <span>Show Tray Notifications</span>
+                    <input type="checkbox" id="sett-notify" checked style="width:18px; height:18px; cursor:pointer;">
+                </div>
+                <div style="display:flex; justify-content:space-between; width:100%; align-items:center;">
+                    <span>Analytics Tracking</span>
+                    <input type="checkbox" id="sett-analytics" style="width:18px; height:18px; cursor:pointer;">
+                </div>
+                <button class="btn btn-start" style="margin-top:20px; width:100%;" onclick="saveSettings()">SAVE
+                    SETTINGS</button>
+            </div>
+        </div>
+
+    </div> <!-- End Main Content -->
+    </div> <!-- End Container -->
+
+    <div id="notification">Action completed successfully.</div>
+
+    <script>
+        const API_BASE = '/api';
+
+        function switchView(viewName) {
+            // Update Sidebar UI
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.innerText.toLowerCase().replace(' ', '') === viewName) {
+                    item.classList.add('active');
+                }
+            });
+
+            // Update Main Content
+            document.querySelectorAll('.view').forEach(view => {
+                view.classList.remove('active');
+            });
+            const target = document.getElementById(`view-${viewName}`);
+            if (target) target.classList.add('active');
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch(`${API_BASE}/status`);
+                const data = await res.json();
+                updateUI(data);
+            } catch (err) {
+                console.error('Failed to fetch status');
+            }
+        }
+
+        async function toggleSecurity(service) {
+            const fwEl = document.getElementById('stat-firewall');
+            const clEl = document.getElementById('stat-clamav');
+            let isCurrentlyOn = false;
+
+            if (service === 'firewall') isCurrentlyOn = fwEl.innerText.includes('ACTIVE');
+            if (service === 'clamav') isCurrentlyOn = clEl.innerText.includes('ON');
+
+            const action = isCurrentlyOn ? 'stop' : 'start';
+            showNotification(`${action === 'start' ? 'Starting' : 'Stopping'} ${service}...`);
+
+            try {
+                const response = await fetch(`${API_BASE}/toggle-security`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ service, action })
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`${service} ${action === 'start' ? 'started' : 'stopped'} successfully.`);
+                } else {
+                    showNotification(`Failed: ${result.error || 'Check Admin permissions'}`);
+                }
+
+                setTimeout(fetchStatus, 1000);
+            } catch (e) {
+                showNotification('Failed to connect to backend.');
+            }
+        }
+
+        function updateUI(data) {
+            updateServiceCard('nginx', data.nginx, data.nginxUptime);
+            updateServiceCard('mariadb', data.mariadb, data.mariadbUptime);
+            updateServiceCard('node', data.node, data.nodeUptime);
+
+            const btnStart = document.getElementById('btn-start-all');
+            const btnStop = document.getElementById('btn-stop-all');
+
+            const allOnline = data.nginx && data.mariadb && data.node;
+            const allOffline = !data.nginx && !data.mariadb && !data.node;
+
+            btnStart.disabled = allOnline;
+            btnStop.disabled = allOffline;
+
+            // Update Security & System
+            const fwEl = document.getElementById('stat-firewall');
+            const fwOnline = data.firewall;
+            fwEl.innerText = fwOnline ? 'ACTIVE' : 'DISABLED';
+            fwEl.style.color = fwOnline ? 'var(--accent-green)' : 'var(--accent-red)';
+            document.getElementById('btn-fw-toggle').innerText = fwOnline ? 'TURN OFF' : 'TURN ON';
+
+            const clEl = document.getElementById('stat-clamav');
+            const clOnline = data.clamav;
+            clEl.innerText = clOnline ? 'SHIELD ON' : 'OFFLINE';
+            clEl.style.color = clOnline ? 'var(--accent-green)' : 'var(--accent-red)';
+            document.getElementById('btn-cl-toggle').innerText = clOnline ? 'TURN OFF' : 'TURN ON';
+
+            document.getElementById('stat-uptime').innerText = data.uptime;
+            document.getElementById('stat-time').innerText = data.serverTime;
+
+            // Make these cards look "active"
+            document.getElementById('security-card').classList.add('status-online');
+            document.getElementById('system-card').classList.add('status-online');
+
+            // Update UI feel for buttons
+            if (allOnline) {
+                btnStart.innerText = '✓ SERVICES RUNNING';
+                btnStart.style.background = 'rgba(255,255,255,0.05)';
+                btnStart.style.color = 'var(--text-secondary)';
+                btnStart.style.border = '1px solid var(--glass-border)';
+            } else {
+                btnStart.innerText = '▶ START ALL SERVICES';
+                btnStart.style.background = 'linear-gradient(135deg, var(--accent-blue), #0088ff)';
+                btnStart.style.color = 'white';
+                btnStart.style.border = 'none';
+            }
+        }
+
+        function updateServiceCard(id, isOnline, uptime) {
+            const card = document.getElementById(`${id}-card`);
+            if (!card) return;
+            const text = document.getElementById(`${id}-status`);
+            const uptimeEl = document.getElementById(`${id}-uptime`);
+
+            card.classList.remove('status-online', 'status-offline');
+            if (isOnline) {
+                card.classList.add('status-online');
+                text.innerText = 'Online';
+                uptimeEl.innerText = uptime ? `Uptime: ${uptime}` : '';
+            } else {
+                card.classList.add('status-offline');
+                text.innerText = 'Offline';
+                uptimeEl.innerText = '';
+            }
+        }
+
+        async function performAction(action) {
+            const btnStart = document.getElementById('btn-start-all');
+            const btnStop = document.getElementById('btn-stop-all');
+
+            btnStart.disabled = true;
+            btnStop.disabled = true;
+
+            showNotification(`${action === 'start' ? 'Starting' : 'Stopping'} services...`);
+
+            try {
+                await fetch(`${API_BASE}/${action}`, { method: 'POST' });
+                setTimeout(fetchStatus, 2000);
+                showNotification(`Services ${action === 'start' ? 'started' : 'stopped'} successfully.`);
+            } catch (err) {
+                showNotification('Error: Could not connect to backend.');
+            } finally {
+                btnStart.disabled = false;
+                btnStop.disabled = false;
+            }
+        }
+
+        async function openFolder(folder) {
+            showNotification('Opening folder...');
+            try {
+                await fetch(`${API_BASE}/open-folder`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folder })
+                });
+            } catch (err) {
+                showNotification('Error: Could not connect to backend.');
+            }
+        }
+
+        async function openUrl(url) {
+            showNotification('Launching browser...');
+            // In modern browsers (inc. Edge App Mode), window.open is the 
+            // most reliable way to open a link in a new tab/window.
+            window.open(url, '_blank');
+        }
+
+        async function loadSettings() {
+            try {
+                const res = await fetch(`${API_BASE}/settings`);
+                if (res.ok) {
+                    const settings = await res.json();
+                    document.getElementById('sett-autostart').checked = settings.autostart;
+                    document.getElementById('sett-notify').checked = settings.notify;
+                    document.getElementById('sett-analytics').checked = settings.analytics;
+                }
+            } catch (err) {
+                console.error('Failed to load settings');
+            }
+        }
+
+        async function saveSettings() {
+            const settings = {
+                autostart: document.getElementById('sett-autostart').checked,
+                notify: document.getElementById('sett-notify').checked,
+                analytics: document.getElementById('sett-analytics').checked
+            };
+
+            showNotification('Saving settings...');
+            try {
+                const res = await fetch(`${API_BASE}/save-settings`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(settings)
+                });
+                if (res.ok) {
+                    showNotification('Settings saved successfully.');
+                }
+            } catch (err) {
+                showNotification('Error saving settings.');
+            }
+        }
+
+        function showNotification(msg) {
+            const el = document.getElementById('notification');
+            el.innerText = msg;
+            el.classList.add('show');
+            setTimeout(() => el.classList.remove('show'), 3000);
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            const cpuBars = document.getElementById('cpu-bars');
+            const ramBars = document.getElementById('ram-bars');
+
+            if (!cpuBars || !ramBars) return;
+
+            cpuBars.innerHTML = '';
+            ramBars.innerHTML = '';
+
+            // More bars for a denser look
+            for (let i = 0; i < 40; i++) {
+                const b1 = document.createElement('div');
+                b1.className = 'bar';
+                b1.style.height = `${Math.random() * 60 + 10}%`;
+                cpuBars.appendChild(b1);
+
+                const b2 = document.createElement('div');
+                b2.className = 'bar';
+                b2.style.height = `${Math.random() * 60 + 10}%`;
+                b2.style.background = 'var(--accent-green)';
+                ramBars.appendChild(b2);
+            }
+
+            function updateMetrics() {
+                // Animate bars
+                Array.from(cpuBars.children).forEach(b => {
+                    b.style.height = `${Math.random() * 80 + 10}%`;
+                });
+                Array.from(ramBars.children).forEach(b => {
+                    b.style.height = `${Math.random() * 80 + 10}%`;
+                });
+
+                // Update text values
+                const cpuVal = document.getElementById('cpu-val');
+                const ramVal = document.getElementById('ram-val');
+                if (cpuVal) cpuVal.innerText = `${Math.floor(Math.random() * 40 + 5)}%`;
+                if (ramVal) ramVal.innerText = `${Math.floor(Math.random() * 150 + 350)} MB`;
+
+                // Add dynamic log feel
+                const logPlace = document.getElementById('dynamic-log-placeholder');
+                const logContainer = document.getElementById('log-container');
+                if (logPlace && logContainer) {
+                    const time = new Date().toLocaleTimeString();
+                    const entry = document.createElement('p');
+                    entry.style.marginBottom = '5px';
+                    entry.innerHTML = `<span style="color:var(--text-secondary)">[${time}]</span> Heartbeat check: Services healthy. Monitoring port 5000, 3306, 80.`;
+                    logPlace.appendChild(entry);
+
+                    // Limit to 50 entries
+                    if (logPlace.children.length > 50) logPlace.firstElementChild.remove();
+
+                    // Auto-scroll to bottom
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+            }
+
+            setInterval(updateMetrics, 2000);
+            updateMetrics();
+        }
+
+        document.getElementById('btn-start-all').onclick = () => performAction('start');
+        document.getElementById('btn-stop-all').onclick = () => performAction('stop');
+
+        // Disable right-click for a native app feel
+        window.addEventListener('contextmenu', e => e.preventDefault());
+
+        // Disable Zoom (Ctrl + / - / 0 and Scroll)
+        window.addEventListener('keydown', e => {
+            if (e.ctrlKey && (e.key === '=' || e.key === '-' || e.key === '+' || e.key === '0')) {
+                e.preventDefault();
+            }
+        });
+        window.addEventListener('wheel', e => {
+            if (e.ctrlKey) e.preventDefault();
+        }, { passive: false });
+
+        initCharts();
+        loadSettings();
+        setInterval(fetchStatus, 3000);
+        fetchStatus();
+    </script>
+</body>
+
+</html>

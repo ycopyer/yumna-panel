@@ -1,0 +1,29 @@
+node_modules/
+.env
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+dist/
+build/
+.vscode/
+.idea/
+
+# Large Binaries & Data
+temp/
+data/mysql/
+logs/
+bin/security/clamav/
+bin/database/mariadb/
+bin/php/
+bin/web/apache/
+bin/web/nginx/
+bin/apps/phpmyadmin/
+
+# Local Builds
+YumnaControlCenter.exe
+YumnaIcon.ico
+MakeIcon.exe
+Launcher.cs
+MakeIcon.cs

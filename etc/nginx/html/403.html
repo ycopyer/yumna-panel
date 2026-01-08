@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Denied - Yumna Panel Security</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .animate-pulse-slow { animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .7; } }
+    </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center p-4">
+    <div class="max-w-2xl w-full">
+        <!-- Main Card -->
+        <div class="bg-white rounded-[40px] shadow-2xl border-4 border-red-500/20 overflow-hidden">
+            
+            <!-- Header with Icon -->
+            <div class="bg-gradient-to-r from-red-500 to-red-600 p-8 text-center text-white">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full mb-4 animate-pulse-slow">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m14.5 9-5 5"/><path d="m9.5 9 5 5"/></svg>
+                </div>
+                <h1 class="text-3xl font-black mb-2">Access Denied</h1>
+                <p class="text-red-100 font-medium">Your connection has been blocked by our security system</p>
+            </div>
+
+            <!-- Content -->
+            <div class="p-10 space-y-8">
+                <!-- Alert Box -->
+                <div class="bg-red-50 border-2 border-red-200 rounded-3xl p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="bg-red-500/10 p-3 rounded-2xl text-red-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-black text-red-900 mb-2">
+                                Your IP Has Been Blocked
+                            </h3>
+                            <p class="text-sm text-red-700 leading-relaxed">
+                                Our automated security system has detected suspicious activity from your connection. 
+                                Access to this website has been temporarily restricted for protection.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info Grid -->
+                <div class="bg-gray-50 rounded-2xl p-6 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Your IP Address</span>
+                        <span class="text-lg font-black text-gray-900 font-mono" id="user-ip">Detected</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Reason</span>
+                        <span class="text-sm font-bold text-red-600">Firewall Access Restriction (Policy 403)</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-bold text-gray-500 uppercase tracking-wider">Status</span>
+                        <span class="px-3 py-1 bg-red-500 text-white text-xs font-black rounded-full uppercase">Blocked</span>
+                    </div>
+                </div>
+
+                <!-- What to do -->
+                <div class="space-y-4">
+                    <h4 class="text-lg font-black text-gray-900">What should I do?</h4>
+                    <div class="space-y-3 text-sm text-gray-700">
+                        <div class="flex items-start gap-3">
+                            <div class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">1</div>
+                            <p class="leading-relaxed"><span class="font-bold">Wait 24 hours</span> - Most blocks are temporary and will be lifted automatically.</p>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">2</div>
+                            <p class="leading-relaxed"><span class="font-bold">Check your network</span> - Ensure no malicious scripts are running on your device.</p>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-6 h-6 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold text-xs flex-shrink-0 mt-0.5">3</div>
+                            <p class="leading-relaxed"><span class="font-bold">Contact Admin</span> - If you believe this is an error, please contact the site administrator.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Unblock Link (Optional, if you have a public unblock page) -->
+                <div class="pt-4 border-t border-gray-100 text-center">
+                    <p class="text-xs text-gray-500">
+                        Protected by <span class="font-bold text-red-600">Yumna Panel Security Suite</span>
+                        <br>
+                        Server ID: <span class="font-mono text-[10px]" id="server-id">---</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Optional: Simple script to show some context
+        document.getElementById('server-id').innerText = Math.random().toString(36).substring(2, 10).toUpperCase();
+        // Nginx won't pass IP easily without sub_filter, but we can try to guess or just leave 'Protected'
+    </script>
+</body>
+</html>
