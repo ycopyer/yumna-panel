@@ -23,8 +23,8 @@ bin/web/nginx/
 bin/apps/phpmyadmin/
 
 # Local Builds
-YumnaControlCenter.exe
+!YumnaControlCenter.exe
+!Launcher.cs
 YumnaIcon.ico
 MakeIcon.exe
-Launcher.cs
 MakeIcon.cs
