@@ -5,38 +5,77 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 ![Version](https://img.shields.io/badge/version-2.1.0-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
-## ✨ Features
+## ✨ Core Features
 
 ### 🖥️ Desktop Control Center (v2.1.0)
-- ✅ **Standalone EXE Launcher** - Native C# wrapper for a professional desktop experience
-- ✅ **System Tray Integration** - Minimize to tray with quick-action service controls
-- ✅ **Single Instance Logic** - Prevents duplicate window launches and handles focus automatically
-- ✅ **Glassmorphism Dashboard** - Modern, premium UI for real-time service monitoring
+- ✅ **Standalone EXE Launcher** - Native C# wrapper for a professional desktop experience.
+- ✅ **System Tray Integration** - Minimize to tray with quick-action service controls.
+- ✅ **Single Instance Logic** - Prevents duplicate window launches and handles focus automatically.
+- ✅ **Glassmorphism Dashboard** - Modern, premium UI for real-time service monitoring.
 
-### 🛡️ Unified Security Engine (v2.1.0)
-- ✅ **ClamAV Shield** - Real-time antivirus status monitoring and direct process control
-- ✅ **Firewall Orchestrator** - One-click Windows Firewall (netsh) toggle from the dashboard
-- ✅ **Live Security Logs** - Real-time visualization of startup and security events
+### 🛡️ Security & Firewall (Unified Engine)
+- ✅ **Firewall Orchestrator** - One-click Windows Firewall (netsh) toggle and rule management.
+- ✅ **IP Intelligence** - IP ban/unban, IPSet anti-brute force, and API IP whitelisting.
+- ✅ **SSH Jail & SFTP Jail** - Enhanced environment security for shared hosting.
+- ✅ **Rate Limiting** - Per-IP connection and request throttling.
 
-### 📝 Monaco Editor & Direct Edit (v1.8.0)
-- ✅ **VS Code Engine** - Full Monaco Editor integration for professional text editing
-- ✅ **Direct Edit Mode** - Instant "Edit Content" action button to skip preview
+### 🌐 Web Hosting Management (cPanel/Plesk Grade)
+- ✅ **Domain & Subdomain** - Complete management of virtual hosts, aliases, and redirects.
+- ✅ **SSL Hub** - Automatic issuance (Let's Encrypt / Win-ACME), force SSL, and HSTS.
+- ✅ **PHP Selector** - Support for multiple PHP versions per domain with FastCGI cache.
+- ✅ **Web Stats & Logs** - Real-time access/error logs and traffic monitoring.
+- ✅ **FTP Management** - Create and manage FTP accounts per domain.
 
-### 🧩 Software Center & Plugins (v1.7.0)
-- ✅ **Plugin Marketplace** - Modular installation for phpMyAdmin, Docker, and Composer
-- ✅ **phpMyAdmin Automation** - One-click setup with dynamic PHP linking
+### 🧑‍💻 User & Access Management
+- ✅ **Multi-Tenant System** - Add, delete, or suspend users with shared/reseller role support.
+- ✅ **Access Security** - 2FA, SSH Key management, and API Access Key generation.
+- ✅ **Resource Quotas** - Per-user limits for disk, bandwidth, CPU, and RAM.
+- ✅ **Audit & Logging** - Detailed login logs and action audit trails.
 
-### 🌐 Webserver & Hosting Management (v1.6.0)
-- ✅ **Website Management** - Manage Nginx/Apache VHosts with path auto-detection
-- ✅ **SSL Automation** - One-click SSL issuance via Win-ACME
-- ✅ **Database Control** - Professional MySQL/MariaDB management suite
+### 🗄️ Database Management
+- ✅ **Multi-Engine** - Support for MySQL, MariaDB, and PostgreSQL.
+- ✅ **User Control** - Comprehensive database user and permission management.
+- ✅ **Operations** - One-click Import/Export/Dump and database cloning.
+- ✅ **Restore Hub** - Integrated restore engine (including Restic support).
+
+### 📧 Email Server Management
+- ✅ **Domain Mail** - Full lifecycle for accounts, aliases, and autoresponders.
+- ✅ **Security Core** - DKIM, SPF, SSL Mail, and Anti-spam/Antivirus protection.
+- ✅ **Delivery Engine** - SMTP Relay support and granular rate limiting.
+- ✅ **Webmail** - Built-in integration for Roundcube and SnappyMail.
+
+### 🌍 DNS Management
+- ✅ **Zones & Records** - Full control over A, CNAME, MX, TXT, SOA.
+- ✅ **DNSSEC & TTL** - Support for secure zones and customizable TTL/SOA settings.
+- ✅ **Clustering** - DNS Cluster support for remote synchronization.
+
+### 💾 Backup & Restore
+- ✅ **Incremental Backups** - Advanced backup system powered by Restic.
+- ✅ **Remote Storage** - Backup to S3, SFTP, or local storage with auto-scheduling.
+- ✅ **Granular Restore** - Restore specific files, databases, or entire domains effortlessly.
+
+### ⚙️ System & Service Management
+- ✅ **Service Control** - Restart/Stop services (Web, Mail, DNS, FTP) from the GUI.
+- ✅ **Health Monitoring** - RRD monitoring for Disk, CPU, and RAM usage.
+- ✅ **System Automation** - Hostname, Timezone, and Panel auto-update system.
+- ✅ **Web Terminal** - Integrated shell for direct server console access.
+
+### 🧩 Integrasi & Otomasi
+- ✅ **Migration Suite** - Import accounts from cPanel and DirectAdmin.
+- ✅ **Quick Install** - Rapid application deployment and per-user Composer support.
+- ✅ **API Automation** - Full REST API for seamless external integration.
+
+### 🔁 Maintenance & Repair
+- ✅ **Advanced Repair** - Automatic configuration rebuilding for User, Domain, DNS, and Mail.
+- ✅ **Performance Sync** - Update templates across clusters and flush caches.
+- ✅ **Sync Cluster** - Maintain consistency across multi-server environments.
 
 ## 📜 Changelog
 
 ### [2.1.0] - 2026-01-09
 - **Native EXE Architecture**: Converted the panel into a professional C# executable.
 - **System Tray PRO**: Added "Minimize to Tray" with right-click menu for Start/Stop services.
-- **Security Dashboard**: Integrated real-time controls for ClamAV and Windows Firewall.
+- **Comprehensive Feature Set**: Added professional-grade modules for Email, DNS, Multi-Tenancy, and Advanced Backups.
 
 ### [1.8.0] - 2026-01-07
 - **Editor Upgrade**: Full Monaco Editor integration.

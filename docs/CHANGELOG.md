@@ -13,13 +13,16 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 - **Service Tray Orchestrator**:
     - Added a right-click context menu to the system tray for "Start All Services" and "Stop All Services".
     - Implemented Windows native toast notifications for service status updates.
+- **Comprehensive Hosting Suite**:
+    - Integrated professional-grade modules for **User & Tenant Management** (Quota, Shell, Suspend).
+    - Added **Email Server Management** (DKIM, SPF, Anti-spam, Roundcube).
+    - Expanded **DNS Management** (DNSSEC, SOA, TTL, Clustering).
+    - Advanced **Backup & Restore** (Restic integration for incremental backups).
+    - **System Maintenance Hub** (Repair, Rebuild, Sync Templates, Cluster Flush).
 - **Unified Security Dashboard**:
-    - Added real-time interactivity for **Windows Firewall** (enable/disable profile states).
-    - Integrated **ClamAV Enterprise** monitoring and process control (SHIELD ON/OFF).
-    - Automatic backend path discovery for security binaries.
+    - Added real-time interactivity for **Windows Firewall** and **ClamAV Enterprise**.
 - **Branding Excellence**:
-    - Replaced sidebar text with official logo image.
-    - Enlarged logo to 160px for premium feel.
+    - Replaced sidebar text with official logo image (160px).
     - Implemented native window icon (ICO) for taskbar and system tray.
 
 ### Fixed
