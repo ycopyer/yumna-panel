@@ -10,7 +10,8 @@ build/
 .vscode/
 .idea/
 
-# Large Binaries & Data
+# User Data & Websites
+www/
 temp/
 data/mysql/
 logs/
