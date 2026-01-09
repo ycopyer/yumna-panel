@@ -229,6 +229,18 @@ const queries = [
         added_by INT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY (ip, endpoint)
+    )`,
+    `CREATE TABLE IF NOT EXISTS cron_jobs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId INT NOT NULL,
+        command TEXT NOT NULL,
+        schedule VARCHAR(100) NOT NULL,
+        description VARCHAR(255),
+        isActive TINYINT DEFAULT 1,
+        lastRun DATETIME,
+        nextRun DATETIME,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
     )`
 ];
 
@@ -278,6 +290,72 @@ const initTables = async () => {
                 db.query('ALTER TABLE users ADD COLUMN used_storage BIGINT DEFAULT 0', () => resolve());
                 return;
             }
+        }
+        resolve();
+    }));
+
+    // Add quota columns (Migrations)
+    const quotaCols = [
+        { name: 'max_websites', type: 'INT DEFAULT 3' },
+        { name: 'max_subdomains', type: 'INT DEFAULT 10' },
+        { name: 'max_cron_jobs', type: 'INT DEFAULT 2' },
+        { name: 'max_ftp_accounts', type: 'INT DEFAULT 1' },
+        { name: 'max_databases', type: 'INT DEFAULT 3' },
+        { name: 'max_ssh_accounts', type: 'INT DEFAULT 1' },
+        { name: 'max_email_accounts', type: 'INT DEFAULT 5' },
+        { name: 'max_dns_zones', type: 'INT DEFAULT 5' },
+        { name: 'plan_name', type: "VARCHAR(100) DEFAULT 'Basic'" }
+    ];
+
+    const ftpQuery = `CREATE TABLE IF NOT EXISTS ftp_accounts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId INT NOT NULL,
+        username VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        rootPath VARCHAR(255) DEFAULT '/',
+        permissions VARCHAR(50) DEFAULT 'read-write',
+        status ENUM('active', 'suspended') DEFAULT 'active',
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )`;
+    await new Promise(resolve => db.query(ftpQuery, (err) => {
+        if (err) console.error('Error creating ftp_accounts table:', err.message);
+        resolve();
+    }));
+
+    // Migration for DNS Zones (DNSSEC & Cloudflare)
+    const dnsCols = [
+        { name: 'dnssec_enabled', type: 'TINYINT DEFAULT 0' },
+        { name: 'dnssec_key', type: 'TEXT' },
+        { name: 'dnssec_ds', type: 'TEXT' },
+        { name: 'cloudflare_zone_id', type: 'VARCHAR(100)' },
+        { name: 'cloudflare_status', type: "ENUM('active', 'inactive') DEFAULT 'inactive'" }
+    ];
+    for (const col of dnsCols) {
+        await new Promise(resolve => db.query(`ALTER TABLE dns_zones ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`, (err) => resolve()));
+    }
+
+    for (const col of quotaCols) {
+        await new Promise(resolve => db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`, (err) => {
+            if (err && !err.message.includes('Duplicate column name')) {
+                if (err.code === 'ER_PARSE_ERROR') {
+                    db.query(`ALTER TABLE users ADD COLUMN ${col.name} ${col.type}`, () => resolve());
+                    return;
+                }
+            }
+            resolve();
+        }));
+    }
+
+    // Add status column for Global Lock
+    await new Promise(resolve => db.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS status ENUM('active', 'suspended') DEFAULT 'active'", (err) => {
+        if (err && !err.message.includes('Duplicate column name')) {
+            if (err.code === 'ER_PARSE_ERROR') {
+                // Fallback for older MySQL/MariaDB
+                db.query("ALTER TABLE users ADD COLUMN status ENUM('active', 'suspended') DEFAULT 'active'", () => resolve());
+                return;
+            }
+            console.error('Migration error (users.status):', err.message);
         }
         resolve();
     }));

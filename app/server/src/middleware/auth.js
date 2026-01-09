@@ -10,12 +10,16 @@ const getSession = async (req, res, next) => {
 
     try {
         // Verify session in DB
-        db.query('SELECT u.id, u.role, s.lastActive FROM user_sessions s JOIN users u ON s.userId = u.id WHERE s.sessionId = ? AND s.userId = ?', [sessionId, userId], async (err, results) => {
+        db.query('SELECT u.id, u.role, u.status, s.lastActive FROM user_sessions s JOIN users u ON s.userId = u.id WHERE s.sessionId = ? AND s.userId = ?', [sessionId, userId], async (err, results) => {
             try {
                 if (err) return res.status(500).json({ error: 'Database error' });
                 if (results.length === 0) return res.status(401).json({ error: 'Invalid or expired session' });
 
                 const user = results[0];
+
+                if (user.status === 'suspended') {
+                    return res.status(403).json({ error: 'Your account has been suspended by the administrator.' });
+                }
 
                 // Check for session expiry (30 minutes)
                 const lastActive = new Date(user.lastActive).getTime();

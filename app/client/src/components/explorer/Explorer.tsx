@@ -11,7 +11,12 @@ import { useExplorer } from '../../hooks/useExplorer';
 import DatabaseManager from '../hosting/DatabaseManager';
 import DNSManager from '../hosting/DNSManager';
 import PHPVersionManager from '../hosting/PHPVersionManager';
+import MailManager from '../hosting/MailManager';
+import BackupManager from '../hosting/BackupManager';
 import PluginManager from '../admin/PluginManager';
+import Terminal from '../system/Terminal';
+import SSHManager from '../system/SSHManager';
+import CronManager from '../system/CronManager';
 
 interface ExplorerProps {
     user: { userId?: number, id?: number, username: string, role: string };
@@ -62,8 +67,15 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         showPHPExtensions, setShowPHPExtensions,
         showPHPConfig, setShowPHPConfig,
         showAddPHPVersion, setShowAddPHPVersion,
+        showAddEmailDomain, setShowAddEmailDomain,
+        showAddEmailAccount, setShowAddEmailAccount,
+        manageEmailDomain, setManageEmailDomain,
+        showMaintenance, setShowMaintenance,
+        showAddBackup, setShowAddBackup,
+        showTerminal, setShowTerminal,
+        showAddSSHAccount, setShowAddSSHAccount,
         showServiceManager, setShowServiceManager,
-        fetchWebsites, fetchDatabases, fetchDNS, fetchPHP, phpOperations,
+        fetchWebsites, fetchDatabases, fetchDNS, fetchPHP, fetchMail, fetchBackups, fetchSSH, phpOperations,
         installPHPVersion, uninstallPHPVersion, setPHPDefaultVersion,
         saveContent, changePermissions,
         previewEdit, setPreviewEdit
@@ -81,6 +93,10 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         else if (view === 'databases') fetchDatabases();
         else if (view === 'dns') fetchDNS();
         else if (view === 'php') fetchPHP();
+        else if (view === 'mail') fetchMail();
+        else if (view === 'backups') fetchBackups();
+        else if (view === 'ssh') fetchSSH();
+        else if (view === 'cron') setActiveView('cron');
         else if (view === 'plugins') setActiveView('plugins');
         setIsSidebarOpen(false);
     };
@@ -105,7 +121,7 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         setSelectedFiles(prev => allSelected ? prev.filter(n => !filteredFiles.map(f => f.name).includes(n)) : [...new Set([...prev, ...filteredFiles.map(f => f.name)])]);
     };
 
-    const filteredFiles = (isSearchActive ? files : files.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())))
+    const filteredFiles = (isSearchActive ? files : files.filter(f => f?.name?.toLowerCase().includes(searchQuery.toLowerCase())))
         .sort((a: any, b: any) => {
             if (!sortConfig) return 0;
             let aVal = a[sortConfig.key], bVal = b[sortConfig.key];
@@ -137,7 +153,12 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                         'add-dns': setShowAddDNS,
                         'php-extensions': setShowPHPExtensions,
                         'php-config': setShowPHPConfig,
-                        'add-php': setShowAddPHPVersion
+                        'add-php': setShowAddPHPVersion,
+                        'add-email-domain': setShowAddEmailDomain,
+                        'add-email-account': setShowAddEmailAccount,
+                        'maintenance': setShowMaintenance,
+                        'terminal': setShowTerminal,
+                        'add-ssh-account': setShowAddSSHAccount
                     };
                     if (simpleActions[a]) {
                         simpleActions[a](true);
@@ -215,6 +236,31 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                             onSetDefault={setPHPDefaultVersion}
                             phpOperations={phpOperations}
                         />
+                    ) : activeView === 'mail' ? (
+                        <MailManager
+                            domains={files}
+                            loading={loading}
+                            onRefresh={fetchMail}
+                            onAddDomain={() => setShowAddEmailDomain(true)}
+                            onAddAccount={() => setShowAddEmailAccount(true)}
+                            onManageDomain={setManageEmailDomain}
+                        />
+                    ) : activeView === 'backups' ? (
+                        <BackupManager
+                            backups={files}
+                            loading={loading}
+                            onRefresh={fetchBackups}
+                            onAddBackup={() => setShowAddBackup(true)}
+                        />
+                    ) : activeView === 'ssh' ? (
+                        <SSHManager
+                            accounts={files}
+                            loading={loading}
+                            onRefresh={fetchSSH}
+                            onAddAccount={() => setShowAddSSHAccount(true)}
+                        />
+                    ) : activeView === 'cron' ? (
+                        <CronManager />
                     ) : activeView === 'plugins' ? (
                         <PluginManager />
                     ) : (
@@ -240,12 +286,19 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                 showPHPExtensions={showPHPExtensions} setShowPHPExtensions={setShowPHPExtensions}
                 showPHPConfig={showPHPConfig} setShowPHPConfig={setShowPHPConfig}
                 showAddPHPVersion={showAddPHPVersion} setShowAddPHPVersion={setShowAddPHPVersion}
-                fetchPHP={fetchPHP} onInstallVersion={installPHPVersion}
+                showAddEmailDomain={showAddEmailDomain} setShowAddEmailDomain={setShowAddEmailDomain}
+                showAddEmailAccount={showAddEmailAccount} setShowAddEmailAccount={setShowAddEmailAccount}
+                manageEmailDomain={manageEmailDomain} setManageEmailDomain={setManageEmailDomain}
+                showMaintenance={showMaintenance} setShowMaintenance={setShowMaintenance}
+                showAddBackup={showAddBackup} setShowAddBackup={setShowAddBackup}
+                showAddSSHAccount={showAddSSHAccount} setShowAddSSHAccount={setShowAddSSHAccount}
+                fetchPHP={fetchPHP} fetchMail={fetchMail} fetchBackups={fetchBackups} fetchSSH={fetchSSH} onInstallVersion={installPHPVersion}
                 onOpenPath={handleOpenPath}
                 saveContent={saveContent}
                 changePermissions={changePermissions}
                 initialEditMode={previewEdit}
             />
+            {showTerminal && <Terminal onClose={() => setShowTerminal(false)} />}
             <PWAInstallPrompt />
         </div>
     );

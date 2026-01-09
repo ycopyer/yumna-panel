@@ -21,8 +21,8 @@ router.post('/upload', getSession, uploadMulti.array('files'), checkRansomwareAc
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No files uploaded' });
 
     try {
-        // QUOTA CHECK (Local Storage Only)
-        if (targetPath.startsWith('/Local Storage')) {
+        // QUOTA CHECK (Global)
+        if (req.userRole !== 'admin') {
             const totalUploadSize = req.files.reduce((acc, f) => acc + f.size, 0);
             const [userData] = await db.promise().query('SELECT storage_quota, used_storage FROM users WHERE id = ?', [req.sessionData.userId]);
             const user = userData[0];
@@ -47,10 +47,8 @@ router.post('/upload', getSession, uploadMulti.array('files'), checkRansomwareAc
         }
 
         // UPDATE USAGE
-        if (targetPath.startsWith('/Local Storage')) {
-            const totalUploadSize = req.files.reduce((acc, f) => acc + f.size, 0);
-            await db.promise().query('UPDATE users SET used_storage = used_storage + ? WHERE id = ?', [totalUploadSize, req.sessionData.userId]);
-        }
+        const totalUploadSize = req.files.reduce((acc, f) => acc + f.size, 0);
+        await db.promise().query('UPDATE users SET used_storage = used_storage + ? WHERE id = ?', [totalUploadSize, req.sessionData.userId]);
 
         logActivity(req.sessionData.userId, 'upload', `Uploaded ${req.files.length} to ${targetPath}`, req);
         res.json({ success: true, count: req.files.length });
@@ -64,7 +62,8 @@ router.post('/upload/init', getSession, async (req, res) => {
 
     try {
         // QUOTA CHECK
-        if (sanitizePath(targetPath).startsWith('/Local Storage')) {
+        // QUOTA CHECK
+        if (req.userRole !== 'admin') {
             const [userData] = await db.promise().query('SELECT storage_quota, used_storage FROM users WHERE id = ?', [req.sessionData.userId]);
             const user = userData[0];
             if (user.storage_quota && (BigInt(user.used_storage || 0) + BigInt(size) > BigInt(user.storage_quota))) {
@@ -134,10 +133,8 @@ router.post('/upload/complete', getSession, checkRansomwareActivity, async (req,
         const finalReadStream = fs.createReadStream(tempFilePath);
         await uploadFile(req.sftp, finalReadStream, remotePath);
 
-        // 3. Update quota usage if local
-        if (cleanPath.startsWith('/Local Storage')) {
-            await db.promise().query('UPDATE users SET used_storage = used_storage + ? WHERE id = ?', [totalSize, req.sessionData.userId]);
-        }
+        // 3. Update quota usage
+        await db.promise().query('UPDATE users SET used_storage = used_storage + ? WHERE id = ?', [totalSize, req.sessionData.userId]);
 
         // 4. Cleanup
         await fs.promises.rm(uploadDir, { recursive: true, force: true });

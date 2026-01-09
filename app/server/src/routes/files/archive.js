@@ -7,6 +7,7 @@ const { logActivity } = require('../../utils/logger');
 const archiver = require('archiver');
 const fs = require('fs');
 const { exec } = require('child_process');
+const db = require('../../config/db');
 
 // Helper
 const resolveStoragePath = (req, targetPath) => {
@@ -53,8 +54,19 @@ router.post('/compress', getSession, async (req, res) => {
 
     try {
         if (resolvedDir.type === 'local') {
+
+            // QUOTA PRE-CHECK
+            if (req.userRole !== 'admin') {
+                const [userData] = await db.promise().query('SELECT storage_quota, used_storage FROM users WHERE id = ?', [req.sessionData.userId]);
+                const user = userData[0];
+                if (user.storage_quota && BigInt(user.used_storage || 0) >= BigInt(user.storage_quota)) {
+                    return res.status(400).json({ error: 'Storage quota exceeded. Cannot create new archive.' });
+                }
+            }
+
             const realDir = path.dirname(resolvedDir.sysPath);
-            const output = fs.createWriteStream(path.join(realDir, archiveName));
+            const outputFilePath = path.join(realDir, archiveName);
+            const output = fs.createWriteStream(outputFilePath);
             const archive = archiver('zip', { zlib: { level: 9 } });
 
             await new Promise((resolve, reject) => {
@@ -72,6 +84,12 @@ router.post('/compress', getSession, async (req, res) => {
                 });
                 archive.finalize();
             });
+
+            // Update Storage Usage
+            try {
+                const stats = fs.statSync(outputFilePath);
+                await db.promise().query('UPDATE users SET used_storage = used_storage + ? WHERE id = ?', [stats.size, req.sessionData.userId]);
+            } catch (ignore) { }
 
             logActivity(req.sessionData.userId, 'compress', `Created archive ${archiveName} in ${currentPath}`, req);
             res.json({ success: true });

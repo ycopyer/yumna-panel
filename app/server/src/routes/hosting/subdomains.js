@@ -56,6 +56,31 @@ router.post('/subdomains', requireAuth, checkWebsiteOwnership, async (req, res) 
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
+
+        // --- QUOTA CHECK ---
+        const userId = req.userId;
+        const isAdmin = req.userRole === 'admin';
+
+        if (!isAdmin) {
+            // Get Owner ID (redundant since we have req.userId, assuming user owns the site they are adding to, which is checked by middleware)
+            // But we need to count ALL subdomains for this user across ALL their sites.
+
+            const [userQuota] = await connection.query('SELECT max_subdomains FROM users WHERE id = ?', [userId]);
+            const maxSubs = userQuota[0]?.max_subdomains ?? 10;
+
+            const [countRes] = await connection.query(`
+                SELECT COUNT(s.id) as count 
+                FROM subdomains s 
+                JOIN websites w ON s.websiteId = w.id 
+                WHERE w.userId = ?`, [userId]);
+
+            if (countRes[0].count >= maxSubs) {
+                await connection.end();
+                return res.status(403).json({ error: `You have reached your limit of ${maxSubs} subdomains.` });
+            }
+        }
+        // -------------------
+
         await connection.beginTransaction();
 
         // 1. Create Subdomain entry

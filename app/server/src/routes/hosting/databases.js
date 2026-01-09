@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
 const { requireAdmin, requireAuth } = require('../../middleware/auth');
+const { auditLogger } = require('../../middleware/audit');
 
 const checkDatabaseOwnership = async (req, res, next) => {
     const dbId = req.params.id;
@@ -102,10 +103,10 @@ router.get('/databases', requireAuth, async (req, res) => {
 });
 
 // Create Database & User
-router.post('/databases', requireAuth, async (req, res) => {
+router.post('/databases', requireAuth, auditLogger('CREATE_DATABASE'), async (req, res) => {
     const { name, user, password } = req.body;
     const userId = req.userId;
-
+    const isAdmin = req.userRole === 'admin';
 
 
     // Basic validation
@@ -118,6 +119,24 @@ router.post('/databases', requireAuth, async (req, res) => {
 
     try {
         connection = await mysql.createConnection(dbConfig);
+
+        // --- QUOTA CHECK ---
+        if (!isAdmin) {
+            const [userResolves] = await connection.query('SELECT max_databases FROM users WHERE id = ?', [userId]);
+            // Default to 3 if not set
+            const maxDatabases = userResolves[0]?.max_databases ?? 3;
+
+            const [countResolves] = await connection.query('SELECT COUNT(*) as count FROM `databases` WHERE userId = ?', [userId]);
+            const currentCount = countResolves[0].count;
+
+            if (currentCount >= maxDatabases) {
+                await connection.end();
+                return res.status(403).json({
+                    error: `You have reached your limit of ${maxDatabases} databases. Please upgrade your plan.`
+                });
+            }
+        }
+        // -------------------
         adminConn = await getAdminConnection();
 
         await connection.beginTransaction();
@@ -166,7 +185,7 @@ router.post('/databases', requireAuth, async (req, res) => {
 });
 
 // Delete Database
-router.delete('/databases/:id', requireAuth, checkDatabaseOwnership, async (req, res) => {
+router.delete('/databases/:id', requireAuth, checkDatabaseOwnership, auditLogger('DELETE_DATABASE'), async (req, res) => {
 
     let connection;
     let adminConn;

@@ -30,7 +30,7 @@ export const useExplorer = (user: any, onLogout: () => void) => {
             fetchFiles, fetchSharedFiles, fetchRecentFiles, fetchDocuments,
             fetchFavoritesView, fetchSiteSettings, fetchFavorites, fetchUserProfile
         } = data;
-        const { fetchWebsites, fetchDatabases, fetchDNS, fetchPHP } = hosting;
+        const { fetchWebsites, fetchDatabases, fetchDNS, fetchPHP, fetchMail, fetchBackups, fetchSSH } = hosting;
 
         // Restore active view content
         if (activeView === 'drive') fetchFiles(path);
@@ -42,6 +42,9 @@ export const useExplorer = (user: any, onLogout: () => void) => {
         else if (activeView === 'databases') fetchDatabases();
         else if (activeView === 'dns') fetchDNS();
         else if (activeView === 'php') fetchPHP();
+        else if (activeView === 'mail') fetchMail();
+        else if (activeView === 'backups') fetchBackups();
+        else if (activeView === 'ssh') fetchSSH();
         else fetchFiles('/');
 
         // Fetch global data

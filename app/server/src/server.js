@@ -26,9 +26,23 @@ setInterval(async () => {
     }
 }, 3600000);
 
+const CronScheduler = require('./services/cronScheduler');
+
 const startServer = async () => {
     try {
         await initTables();
+
+        // Init Cron Scheduler
+        const scheduler = new CronScheduler({
+            host: process.env.DB_HOST,
+            port: process.env.DB_PORT || 3306,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASS,
+            database: process.env.DB_NAME
+        });
+        await scheduler.init();
+        app.set('cronScheduler', scheduler);
+
         app.listen(PORT, () => {
             console.log(`[SERVER] Running on port ${PORT}`);
             // Run once on startup

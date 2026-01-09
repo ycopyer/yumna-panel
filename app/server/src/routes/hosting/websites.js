@@ -98,6 +98,25 @@ router.post('/websites', requireAuth, auditLogger('CREATE_WEBSITE'), async (req,
     let connection;
     try {
         connection = await mysql.createConnection(dbConfig);
+
+        // --- QUOTA CHECK ---
+        if (!isAdmin) {
+            const [userResolves] = await connection.query('SELECT max_websites FROM users WHERE id = ?', [userId]);
+            // Default to 3 if not set
+            const maxWebsites = userResolves[0]?.max_websites ?? 3;
+
+            const [countResolves] = await connection.query('SELECT COUNT(*) as count FROM websites WHERE userId = ?', [userId]);
+            const currentCount = countResolves[0].count;
+
+            if (currentCount >= maxWebsites) {
+                await connection.end();
+                return res.status(403).json({
+                    error: `You have reached your limit of ${maxWebsites} websites. Please upgrade your plan to create more.`
+                });
+            }
+        }
+        // -------------------
+
         await connection.beginTransaction();
 
         // 1. Create Website Entry

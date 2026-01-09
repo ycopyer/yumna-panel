@@ -9,5 +9,6 @@ router.use(require('./mail'));
 router.use(require('./php').router);
 router.use(require('./services'));
 router.use(require('./plugins'));
+router.use(require('./ftp'));
 
 module.exports = router;

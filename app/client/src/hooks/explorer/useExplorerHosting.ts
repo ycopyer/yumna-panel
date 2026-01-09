@@ -104,6 +104,52 @@ export const useExplorerHosting = (state: any) => {
         }
     }, [userId, setLoading, setActiveView, setFiles, setPath]);
 
+    const fetchMail = useCallback(async () => {
+        setLoading(true);
+        setActiveView('mail');
+        setFiles([]);
+        setPath('/mail');
+        try {
+            const res = await axios.get(`/api/mail/domains?userId=${userId}`);
+            const domains = res.data.map((d: any) => ({
+                ...d,
+                name: d.domain,
+                type: 'directory',
+                size: 0,
+                mtime: new Date(d.createdAt).getTime() / 1000
+            }));
+            setFiles(domains);
+        } catch (err: any) {
+            console.error('Failed to fetch mail domains:', err);
+            alert('Failed to load mail domains: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    }, [userId, setLoading, setActiveView, setFiles, setPath]);
+
+    const fetchBackups = useCallback(async () => {
+        setLoading(true);
+        setActiveView('backups');
+        setFiles([]);
+        setPath('/backups');
+        try {
+            const res = await axios.get(`/api/backups?userId=${userId}`);
+            const backups = res.data.map((b: any) => ({
+                ...b,
+                name: b.name,
+                type: 'file',
+                size: b.size_bytes,
+                mtime: new Date(b.createdAt).getTime() / 1000
+            }));
+            setFiles(backups);
+        } catch (err: any) {
+            console.error('Failed to fetch backups:', err);
+            alert('Failed to load backups: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    }, [userId, setLoading, setActiveView, setFiles, setPath]);
+
     const installPHPVersion = async (version: string) => {
         try {
             await axios.post('/api/php/install', { version }, {
@@ -178,11 +224,37 @@ export const useExplorerHosting = (state: any) => {
         return () => clearInterval(timer);
     }, [activeView, fetchPHP, setPhpOperations]);
 
+    const fetchSSH = useCallback(async () => {
+        setLoading(true);
+        setActiveView('ssh');
+        setFiles([]);
+        setPath('/ssh');
+        try {
+            const res = await axios.get('/api/ssh-accounts');
+            const accounts = res.data.map((acc: any) => ({
+                ...acc,
+                name: acc.username,
+                type: 'file',
+                size: 0,
+                mtime: new Date(acc.createdAt).getTime() / 1000
+            }));
+            setFiles(accounts);
+        } catch (err: any) {
+            console.error('Failed to fetch SSH accounts:', err);
+            alert('Failed to load SSH accounts: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    }, [setLoading, setActiveView, setFiles, setPath]);
+
     return {
         fetchWebsites,
         fetchDatabases,
         fetchDNS,
         fetchPHP,
+        fetchMail,
+        fetchBackups,
+        fetchSSH,
         installPHPVersion,
         uninstallPHPVersion,
         setPHPDefaultVersion

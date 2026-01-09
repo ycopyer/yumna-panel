@@ -85,7 +85,7 @@ router.delete('/trash/empty', getSession, checkLegalHold, async (req, res) => {
                     } else {
                         await adapter.delete(targetPath);
                     }
-                    if (item.filePath.startsWith('/Local Storage')) totalFreed += item.fileSize;
+                    totalFreed += item.fileSize;
                 } catch (e) {
                     // Clean up DB even if file missing
                     if (e.message.includes('success')) {
@@ -134,10 +134,8 @@ router.delete('/trash/:id', getSession, checkLegalHold, async (req, res) => {
                 await adapter.delete(targetPath);
             }
 
-            // Update Storage Usage (Only if local)
-            if (item.filePath.startsWith('/Local Storage')) {
-                await db.promise().query('UPDATE users SET used_storage = GREATEST(0, used_storage - ?) WHERE id = ?', [item.fileSize, req.sessionData.userId]);
-            }
+            // Update Storage Usage
+            await db.promise().query('UPDATE users SET used_storage = GREATEST(0, used_storage - ?) WHERE id = ?', [item.fileSize, req.sessionData.userId]);
 
             // Delete from DB
             db.query('DELETE FROM trash WHERE id = ?', [id], () => res.json({ success: true }));

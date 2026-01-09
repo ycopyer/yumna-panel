@@ -95,6 +95,12 @@ app.use('/api', require('./routes/security/firewall'));
 app.use('/api', require('./routes/security/compliance'));
 app.use('/api', require('./routes/security/advancedFirewall'));
 app.use('/api', require('./routes/system/utility'));
+app.use('/api', require('./routes/system/backups'));
+app.use('/api', require('./routes/system/maintenance'));
+app.use('/api', require('./routes/system/stats'));
+app.use('/api', require('./routes/system/terminal'));
+app.use('/api', require('./routes/system/ssh'));
+app.use('/api', require('./routes/system/cron'));
 app.use('/api', require('./routes/hosting')); // Points to index.js
 app.use('/api', require('./routes/system/notifications'));
 app.use('/api', require('./routes/system/services'));

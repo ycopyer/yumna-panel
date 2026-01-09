@@ -2,7 +2,7 @@
 
 Modern, secure, and feature-rich Webserver & Hosting Management Panel built with React and Node.js.
 
-![Version](https://img.shields.io/badge/version-2.1.0-purple.svg)
+![Version](https://img.shields.io/badge/version-2.2.0-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## ✨ Core Features
@@ -46,8 +46,15 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 
 ### 🌍 DNS Management
 - ✅ **Zones & Records** - Full control over A, CNAME, MX, TXT, SOA.
-- ✅ **DNSSEC & TTL** - Support for secure zones and customizable TTL/SOA settings.
-- ✅ **Clustering** - DNS Cluster support for remote synchronization.
+- ✅ **DNSSEC** - Generate and manage DNSSEC keys with DS/DNSKEY records.
+- ✅ **Cloudflare Sync** - One-click synchronization with Cloudflare CDN.
+- ✅ **TTL & Clustering** - Customizable TTL/SOA settings and DNS Cluster support.
+
+### 🔐 FTP Account Manager
+- ✅ **Restricted FTP Accounts** - Create isolated FTP accounts for developers.
+- ✅ **Quota Management** - Per-user FTP account limits.
+- ✅ **Password Security** - Bcrypt hashing with strong password generator.
+- ✅ **Storage Statistics** - Real-time file count and storage usage tracking.
 
 ### 💾 Backup & Restore
 - ✅ **Incremental Backups** - Advanced backup system powered by Restic.
@@ -59,6 +66,8 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 - ✅ **Health Monitoring** - RRD monitoring for Disk, CPU, and RAM usage.
 - ✅ **System Automation** - Hostname, Timezone, and Panel auto-update system.
 - ✅ **Web Terminal** - Integrated shell for direct server console access.
+- ✅ **Cron Job Manager** - Schedule and manage automated tasks.
+- ✅ **SSH Account Manager** - Manage SSH access with key-based authentication.
 
 ### 🧩 Integrasi & Otomasi
 - ✅ **Migration Suite** - Import accounts from cPanel and DirectAdmin.
@@ -70,7 +79,30 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 - ✅ **Performance Sync** - Update templates across clusters and flush caches.
 - ✅ **Sync Cluster** - Maintain consistency across multi-server environments.
 
+---
+
+## 🗺️ Development Roadmap
+
+See our [ROADMAP.md](ROADMAP.md) for planned features and development timeline.
+
+**Current Focus (January 2026)**:
+- 🔄 SSL/TLS Certificate Manager with Let's Encrypt
+- 🔄 Advanced Backup System with encryption
+- 🔄 File Manager enhancements with code editor
+- 🔄 WordPress Auto-Installer
+
+**Recently Completed**:
+- ✅ DNS DNSSEC & Cloudflare Sync (January 2026)
+- ✅ FTP Account Manager (January 2026)
+- ✅ Cron Job Manager (January 2026)
+
 ## 📜 Changelog
+
+### [2.2.0] - 2026-01-09
+- **DNS Enhancements**: Added DNSSEC key generation and Cloudflare synchronization.
+- **FTP Manager**: Complete FTP account management system with quota enforcement.
+- **Security**: Bcrypt password hashing for FTP accounts, ownership verification.
+- **Database**: Added `ftp_accounts` table and DNS security columns.
 
 ### [2.1.0] - 2026-01-09
 - **Native EXE Architecture**: Converted the panel into a professional C# executable.
@@ -130,5 +162,5 @@ This project is licensed under the MIT License.
 
 **Made with ❤️ by Yumna Panel Project Team**
 
-**Version**: 2.1.0
+**Version**: 2.2.0
 **Last Updated**: 2026-01-09

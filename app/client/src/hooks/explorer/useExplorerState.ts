@@ -26,7 +26,7 @@ export const useExplorerState = (user: any) => {
     const [showActivityHistory, setShowActivityHistory] = useState(false);
     const [showTrash, setShowTrash] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
+    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins' | 'mail' | 'backups' | 'ssh' | 'cron'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
     const [propertiesItem, setPropertiesItem] = useState<FileItem | null>(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
@@ -56,6 +56,13 @@ export const useExplorerState = (user: any) => {
     const [showPHPExtensions, setShowPHPExtensions] = useState<boolean | string>(false);
     const [showPHPConfig, setShowPHPConfig] = useState<boolean | string>(false);
     const [showAddPHPVersion, setShowAddPHPVersion] = useState(false);
+    const [showAddEmailDomain, setShowAddEmailDomain] = useState(false);
+    const [showAddEmailAccount, setShowAddEmailAccount] = useState(false);
+    const [manageEmailDomain, setManageEmailDomain] = useState<any>(null);
+    const [showMaintenance, setShowMaintenance] = useState(false);
+    const [showAddBackup, setShowAddBackup] = useState(false);
+    const [showTerminal, setShowTerminal] = useState(false);
+    const [showAddSSHAccount, setShowAddSSHAccount] = useState(false);
     const [serverPulse, setServerPulse] = useState<any>(null);
     const [phpOperations, setPhpOperations] = useState<Record<string, any>>({});
     const [previewEdit, setPreviewEdit] = useState(false);
@@ -129,6 +136,13 @@ export const useExplorerState = (user: any) => {
         showPHPExtensions, setShowPHPExtensions,
         showPHPConfig, setShowPHPConfig,
         showAddPHPVersion, setShowAddPHPVersion,
+        showAddEmailDomain, setShowAddEmailDomain,
+        showAddEmailAccount, setShowAddEmailAccount,
+        manageEmailDomain, setManageEmailDomain,
+        showMaintenance, setShowMaintenance,
+        showAddBackup, setShowAddBackup,
+        showTerminal, setShowTerminal,
+        showAddSSHAccount, setShowAddSSHAccount,
         serverPulse, setServerPulse,
         phpOperations, setPhpOperations,
         previewEdit, setPreviewEdit,

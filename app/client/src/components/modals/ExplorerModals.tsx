@@ -26,6 +26,12 @@ import FirewallManagement from '../security/FirewallManagement';
 import PHPExtensionsModal from './PHPExtensionsModal';
 import PHPConfigModal from './PHPConfigModal';
 import AddPHPVersionModal from './AddPHPVersionModal';
+import AddEmailDomainModal from './AddEmailDomainModal';
+import AddEmailAccountModal from './AddEmailAccountModal';
+import ManageEmailModal from './ManageEmailModal';
+import MaintenanceModal from './MaintenanceModal';
+import AddBackupModal from './AddBackupModal';
+import AddSSHAccountModal from './AddSSHAccountModal';
 
 interface ExplorerModalsProps {
     previewPdf: string | null;
@@ -125,6 +131,21 @@ interface ExplorerModalsProps {
     saveContent: (file: any, content: string) => Promise<boolean>;
     changePermissions: (file: any, mode: string) => Promise<boolean>;
     initialEditMode?: boolean;
+    showAddEmailDomain: boolean;
+    setShowAddEmailDomain: (show: boolean) => void;
+    showAddEmailAccount: boolean;
+    setShowAddEmailAccount: (show: boolean) => void;
+    showMaintenance: boolean;
+    setShowMaintenance: (show: boolean) => void;
+    showAddBackup: boolean;
+    setShowAddBackup: (show: boolean) => void;
+    fetchMail: () => void;
+    fetchBackups: () => void;
+    manageEmailDomain: any;
+    setManageEmailDomain: (domain: any) => void;
+    showAddSSHAccount: boolean;
+    setShowAddSSHAccount: (show: boolean) => void;
+    fetchSSH: () => void;
 }
 
 const ExplorerModals: React.FC<ExplorerModalsProps> = ({
@@ -174,7 +195,14 @@ const ExplorerModals: React.FC<ExplorerModalsProps> = ({
     showPHPConfig, setShowPHPConfig,
     showAddPHPVersion, setShowAddPHPVersion,
     fetchPHP, onInstallVersion,
-    saveContent, changePermissions, initialEditMode
+    saveContent, changePermissions, initialEditMode,
+    showAddEmailDomain, setShowAddEmailDomain,
+    showAddEmailAccount, setShowAddEmailAccount,
+    showMaintenance, setShowMaintenance,
+    showAddBackup, setShowAddBackup,
+    showAddSSHAccount, setShowAddSSHAccount,
+    fetchMail, fetchBackups, fetchSSH,
+    manageEmailDomain, setManageEmailDomain
 }) => {
     const totalTransfers = activeDownloads.length + activeUploads.length;
     const activeTransfers = activeDownloads.filter(d => d.status === 'downloading').length +
@@ -266,6 +294,12 @@ const ExplorerModals: React.FC<ExplorerModalsProps> = ({
             {showPHPExtensions && <PHPExtensionsModal userId={userId} version={typeof showPHPExtensions === 'string' ? showPHPExtensions : undefined} onClose={() => setShowPHPExtensions(false)} />}
             {showPHPConfig && <PHPConfigModal userId={userId} version={typeof showPHPConfig === 'string' ? showPHPConfig : undefined} onClose={() => setShowPHPConfig(false)} />}
             {showAddPHPVersion && <AddPHPVersionModal onClose={() => setShowAddPHPVersion(false)} onInstallVersion={onInstallVersion} onSuccess={() => { setShowAddPHPVersion(false); fetchPHP(); }} />}
+
+            {showAddEmailDomain && <AddEmailDomainModal userId={userId} onClose={() => setShowAddEmailDomain(false)} onSuccess={() => { setShowAddEmailDomain(false); fetchMail(); }} />}
+            {showAddEmailAccount && <AddEmailAccountModal userId={userId} onClose={() => setShowAddEmailAccount(false)} onSuccess={() => { setShowAddEmailAccount(false); fetchMail(); }} />}
+            {manageEmailDomain && <ManageEmailModal domain={manageEmailDomain} onClose={() => setManageEmailDomain(null)} />}
+            {showMaintenance && <MaintenanceModal onClose={() => setShowMaintenance(false)} />}
+            {showAddBackup && <AddBackupModal userId={userId} onClose={() => setShowAddBackup(false)} onSuccess={() => { setShowAddBackup(false); fetchBackups(); }} />}
 
             {/* Combined Transfer Manager */}
             {totalTransfers > 0 && (
@@ -407,6 +441,17 @@ const ExplorerModals: React.FC<ExplorerModalsProps> = ({
                         return false;
                     }}
                     initialEditMode={initialEditMode}
+                />
+            )}
+
+            {showAddSSHAccount && (
+                <AddSSHAccountModal
+                    userId={userId}
+                    onClose={() => setShowAddSSHAccount(false)}
+                    onSuccess={() => {
+                        setShowAddSSHAccount(false);
+                        fetchSSH();
+                    }}
                 />
             )}
         </>

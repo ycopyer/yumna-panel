@@ -2,8 +2,9 @@ import React from 'react';
 import {
     LayoutGrid, History, Trash2, Heart, Globe, Database, Server as ServerIcon, Lock, Users, Share2, BarChart2, Shield, Settings,
     Activity as ActivityIcon, ShieldAlert, Cpu, LogOut, Search, ChevronRight, Upload, Folder, FolderPlus, ShieldCheck, Scale, Star, User, Menu, X,
-    LayoutDashboard, HardDrive, Fingerprint, Plus, Link2, Power, Package, ExternalLink, RefreshCw, Puzzle, FileEdit
+    LayoutDashboard, HardDrive, Fingerprint, Plus, Link2, Power, Package, ExternalLink, RefreshCw, Puzzle, FileEdit, Mail, Archive, Wrench, Terminal, Key, Clock
 } from 'lucide-react';
+import ResourceUsageWidget from '../common/ResourceUsageWidget';
 
 interface SidebarProps {
     user: { userId?: number, id?: number, username: string, role: string };
@@ -342,6 +343,80 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
                             </div>
 
+                            {/* Email Item with Submenu */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'mail' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('mail'); onClose?.(); }}
+                                >
+                                    <Mail size={19} className={activeView === 'mail' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">Email Server</span>
+                                    <ChevronRight size={14} className={`ml-auto transition-transform duration-300 ${activeView === 'mail' ? 'rotate-90' : 'opacity-40'}`} />
+                                </div>
+                                <div className={`mt-1 ml-4 pl-4 border-l border-[var(--border)] overflow-hidden transition-all duration-500 space-y-0.5 ${activeView === 'mail' ? 'max-h-[200px] opacity-100 py-2' : 'max-h-0 opacity-0'}`}>
+                                    <div
+                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-sky-500 hover:bg-sky-500/5 cursor-pointer transition-all group/sub"
+                                        onClick={() => { onAction('add-email-domain'); onClose?.(); }}
+                                    >
+                                        <Plus size={14} className="opacity-40 group-hover/sub:opacity-100" />
+                                        Add Domain
+                                    </div>
+                                    <div
+                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-sky-500 hover:bg-sky-500/5 cursor-pointer transition-all group/sub"
+                                        onClick={() => { onAction('add-email-account'); onClose?.(); }}
+                                    >
+                                        <Plus size={14} className="opacity-40 group-hover/sub:opacity-100" />
+                                        Create Account
+                                    </div>
+                                    <div
+                                        className={`flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold cursor-pointer transition-all group/sub ${activeView === 'mail' ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)]'}`}
+                                        onClick={() => { onNavigate('mail'); onClose?.(); }}
+                                    >
+                                        <LayoutGrid size={14} className={activeView === 'mail' ? 'opacity-100' : 'opacity-40 group-hover/sub:opacity-100'} />
+                                        Manage Email
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* SSH Access Item */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'ssh' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('ssh'); onClose?.(); }}
+                                >
+                                    <Key size={19} className={activeView === 'ssh' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">SSH Access</span>
+                                    <ChevronRight size={14} className={`ml-auto transition-transform duration-300 ${activeView === 'ssh' ? 'rotate-90' : 'opacity-40'}`} />
+                                </div>
+                                <div className={`mt-1 ml-4 pl-4 border-l border-[var(--border)] overflow-hidden transition-all duration-500 space-y-0.5 ${activeView === 'ssh' ? 'max-h-[200px] opacity-100 py-2' : 'max-h-0 opacity-0'}`}>
+                                    <div
+                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-emerald-500 hover:bg-emerald-500/5 cursor-pointer transition-all group/sub"
+                                        onClick={() => { onAction('add-ssh-account'); onClose?.(); }}
+                                    >
+                                        <Plus size={14} className="opacity-40 group-hover/sub:opacity-100" />
+                                        Create SSH Account
+                                    </div>
+                                    <div
+                                        className={`flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold cursor-pointer transition-all group/sub ${activeView === 'ssh' ? 'text-[var(--primary)] bg-[var(--primary)]/10' : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)]'}`}
+                                        onClick={() => { onNavigate('ssh'); onClose?.(); }}
+                                    >
+                                        <LayoutGrid size={14} className={activeView === 'ssh' ? 'opacity-100' : 'opacity-40 group-hover/sub:opacity-100'} />
+                                        Manage SSH Accounts
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Cron Jobs Item */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'cron' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('cron'); onClose?.(); }}
+                                >
+                                    <Clock size={19} className={activeView === 'cron' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">Cron Jobs</span>
+                                </div>
+                            </div>
+
                             {/* Plugin Marketplace Item */}
                             <div>
                                 <div
@@ -383,35 +458,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <Trash2 size={19} className={activeView === 'trash' ? 'text-red-500' : 'opacity-70 group-hover:text-red-500'} />
                                 <span className="font-bold text-sm">Trash Bin</span>
                             </div>
+                            <div
+                                className={`${navItemBase} ${activeView === 'backups' ? navItemActive : navItemInactive}`}
+                                onClick={() => { onNavigate('backups'); onClose?.(); }}
+                            >
+                                <Archive size={19} className={activeView === 'backups' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                <span className="font-bold text-sm">Backup Center</span>
+                            </div>
                         </div>
 
-                        {/* Storage Indicator integrated */}
-                        {userProfile?.storage_quota > 0 && (
-                            <div className="mt-4 px-2">
-                                <div className="p-3.5 bg-gradient-to-br from-[var(--nav-hover)] to-transparent rounded-2xl border border-[var(--border)] relative overflow-hidden group">
-                                    <div className="absolute top-0 right-0 w-16 h-16 bg-[var(--primary)]/5 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2"></div>
-                                    <div className="relative z-10">
-                                        <div className="flex justify-between items-end mb-2.5">
-                                            <div className="flex flex-col">
-                                                <span className="text-[10px] font-black text-[var(--text-muted)] uppercase tracking-wider">Drive Usage</span>
-                                                <span className="text-xs font-black text-[var(--text-main)]">
-                                                    {formatBytes(userProfile.used_storage || 0)} <span className="text-[var(--text-muted)] font-bold">/ {formatBytes(userProfile.storage_quota)}</span>
-                                                </span>
-                                            </div>
-                                            <span className={`text-xs font-black p-1.5 rounded-lg ${isCritical ? 'bg-red-500/20 text-red-500' : 'bg-[var(--primary)]/10 text-[var(--primary)]'}`}>
-                                                {usagePercent.toFixed(0)}%
-                                            </span>
-                                        </div>
-                                        <div className="h-1.5 w-full bg-[var(--bg-dark)] rounded-full overflow-hidden shadow-inner">
-                                            <div
-                                                className={`h-full transition-all duration-1000 ease-out rounded-full ${isCritical ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : 'bg-gradient-to-r from-[var(--primary)] to-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]'} `}
-                                                style={{ width: `${usagePercent}%` }}
-                                            ></div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {/* Resource Usage Widget */}
+                        <ResourceUsageWidget />
                     </div>
 
                     {/* ADVANCED SECURITY */}
@@ -454,6 +511,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                         <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <p className="px-4 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-500/70">Terminal Admin</p>
                             <div className="space-y-1">
+                                <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('terminal'); onClose?.(); }}>
+                                    <Terminal size={19} className="opacity-70 group-hover:text-emerald-400" />
+                                    <span className="font-bold text-sm">System Terminal</span>
+                                </div>
                                 <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('manageUsers'); onClose?.(); }}>
                                     <Users size={19} className="opacity-70 group-hover:text-sky-400" />
                                     <span className="font-bold text-sm">User Management</span>
@@ -465,6 +526,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('siteSettings'); onClose?.(); }}>
                                     <Settings size={19} className="opacity-70 group-hover:text-violet-400" />
                                     <span className="font-bold text-sm">System Branding</span>
+                                </div>
+                                <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('maintenance'); onClose?.(); }}>
+                                    <Wrench size={19} className="opacity-70 group-hover:text-amber-400" />
+                                    <span className="font-bold text-sm">System Maintenance</span>
                                 </div>
                             </div>
                         </div>

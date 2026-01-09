@@ -286,17 +286,137 @@ const DNSManagementModal: React.FC<DNSManagementModalProps> = ({ zone, onClose, 
                     )}
 
                     {activeTab === 'cloudflare' && (
-                        <div className="h-[300px] flex flex-col items-center justify-center animate-fade text-center px-12">
-                            <div className="w-20 h-20 rounded-[2rem] bg-orange-500/10 flex items-center justify-center border border-orange-500/20 mb-6">
-                                <Cloud size={40} className="text-orange-500" />
+                        <div className="space-y-6 animate-fade">
+                            <div className="p-6 bg-orange-500/5 rounded-[24px] border border-orange-500/10">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                                        <Cloud size={24} className="text-orange-500" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-white">Cloudflare Integration</h4>
+                                        <p className="text-xs text-white/40">Sync DNS records to Cloudflare CDN</p>
+                                    </div>
+                                </div>
+
+                                <form onSubmit={async (e) => {
+                                    e.preventDefault();
+                                    const formData = new FormData(e.currentTarget);
+                                    const apiToken = formData.get('apiToken') as string;
+                                    const accountId = formData.get('accountId') as string;
+
+                                    if (!confirm('Sync this zone to Cloudflare? Existing records will be created.')) return;
+
+                                    setLoading(true);
+                                    try {
+                                        const res = await axios.post(`/api/dns/${zone.id}/cloudflare`, {
+                                            apiToken,
+                                            accountId
+                                        });
+                                        alert(`Success! ${res.data.message}\n\nCloudflare Zone ID: ${res.data.details.cfZoneId}\nSynced Records: ${res.data.details.syncedRecords}\nErrors: ${res.data.details.errors}`);
+                                    } catch (err: any) {
+                                        alert(err.response?.data?.error || 'Failed to sync with Cloudflare');
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }} className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-black text-white/60 uppercase tracking-widest ml-1">
+                                            Cloudflare API Token *
+                                        </label>
+                                        <input
+                                            required
+                                            name="apiToken"
+                                            type="password"
+                                            placeholder="Your Cloudflare API Token"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white font-bold text-sm focus:border-orange-500 outline-none transition-all"
+                                        />
+                                        <p className="text-[10px] text-white/30 ml-1">
+                                            Get your API token from Cloudflare Dashboard → My Profile → API Tokens
+                                        </p>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-xs font-black text-white/60 uppercase tracking-widest ml-1">
+                                            Account ID (Optional)
+                                        </label>
+                                        <input
+                                            name="accountId"
+                                            type="text"
+                                            placeholder="Cloudflare Account ID"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white font-bold text-sm focus:border-orange-500 outline-none transition-all"
+                                        />
+                                    </div>
+
+                                    <button
+                                        type="submit"
+                                        disabled={loading}
+                                        className="w-full py-3 bg-orange-500 hover:bg-orange-400 text-white font-black text-sm uppercase tracking-wider rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                    >
+                                        {loading ? (
+                                            <>
+                                                <Loader2 size={16} className="animate-spin" />
+                                                Syncing...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Cloud size={16} />
+                                                Sync to Cloudflare
+                                            </>
+                                        )}
+                                    </button>
+                                </form>
                             </div>
-                            <h3 className="text-lg font-black text-white mb-2">Cloudflare Proxy Integration</h3>
-                            <p className="text-xs text-white/40 leading-relaxed max-w-sm">
-                                Soon you'll be able to synchronize this zone with Cloudflare, enabling one-click proxy (Orange Cloud) and automatic SSL management.
-                            </p>
-                            <button disabled className="mt-8 px-8 py-3 bg-white/5 text-white/20 font-black text-[10px] uppercase tracking-widest rounded-xl border border-white/5">
-                                Coming Soon v2.0
-                            </button>
+
+                            <div className="p-6 bg-blue-500/5 rounded-[24px] border border-blue-500/10">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                                        <Shield size={24} className="text-blue-500" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-black text-white">Enable DNSSEC</h4>
+                                        <p className="text-xs text-white/40">Secure your DNS with cryptographic signatures</p>
+                                    </div>
+                                </div>
+
+                                <button
+                                    onClick={async () => {
+                                        if (!confirm('Enable DNSSEC for this zone? You will need to add DS records to your registrar.')) return;
+
+                                        setLoading(true);
+                                        try {
+                                            const res = await axios.post(`/api/dns/${zone.id}/dnssec`);
+                                            const dnssec = res.data.dnssec;
+
+                                            const message = `DNSSEC Enabled Successfully!\n\n` +
+                                                `Domain: ${dnssec.domain}\n\n` +
+                                                `DS Record:\n${dnssec.ds_record}\n\n` +
+                                                `DNSKEY Record:\n${dnssec.dnskey_record}\n\n` +
+                                                `Instructions:\n${dnssec.instructions.join('\n')}`;
+
+                                            alert(message);
+                                            fetchRecords();
+                                        } catch (err: any) {
+                                            alert(err.response?.data?.error || 'Failed to enable DNSSEC');
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                    disabled={loading}
+                                    className="w-full py-3 bg-blue-500 hover:bg-blue-400 text-white font-black text-sm uppercase tracking-wider rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <Loader2 size={16} className="animate-spin" />
+                                            Enabling...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Shield size={16} />
+                                            Enable DNSSEC
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     )}
 
