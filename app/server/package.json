@@ -1,6 +1,6 @@
 {
     "name":  "filemanager-sftp-server",
-    "version":  "1.5.4",
+    "version":  "2.2.3",
     "description":  "Yumna Panel - Advanced Hosting \u0026 Server Control Panel",
     "main":  "index.js",
     "scripts":  {
