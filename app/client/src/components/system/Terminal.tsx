@@ -5,10 +5,12 @@ import axios from 'axios';
 interface TerminalProps {
     onClose: () => void;
     sshAccountId?: number;
+    websiteId?: number;
     contextTitle?: string;
+    embedded?: boolean;
 }
 
-const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, contextTitle }) => {
+const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, websiteId, contextTitle, embedded }) => {
     const [history, setHistory] = useState<{ type: 'input' | 'output', content: string }[]>([]);
     const [input, setInput] = useState('');
     const [cwd, setCwd] = useState('~');
@@ -34,7 +36,8 @@ const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, contextTitle
         try {
             const response = await axios.post('/api/terminal/exec', {
                 command: cmd,
-                sshAccountId: sshAccountId
+                sshAccountId: sshAccountId,
+                websiteId: websiteId
             });
             const { output, cwd: newCwd } = response.data;
 
@@ -63,8 +66,8 @@ const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, contextTitle
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade">
-            <div className="w-full max-w-5xl h-[80vh] bg-[#1e1e1e] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden">
+        <div className={embedded ? "w-full h-full flex flex-col overflow-hidden" : "fixed inset-0 bg-black/80 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade"}>
+            <div className={embedded ? "w-full h-full bg-[#1e1e1e] flex flex-col overflow-hidden" : "w-full max-w-5xl h-[80vh] bg-[#1e1e1e] rounded-2xl border border-white/10 shadow-2xl flex flex-col overflow-hidden"}>
                 {/* Header */}
                 <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#252526]">
                     <div className="flex items-center gap-3">
@@ -83,12 +86,14 @@ const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, contextTitle
                         >
                             Clear
                         </button>
-                        <button
-                            onClick={onClose}
-                            className="p-2 rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-500 transition-all"
-                        >
-                            <X size={20} />
-                        </button>
+                        {!embedded && (
+                            <button
+                                onClick={onClose}
+                                className="p-2 rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-500 transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        )}
                     </div>
                 </div>
 

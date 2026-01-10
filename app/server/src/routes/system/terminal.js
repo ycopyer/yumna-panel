@@ -13,7 +13,7 @@ const userSessions = {};
 const DEFAULT_CWD = os.homedir();
 
 router.post('/terminal/exec', requireAuth, auditLogger('TERMINAL_EXEC'), async (req, res) => {
-    const { command, sshAccountId } = req.body;
+    const { command, sshAccountId, websiteId } = req.body;
     const userId = req.userId;
     const isAdmin = req.userRole === 'admin';
 
@@ -54,6 +54,35 @@ router.post('/terminal/exec', requireAuth, auditLogger('TERMINAL_EXEC'), async (
         } catch (err) {
             return res.status(500).json({ error: 'Database error: ' + err.message });
         }
+    } else if (websiteId) {
+        try {
+            const connection = await mysql.createConnection({
+                host: process.env.DB_HOST,
+                user: process.env.DB_USER,
+                password: process.env.DB_PASS,
+                database: process.env.DB_NAME
+            });
+
+            const [websites] = await connection.query(
+                'SELECT rootPath, userId FROM websites WHERE id = ?',
+                [websiteId]
+            );
+            await connection.end();
+
+            if (websites.length === 0) return res.status(404).json({ error: 'Website not found' });
+
+            // Security check: must be owner or admin
+            if (!isAdmin && websites[0].userId !== userId) {
+                return res.status(403).json({ error: 'Unauthorized to use this terminal' });
+            }
+
+            if (websites[0].rootPath) {
+                targetRootPath = websites[0].rootPath;
+                isRestricted = true;
+            }
+        } catch (err) {
+            return res.status(500).json({ error: 'Database error: ' + err.message });
+        }
     } else {
         // System terminal requires admin
         if (!isAdmin) {
@@ -62,7 +91,7 @@ router.post('/terminal/exec', requireAuth, auditLogger('TERMINAL_EXEC'), async (
     }
 
     // Get current CWD for user or default
-    const sessionKey = sshAccountId ? `ssh_${sshAccountId}` : `system_${userId}`;
+    const sessionKey = sshAccountId ? `ssh_${sshAccountId}` : (websiteId ? `web_${websiteId}` : `system_${userId}`);
     let currentCwd = userSessions[sessionKey] || targetRootPath;
 
     // Reset Cwd if it's invalid or outside jail

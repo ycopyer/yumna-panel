@@ -16,7 +16,8 @@ import {
     Link2,
     Package,
     Trash2,
-    Power
+    Power,
+    Terminal
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -182,6 +183,7 @@ const WebsiteList: React.FC<WebsiteListProps> = ({
                                             { id: 'apps', label: 'App Installer', icon: Package, color: 'text-emerald-400' },
                                             { id: 'config', label: 'Config Matrix', icon: Settings, color: 'text-violet-400' },
                                             { id: 'ssl', label: 'Crypto Shield', icon: Lock, color: 'text-cyan-400' },
+                                            { id: 'terminal', label: 'Command Node', icon: Terminal, color: 'text-emerald-400' },
                                             { id: 'general', label: 'Stack & Power', icon: Cpu, color: 'text-sky-400' },
                                             { id: 'advanced', label: 'Destruction', icon: Trash2, color: 'text-rose-400' }
                                         ].map(action => (

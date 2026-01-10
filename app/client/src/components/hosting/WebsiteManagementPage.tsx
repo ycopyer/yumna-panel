@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import IPAccessControlManager from '../security/IPAccessControlManager';
 import GitManager from './GitManager';
 import { GitBranch as GitIcon } from 'lucide-react';
+import TerminalComponent from '../system/Terminal';
 
 interface WebsiteManagementPageProps {
     website: any;
@@ -18,7 +19,7 @@ interface WebsiteManagementPageProps {
     onBack: () => void;
     onRefresh: () => void;
     onOpenPath: (path: string) => void;
-    initialTab?: 'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git';
+    initialTab?: 'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git' | 'terminal';
 }
 
 const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
@@ -30,7 +31,7 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
     onOpenPath,
     initialTab
 }) => {
-    const [activeTab, setActiveTab] = useState<'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git'>(initialTab || 'general');
+    const [activeTab, setActiveTab] = useState<'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git' | 'terminal'>(initialTab || 'general');
     const [subdomains, setSubdomains] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -285,6 +286,7 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
                         { id: 'subdomains', icon: Link2, label: 'Logic Relays' },
                         { id: 'files', icon: Folder, label: 'Data Store' },
                         { id: 'git', icon: GitIcon, label: 'Git Stream' },
+                        { id: 'terminal', icon: Terminal, label: 'Command Node' },
                         { id: 'config', icon: FileCode, label: 'Config Matrix' },
                         { id: 'ssl', icon: Lock, label: 'Crypto Shield' },
                         { id: 'ip-access', icon: ShieldAlert, label: 'IP Defense' },
@@ -399,8 +401,8 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
                                                             type="button"
                                                             onClick={() => setWebStack(stack.id)}
                                                             className={`p-6 rounded-[24px] border transition-all text-left flex flex-col gap-3 group relative overflow-hidden ${webStack === stack.id
-                                                                    ? 'bg-indigo-600/10 border-indigo-500/40 text-white'
-                                                                    : 'bg-black/40 border-white/5 text-white/40 hover:border-white/20'
+                                                                ? 'bg-indigo-600/10 border-indigo-500/40 text-white'
+                                                                : 'bg-black/40 border-white/5 text-white/40 hover:border-white/20'
                                                                 }`}
                                                         >
                                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${webStack === stack.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'bg-white/5 text-white/30 group-hover:bg-white/10'
@@ -523,6 +525,17 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
                                             </div>
                                         )}
                                     </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'terminal' && (
+                                <div className="h-[600px] bg-black/40 border border-white/5 rounded-[40px] overflow-hidden backdrop-blur-md">
+                                    <TerminalComponent
+                                        websiteId={website.id}
+                                        contextTitle={`Terminal: ${website.domain}`}
+                                        onClose={() => { }}
+                                        embedded={true}
+                                    />
                                 </div>
                             )}
 
