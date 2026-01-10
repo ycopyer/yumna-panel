@@ -4,6 +4,16 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
+## [2.2.3] - 2026-01-10
+### Added
+- **Multi-Engine Web Stack**: Switchable arsitektur untuk Nginx Only, Apache Only, atau Hybrid Stack (Nginx Proxy + Apache Backend).
+- **Standalone Core Architecture**: Migrasi penuh dari Laragon ke sistem mandiri. Seluruh konfigurasi dan engine (Nginx, Apache, PHP) kini berada di `C:\YumnaPanel\bin` dan `C:\YumnaPanel\etc`.
+- **Documentation Refactoring**: Memindahkan seluruh panduan implementasi dan roadmap ke dalam direktori `docs/` untuk pengorganisasian yang lebih baik.
+
+### Changed
+- **Aligned Versioning**: Penyelarasan versi internal dan publik menjadi v2.2.3 di seluruh komponen (Client & Server).
+- **Default Index Template**: Memperbarui template `index.html` otomatis untuk website baru ke versi v2.2.3.
+
 ## [2.2.2] - 2026-01-10
 ### Added
 - **Git Integration**: New "Git & Deploy" module for linking repositories (GitHub, GitLab, Bitbucket) and manual/webhook auto-deployment.
