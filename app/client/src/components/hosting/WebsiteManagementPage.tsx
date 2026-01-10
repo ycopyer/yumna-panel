@@ -4,13 +4,15 @@ import {
     ArrowLeft, Globe, Folder, Cpu, Loader2, Link2, Plus, Trash2,
     AlertTriangle, ShieldCheck, Scale, History, Power, Package,
     FileCode, Lock, Terminal, RefreshCw, ShieldAlert, Activity,
-    ExternalLink, Save, X, CheckCircle, XCircle, Clock, Zap
+    ExternalLink, Save, X, CheckCircle, XCircle, Clock, Zap, Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import IPAccessControlManager from '../security/IPAccessControlManager';
 import GitManager from './GitManager';
 import { GitBranch as GitIcon } from 'lucide-react';
 import TerminalComponent from '../system/Terminal';
+import DatabaseManager from './DatabaseManager';
+import AddDatabaseModal from '../modals/AddDatabaseModal';
 
 interface WebsiteManagementPageProps {
     website: any;
@@ -19,7 +21,7 @@ interface WebsiteManagementPageProps {
     onBack: () => void;
     onRefresh: () => void;
     onOpenPath: (path: string) => void;
-    initialTab?: 'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git' | 'terminal';
+    initialTab?: 'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git' | 'terminal' | 'databases';
 }
 
 const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
@@ -31,9 +33,12 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
     onOpenPath,
     initialTab
 }) => {
-    const [activeTab, setActiveTab] = useState<'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git' | 'terminal'>(initialTab || 'general');
+    const [activeTab, setActiveTab] = useState<'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access' | 'git' | 'terminal' | 'databases'>(initialTab || 'general');
     const [subdomains, setSubdomains] = useState<any[]>([]);
+    const [databases, setDatabases] = useState<any[]>([]);
+    const [showAddDb, setShowAddDb] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [dbLoading, setDbLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Settings State
@@ -64,6 +69,7 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
         if (activeTab === 'subdomains') fetchSubdomains();
         if (activeTab === 'config') fetchConfig();
         if (activeTab === 'logs') fetchLogs();
+        if (activeTab === 'databases') fetchDatabases();
         if (activeTab === 'advanced' && isAdmin) fetchUsers();
     }, [activeTab, website.id]);
 
@@ -82,6 +88,20 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
             setSubdomains(res.data);
         } catch (err) {
             console.error('Failed to fetch subdomains');
+        }
+    };
+
+    const fetchDatabases = async () => {
+        setDbLoading(true);
+        try {
+            const res = await axios.get('/api/databases', {
+                params: { targetUserId: website.userId }
+            });
+            setDatabases(res.data);
+        } catch (err) {
+            console.error('Failed to fetch databases');
+        } finally {
+            setDbLoading(false);
         }
     };
 
@@ -284,6 +304,7 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
                     {[
                         { id: 'general', icon: Globe, label: 'Core Intel' },
                         { id: 'subdomains', icon: Link2, label: 'Logic Relays' },
+                        { id: 'databases', icon: Database, label: 'Databases' },
                         { id: 'files', icon: Folder, label: 'Data Store' },
                         { id: 'git', icon: GitIcon, label: 'Git Stream' },
                         { id: 'terminal', icon: Terminal, label: 'Command Node' },
@@ -653,6 +674,27 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
                                     <div className="bg-[#050505] border border-white/5 rounded-[40px] p-10 h-[650px] overflow-auto shadow-inner">
                                         <pre className="text-white/60 font-mono text-[11px] leading-relaxed whitespace-pre-wrap selection:bg-indigo-500/40">{logs || 'Waiting for log transmission...'}</pre>
                                     </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'databases' && (
+                                <div className="space-y-6">
+                                    <DatabaseManager
+                                        databases={databases}
+                                        loading={dbLoading}
+                                        onRefresh={fetchDatabases}
+                                        onAddDatabase={() => setShowAddDb(true)}
+                                    />
+                                    {showAddDb && (
+                                        <AddDatabaseModal
+                                            userId={userId}
+                                            onClose={() => setShowAddDb(false)}
+                                            onSuccess={() => {
+                                                setShowAddDb(false);
+                                                fetchDatabases();
+                                            }}
+                                        />
+                                    )}
                                 </div>
                             )}
 

@@ -25,7 +25,26 @@ const checkDatabaseOwnership = async (req, res, next) => {
     }
 };
 
+const checkDatabaseNameOwnership = async (req, res, next) => {
+    const dbName = req.params.name;
+    const userId = req.userId;
+    const isAdmin = req.userRole === 'admin';
 
+    if (isAdmin) return next();
+
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query('SELECT userId FROM `databases` WHERE name = ?', [dbName]);
+        await connection.end();
+
+        if (rows.length === 0) return res.status(404).json({ error: 'Database not found' });
+        if (rows[0].userId != userId) return res.status(403).json({ error: 'Access denied' });
+
+        next();
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
 
 const dbConfig = {
     host: process.env.DB_HOST,
@@ -51,7 +70,8 @@ async function getAdminConnection() {
 // List Databases (Metadata + Real Stats)
 router.get('/databases', requireAuth, async (req, res) => {
     const userId = req.userId;
-    const isAdmin = req.userRole === 'admin';
+    const isAdmin = String(req.userRole).toLowerCase() === 'admin';
+    const targetUserId = req.query.targetUserId;
 
     let connection;
     try {
@@ -60,8 +80,13 @@ router.get('/databases', requireAuth, async (req, res) => {
         let params = [];
 
         if (!isAdmin) {
+            // Regular users can only see their own databases
             query += ' WHERE userId = ?';
             params.push(userId);
+        } else if (targetUserId) {
+            // Admins can filter by userId if requested (e.g., when managing a specific website)
+            query += ' WHERE userId = ?';
+            params.push(targetUserId);
         }
 
         query += ' ORDER BY createdAt DESC';
@@ -284,12 +309,30 @@ router.post('/databases/:id/rename', requireAuth, checkDatabaseOwnership, async 
 
 // --- USER MANAGEMENT ---
 
-// List all MySQL Users (for selection)
-router.get('/database-users', requireAdmin, async (req, res) => {
+// List all MySQL Users (for selection or management)
+router.get('/database-users', requireAuth, async (req, res) => {
+    const isAdmin = req.userRole === 'admin';
+    const userId = req.userId;
     let adminConn;
     try {
         adminConn = await getAdminConnection();
-        const [rows] = await adminConn.query(`SELECT User, Host FROM mysql.user WHERE User NOT IN ('root', 'mysql.session', 'mysql.sys', 'mariadb.sys')`);
+        // If not admin, only show users associated with their databases
+        let query = `SELECT User, Host FROM mysql.user WHERE User NOT IN ('root', 'mysql.session', 'mysql.sys', 'mariadb.sys')`;
+        if (!isAdmin) {
+            // This is a bit tricky as MySQL doesn't natively track 'creator' of a user.
+            // We'll show users that are currently associated with their databases in our 'databases' table.
+            const connection = await mysql.createConnection(dbConfig);
+            const [myDbs] = await connection.query('SELECT user FROM `databases` WHERE userId = ?', [userId]);
+            await connection.end();
+            const myUsers = [...new Set(myDbs.map(d => d.user))];
+
+            if (myUsers.length === 0) return res.json([]);
+            query += ` AND User IN (${myUsers.map(() => '?').join(',')})`;
+            const [rows] = await adminConn.query(query, myUsers);
+            return res.json(rows);
+        }
+
+        const [rows] = await adminConn.query(query);
         res.json(rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -299,7 +342,8 @@ router.get('/database-users', requireAdmin, async (req, res) => {
 });
 
 // Create MySQL User
-router.post('/database-users', requireAdmin, async (req, res) => {
+// Create MySQL User (Allowed for Auth users as long as they tag it to their DB soon)
+router.post('/database-users', requireAuth, async (req, res) => {
     const { username, password } = req.body;
     // Validate
     if (!/^[a-zA-Z0-9_]+$/.test(username)) return res.status(400).json({ error: 'Invalid username' });
@@ -318,8 +362,19 @@ router.post('/database-users', requireAdmin, async (req, res) => {
 });
 
 // Reset Password
-router.put('/database-users/:user/password', requireAdmin, async (req, res) => {
+// Reset Password (Admin or User owning a DB with this user)
+router.put('/database-users/:user/password', requireAuth, async (req, res) => {
     const { password } = req.body;
+    const isAdmin = req.userRole === 'admin';
+    const userId = req.userId;
+
+    if (!isAdmin) {
+        // Verify user owns at least one DB with this user
+        const connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query('SELECT id FROM `databases` WHERE user = ? AND userId = ?', [req.params.user, userId]);
+        await connection.end();
+        if (rows.length === 0) return res.status(403).json({ error: 'Permission denied to modify this user' });
+    }
     let adminConn;
     try {
         adminConn = await getAdminConnection();
@@ -335,7 +390,7 @@ router.put('/database-users/:user/password', requireAdmin, async (req, res) => {
 // --- DB ASSIGNMENT ---
 
 // List Users assigned to specific DB
-router.get('/databases/:name/users', requireAdmin, async (req, res) => {
+router.get('/databases/:name/users', requireAuth, checkDatabaseNameOwnership, async (req, res) => {
     let adminConn;
     try {
         adminConn = await getAdminConnection();
@@ -351,8 +406,15 @@ router.get('/databases/:name/users', requireAdmin, async (req, res) => {
 });
 
 // Grant User to DB
-router.post('/databases/:name/grant', requireAdmin, async (req, res) => {
+router.post('/databases/:name/grant', requireAuth, checkDatabaseNameOwnership, async (req, res) => {
     const { username, privileges } = req.body; // privileges array or 'ALL'
+    const isAdmin = req.userRole === 'admin';
+    const userId = req.userId;
+
+    if (!isAdmin) {
+        // Verify they are granting access to a user they 'own' or for a DB they own
+        // (checkDatabaseNameOwnership already verified they own the DB)
+    }
     let adminConn;
     try {
         adminConn = await getAdminConnection();
@@ -370,7 +432,7 @@ router.post('/databases/:name/grant', requireAdmin, async (req, res) => {
 });
 
 // Revoke User from DB
-router.post('/databases/:name/revoke', requireAdmin, async (req, res) => {
+router.post('/databases/:name/revoke', requireAuth, checkDatabaseNameOwnership, async (req, res) => {
     const { username } = req.body;
     let adminConn;
     try {
