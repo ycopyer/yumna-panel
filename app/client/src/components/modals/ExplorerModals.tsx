@@ -32,12 +32,22 @@ import ManageEmailModal from './ManageEmailModal';
 import MaintenanceModal from './MaintenanceModal';
 import AddBackupModal from './AddBackupModal';
 import AddSSHAccountModal from './AddSSHAccountModal';
+import SSLManagementModal from './SSLManagementModal';
+import AddBackupScheduleModal from './AddBackupScheduleModal';
+import AddRemoteStorageModal from './AddRemoteStorageModal';
+import ImageEditorModal from './ImageEditorModal';
+import DuplicateDetectorModal from './DuplicateDetectorModal';
+import MultiFileEditor from '../common/MultiFileEditor';
 
 interface ExplorerModalsProps {
     previewPdf: string | null;
     setPreviewPdf: (url: string | null) => void;
     shareFile: any;
     setShareFile: (file: any) => void;
+    openTabs: any[];
+    setOpenTabs: (tabs: any) => void;
+    activeTabId: string | null;
+    setActiveTabId: (id: string | null) => void;
     showSettings: boolean;
     setShowSettings: (show: boolean) => void;
     showUserManagement: boolean;
@@ -50,12 +60,6 @@ interface ExplorerModalsProps {
     setShowCreateFolder: (show: boolean) => void;
     renameItem: any;
     setRenameItem: (item: any) => void;
-    previewFile: string | null;
-    setPreviewFile: (url: string | null) => void;
-    previewFileItem: any;
-    setPreviewFileItem: (file: any) => void;
-    previewType: string | null;
-    setPreviewType: (type: any) => void;
     showActivityHistory: boolean;
     setShowActivityHistory: (show: boolean) => void;
     showTrash: boolean;
@@ -146,6 +150,20 @@ interface ExplorerModalsProps {
     showAddSSHAccount: boolean;
     setShowAddSSHAccount: (show: boolean) => void;
     fetchSSH: () => void;
+    showAddSSL: boolean;
+    setShowAddSSL: (show: boolean) => void;
+    fetchSSL: () => void;
+    showAddBackupSchedule: boolean;
+    setShowAddBackupSchedule: (show: boolean) => void;
+    showAddRemoteStorage: boolean;
+    setShowAddRemoteStorage: (show: boolean) => void;
+    showImageEditor: boolean;
+    setShowImageEditor: (show: boolean) => void;
+    imageEditorItem: any;
+    setImageEditorItem: (item: any) => void;
+    showDuplicateDetector: boolean;
+    setShowDuplicateDetector: (show: boolean) => void;
+    duplicateDetectorPath: string;
 }
 
 const ExplorerModals: React.FC<ExplorerModalsProps> = ({
@@ -157,9 +175,8 @@ const ExplorerModals: React.FC<ExplorerModalsProps> = ({
     showUpload, setShowUpload,
     showCreateFolder, setShowCreateFolder,
     renameItem, setRenameItem,
-    previewFile, setPreviewFile,
-    previewFileItem, setPreviewFileItem,
-    previewType, setPreviewType,
+    openTabs, setOpenTabs,
+    activeTabId, setActiveTabId,
     showActivityHistory, setShowActivityHistory,
     showTrash, setShowTrash,
     showAnalytics, setShowAnalytics,
@@ -202,7 +219,14 @@ const ExplorerModals: React.FC<ExplorerModalsProps> = ({
     showAddBackup, setShowAddBackup,
     showAddSSHAccount, setShowAddSSHAccount,
     fetchMail, fetchBackups, fetchSSH,
-    manageEmailDomain, setManageEmailDomain
+    manageEmailDomain, setManageEmailDomain,
+    showAddSSL, setShowAddSSL, fetchSSL,
+    showAddBackupSchedule, setShowAddBackupSchedule,
+    showAddRemoteStorage, setShowAddRemoteStorage,
+    showImageEditor, setShowImageEditor,
+    imageEditorItem, setImageEditorItem,
+    showDuplicateDetector, setShowDuplicateDetector,
+    duplicateDetectorPath
 }) => {
     const totalTransfers = activeDownloads.length + activeUploads.length;
     const activeTransfers = activeDownloads.filter(d => d.status === 'downloading').length +
@@ -421,26 +445,13 @@ const ExplorerModals: React.FC<ExplorerModalsProps> = ({
 
             {propertiesItem && <PropertiesModal item={propertiesItem} currentPath={activeView === 'drive' ? path : ''} role={user.role} onClose={() => setPropertiesItem(null)} onChangePermissions={changePermissions} />}
 
-            {previewFile && previewType && (
-                <FilePreview
-                    fileUrl={previewFile}
-                    fileName={previewFileItem?.name || 'Preview'}
-                    fileType={previewType as any}
-                    onClose={() => {
-                        setPreviewFile(null);
-                        setPreviewType(null);
-                        setPreviewFileItem(null);
-                    }}
-                    onDownload={() => {
-                        if (previewFileItem) downloadFile(previewFileItem);
-                    }}
-                    onSave={async (content) => {
-                        if (previewFileItem) {
-                            return await saveContent(previewFileItem, content);
-                        }
-                        return false;
-                    }}
-                    initialEditMode={initialEditMode}
+            {openTabs.length > 0 && (
+                <MultiFileEditor
+                    tabs={openTabs}
+                    activeTabId={activeTabId}
+                    setActiveTabId={setActiveTabId}
+                    setOpenTabs={setOpenTabs}
+                    onSave={saveContent}
                 />
             )}
 
@@ -452,6 +463,54 @@ const ExplorerModals: React.FC<ExplorerModalsProps> = ({
                         setShowAddSSHAccount(false);
                         fetchSSH();
                     }}
+                />
+            )}
+            {showAddSSL && (
+                <SSLManagementModal
+                    onClose={() => setShowAddSSL(false)}
+                    onSuccess={() => {
+                        setShowAddSSL(false);
+                        fetchSSL();
+                    }}
+                />
+            )}
+
+            {showAddBackupSchedule && (
+                <AddBackupScheduleModal
+                    onClose={() => setShowAddBackupSchedule(false)}
+                    onSuccess={() => {
+                        setShowAddBackupSchedule(false);
+                        fetchBackups();
+                    }}
+                />
+            )}
+
+            {showAddRemoteStorage && (
+                <AddRemoteStorageModal
+                    onClose={() => setShowAddRemoteStorage(false)}
+                    onSuccess={() => {
+                        setShowAddRemoteStorage(false);
+                        fetchBackups();
+                    }}
+                />
+            )}
+
+            {showImageEditor && imageEditorItem && (
+                <ImageEditorModal
+                    filePath={imageEditorItem.path || (path === '/' ? `/${imageEditorItem.name}` : `${path}/${imageEditorItem.name}`)}
+                    onClose={() => {
+                        setShowImageEditor(false);
+                        setImageEditorItem(null);
+                    }}
+                    onSaveSuccess={() => fetchFiles(path)}
+                />
+            )}
+
+            {showDuplicateDetector && (
+                <DuplicateDetectorModal
+                    path={duplicateDetectorPath}
+                    onClose={() => setShowDuplicateDetector(false)}
+                    onRefresh={() => fetchFiles(path)}
                 />
             )}
         </>

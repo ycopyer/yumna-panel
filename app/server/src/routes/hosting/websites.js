@@ -74,7 +74,7 @@ router.get('/websites', requireAuth, async (req, res) => {
 
 
 router.post('/websites', requireAuth, auditLogger('CREATE_WEBSITE'), async (req, res) => {
-    let { domain, rootPath, phpVersion, targetUserId } = req.body;
+    let { domain, rootPath, phpVersion, targetUserId, webStack } = req.body;
     let userId = req.userId;
     const isAdmin = req.userRole === 'admin';
 
@@ -82,8 +82,6 @@ router.post('/websites', requireAuth, auditLogger('CREATE_WEBSITE'), async (req,
     if (isAdmin && targetUserId) {
         userId = targetUserId;
     }
-
-
 
     const serverIp = process.env.SERVER_IP || '127.0.0.1';
 
@@ -121,8 +119,8 @@ router.post('/websites', requireAuth, auditLogger('CREATE_WEBSITE'), async (req,
 
         // 1. Create Website Entry
         const [webResult] = await connection.query(
-            'INSERT INTO websites (userId, domain, rootPath, phpVersion, status) VALUES (?, ?, ?, ?, ?)',
-            [userId, domain, rootPath, phpVersion || '8.2', 'active']
+            'INSERT INTO websites (userId, domain, rootPath, phpVersion, status, webStack) VALUES (?, ?, ?, ?, ?, ?)',
+            [userId, domain, rootPath, phpVersion || '8.2', 'active', webStack || 'nginx']
         );
         const websiteId = webResult.insertId;
 
@@ -214,8 +212,17 @@ router.post('/websites', requireAuth, auditLogger('CREATE_WEBSITE'), async (req,
 
         // Generate Web Server VHosts
         try {
-            await WebServerService.createNginxVHost(domain, rootPath, phpVersion);
-            await WebServerService.createApacheVHost(domain, rootPath);
+            if (webStack === 'apache') {
+                await WebServerService.createApacheVHost(domain, rootPath, 80);
+                await WebServerService.removeNginxVHost(domain);
+            } else if (webStack === 'hybrid') {
+                await WebServerService.createNginxVHost(domain, rootPath, phpVersion, false, null, null, 'hybrid');
+                await WebServerService.createApacheVHost(domain, rootPath, 8080);
+            } else {
+                // Default: Nginx Only
+                await WebServerService.createNginxVHost(domain, rootPath, phpVersion, false, null, null, 'nginx');
+                await WebServerService.removeApacheVHost(domain);
+            }
         } catch (vErr) {
             console.error('[VHOST ERROR]', vErr);
         }
@@ -238,12 +245,12 @@ router.post('/websites', requireAuth, auditLogger('CREATE_WEBSITE'), async (req,
 
 router.put('/websites/:id', requireAuth, checkWebsiteOwnership, async (req, res) => {
 
-    const { rootPath, phpVersion } = req.body;
+    const { rootPath, phpVersion, webStack } = req.body;
     try {
         const connection = await mysql.createConnection(dbConfig);
         await connection.query(
-            'UPDATE websites SET rootPath = ?, phpVersion = ? WHERE id = ?',
-            [rootPath, phpVersion, req.params.id]
+            'UPDATE websites SET rootPath = ?, phpVersion = ?, webStack = ? WHERE id = ?',
+            [rootPath, phpVersion, webStack, req.params.id]
         );
         await connection.end();
 
@@ -262,13 +269,23 @@ router.put('/websites/:id', requireAuth, checkWebsiteOwnership, async (req, res)
         try {
             const mysql = require('mysql2/promise');
             const connection = await mysql.createConnection(dbConfig);
-            const [sites] = await connection.query('SELECT domain FROM websites WHERE id = ?', [req.params.id]);
+            const [sites] = await connection.query('SELECT domain, webStack FROM websites WHERE id = ?', [req.params.id]);
             await connection.end();
 
             if (sites.length > 0) {
                 const domain = sites[0].domain;
-                await WebServerService.createNginxVHost(domain, rootPath, phpVersion);
-                await WebServerService.createApacheVHost(domain, rootPath);
+                const webStack = sites[0].webStack || 'nginx';
+
+                if (webStack === 'apache') {
+                    await WebServerService.createApacheVHost(domain, rootPath, 80);
+                    await WebServerService.removeNginxVHost(domain);
+                } else if (webStack === 'hybrid') {
+                    await WebServerService.createNginxVHost(domain, rootPath, phpVersion, false, null, null, 'hybrid');
+                    await WebServerService.createApacheVHost(domain, rootPath, 8080);
+                } else {
+                    await WebServerService.createNginxVHost(domain, rootPath, phpVersion, false, null, null, 'nginx');
+                    await WebServerService.removeApacheVHost(domain);
+                }
             }
         } catch (vErr) {
             console.error('[VHOST UPDATE ERROR]', vErr);

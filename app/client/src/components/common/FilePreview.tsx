@@ -11,6 +11,7 @@ interface FilePreviewProps {
     onDownload?: () => void;
     onSave?: (content: string) => Promise<boolean>;
     initialEditMode?: boolean;
+    isFullscreen?: boolean;
 }
 
 const getLanguageFromFileName = (fileName: string) => {
@@ -35,10 +36,13 @@ const getLanguageFromFileName = (fileName: string) => {
     }
 };
 
-const FilePreview: React.FC<FilePreviewProps> = ({ fileUrl, fileName, fileType, onClose, onDownload, onSave, initialEditMode }) => {
+const FilePreview: React.FC<FilePreviewProps> = ({ fileUrl, fileName, fileType, onClose, onDownload, onSave, initialEditMode, isFullscreen: propFullscreen }) => {
     const [zoom, setZoom] = useState(100);
     const [rotation, setRotation] = useState(0);
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [internalFullscreen, setInternalFullscreen] = useState(false);
+
+    const isFullscreen = propFullscreen || internalFullscreen;
+    const setIsFullscreen = setInternalFullscreen;
     const [textContent, setTextContent] = useState<string>('');
     const [loading, setLoading] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
@@ -100,14 +104,15 @@ const FilePreview: React.FC<FilePreviewProps> = ({ fileUrl, fileName, fileType, 
     return (
         <div
             style={{
-                position: 'fixed',
+                position: propFullscreen ? 'relative' : 'fixed',
                 inset: 0,
-                background: 'rgba(0, 0, 0, 0.95)',
-                backdropFilter: 'blur(8px)',
-                zIndex: 1000,
+                background: propFullscreen ? 'transparent' : 'rgba(0, 0, 0, 0.95)',
+                backdropFilter: propFullscreen ? 'none' : 'blur(8px)',
+                zIndex: propFullscreen ? 1 : 1000,
                 display: 'flex',
                 flexDirection: 'column',
-                padding: isFullscreen ? 0 : '24px'
+                padding: isFullscreen ? 0 : '24px',
+                height: '100%'
             }}
         >
             {/* Header */}

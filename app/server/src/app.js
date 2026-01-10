@@ -17,13 +17,13 @@ const app = express();
 // Rate limiting
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: 10000, // Increased to handle multiple tabs polling monitoring endpoints
     message: { error: 'Too many requests, please try again later.' }
 });
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 50, // Increased for smoother testing
+    max: 100, // Increased for smoother testing
     message: { error: 'Too many login attempts, please try again after 15 minutes.' }
 });
 
@@ -104,6 +104,7 @@ app.use('/api', require('./routes/system/cron'));
 app.use('/api', require('./routes/hosting')); // Points to index.js
 app.use('/api', require('./routes/system/notifications'));
 app.use('/api', require('./routes/system/services'));
+app.use('/api', require('./routes/system/security'));
 
 // Serve Frontend in Production
 const clientBuildPath = path.join(__dirname, '../../client/dist');
@@ -112,6 +113,9 @@ app.use(express.static(clientBuildPath));
 // Catch-all route for SPA (React Router)
 app.get('*', (req, res) => {
     if (!req.path.startsWith('/api/') && !req.path.startsWith('/uploads/')) {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
         res.sendFile(path.join(clientBuildPath, 'index.html'), (err) => {
             if (err) {
                 // If index.html doesn't exist, just send a 404 or a basic response

@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
     Download, Share2, Edit3, Trash2, Info, ExternalLink,
-    Star, CornerUpRight, Copy, CheckCircle2, Archive, FileEdit
+    Star, CornerUpRight, Copy, CheckCircle2, Archive, FileEdit, Search
 } from 'lucide-react';
 
 interface ContextMenuProps {
@@ -63,6 +63,9 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     const isTextFile = ['txt', 'md', 'log', 'json', 'xml', 'csv', 'js', 'ts', 'tsx', 'jsx', 'css', 'html', 'php', 'py', 'java', 'c', 'cpp', 'h', 'sql']
         .includes(file.name.split('.').pop()?.toLowerCase() || '');
 
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp']
+        .includes(file.name.split('.').pop()?.toLowerCase() || '');
+
     // Use portal to render at root level to avoid parent transform/positioning issues
     return createPortal(
         <div
@@ -93,6 +96,14 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
                     icon={FileEdit}
                     label="Edit Content"
                     onClick={() => onAction('edit-content', file)}
+                />
+            )}
+
+            {isImage && user.role !== 'viewer' && (
+                <MenuItem
+                    icon={Edit3}
+                    label="Edit Image"
+                    onClick={() => onAction('edit-image', file)}
                 />
             )}
 
@@ -164,6 +175,17 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
                 label="View Details / Properties"
                 onClick={() => onAction('properties', file)}
             />
+
+            {file.type === 'directory' && user.role !== 'viewer' && (
+                <>
+                    <Divider />
+                    <MenuItem
+                        icon={Search}
+                        label="Scan for Duplicates"
+                        onClick={() => onAction('scan-duplicates', file)}
+                    />
+                </>
+            )}
 
             {file.name.toLowerCase().endsWith('.pdf') && (
                 <>

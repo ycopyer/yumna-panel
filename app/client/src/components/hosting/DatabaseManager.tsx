@@ -43,7 +43,7 @@ const DatabaseManager: React.FC<DatabaseManagerProps> = ({ databases, loading, o
                         />
                     </div>
                     <a
-                        href="/phpmyadmin"
+                        href="http://localhost:8090"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-lg active:scale-95"
@@ -128,7 +128,7 @@ const DatabaseManager: React.FC<DatabaseManagerProps> = ({ databases, loading, o
                                         Manage
                                     </button>
                                     <a
-                                        href={`/phpmyadmin/index.php?db=${db.name}`}
+                                        href={`http://localhost:8090/index.php?db=${db.name}`}
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="p-2.5 rounded-xl bg-[var(--bg-card)] hover:bg-blue-500 hover:text-white border border-[var(--border)] hover:border-blue-500 text-[var(--text-muted)] transition-all flex items-center justify-center group/pma"

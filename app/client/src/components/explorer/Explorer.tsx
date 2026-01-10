@@ -4,6 +4,7 @@ import Sidebar from '../layout/Sidebar';
 import ExplorerHeader from './ExplorerHeader';
 import ExplorerModals from '../modals/ExplorerModals';
 import ContextMenu from './ContextMenu';
+import MultiFileEditor from '../common/MultiFileEditor';
 import ExplorerBreadcrumbs from './ExplorerBreadcrumbs';
 import ExplorerFileList from './ExplorerFileList';
 import PWAInstallPrompt from '../common/PWAInstallPrompt';
@@ -17,6 +18,22 @@ import PluginManager from '../admin/PluginManager';
 import Terminal from '../system/Terminal';
 import SSHManager from '../system/SSHManager';
 import CronManager from '../system/CronManager';
+import SSLManager from '../hosting/SSLManager';
+import FTPManager from '../hosting/FTPManager';
+import AppInstaller from '../hosting/AppInstaller';
+import ResourceMonitor from '../hosting/ResourceMonitor';
+import Fail2BanManager from '../security/Fail2BanManager';
+import SecurityAuditViewer from '../security/SecurityAuditViewer';
+import ModSecurityManager from '../security/ModSecurityManager';
+import MalwareScanner from '../security/MalwareScanner';
+import FileIntegrityManager from '../security/FileIntegrityManager';
+import VulnerabilityScanner from '../security/VulnerabilityScanner';
+import TwoFactorManager from '../security/TwoFactorManager';
+import SecurityDashboard from '../security/SecurityDashboard';
+import SecurityCenter from '../security/SecurityCenter';
+import DomainManager from '../hosting/DomainManager';
+import CollaborationManager from '../hosting/CollaborationManager';
+import WebsiteManager from '../hosting/WebsiteManager';
 
 interface ExplorerProps {
     user: { userId?: number, id?: number, username: string, role: string };
@@ -72,13 +89,22 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         manageEmailDomain, setManageEmailDomain,
         showMaintenance, setShowMaintenance,
         showAddBackup, setShowAddBackup,
+        showAddBackupSchedule, setShowAddBackupSchedule,
+        showAddRemoteStorage, setShowAddRemoteStorage,
         showTerminal, setShowTerminal,
         showAddSSHAccount, setShowAddSSHAccount,
         showServiceManager, setShowServiceManager,
-        fetchWebsites, fetchDatabases, fetchDNS, fetchPHP, fetchMail, fetchBackups, fetchSSH, phpOperations,
+        showAddSSL, setShowAddSSL,
+        fetchWebsites, fetchDatabases, fetchDNS, fetchPHP, fetchMail, fetchBackups, fetchSSH, fetchSSL, fetchFTP, phpOperations,
         installPHPVersion, uninstallPHPVersion, setPHPDefaultVersion,
         saveContent, changePermissions,
-        previewEdit, setPreviewEdit
+        previewEdit, setPreviewEdit,
+        showImageEditor, setShowImageEditor,
+        imageEditorItem, setImageEditorItem,
+        showDuplicateDetector, setShowDuplicateDetector,
+        duplicateDetectorPath, setDuplicateDetectorPath,
+        openTabs, setOpenTabs,
+        activeTabId, setActiveTabId
     } = useExplorer(user, onLogout);
 
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -96,8 +122,22 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         else if (view === 'mail') fetchMail();
         else if (view === 'backups') fetchBackups();
         else if (view === 'ssh') fetchSSH();
+        else if (view === 'ssl') fetchSSL();
+        else if (view === 'ftp') fetchFTP();
         else if (view === 'cron') setActiveView('cron');
         else if (view === 'plugins') setActiveView('plugins');
+        else if (view === 'domains') setActiveView('domains');
+        else if (view === 'collaboration') setActiveView('collaboration');
+        else if (view === 'monitor') setActiveView('monitor');
+        else if (view === 'audit') setActiveView('audit');
+        else if (view === 'security-dashboard') setActiveView('security-dashboard');
+        else if (view === 'fail2ban') setActiveView('fail2ban');
+        else if (view === 'waf') setActiveView('waf');
+        else if (view === 'malware') setActiveView('malware');
+        else if (view === 'integrity') setActiveView('integrity');
+        else if (view === 'vulnerability') setActiveView('vulnerability');
+        else if (view === '2fa') setActiveView('2fa');
+        else if (view === 'security-center') setActiveView('security-center');
         setIsSidebarOpen(false);
     };
 
@@ -111,7 +151,9 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
             'preview': viewPreview, 'download': downloadFile, 'favorite': toggleFavorite,
             'share': setShareFile, 'rename': setRenameItem, 'delete': deleteItem,
             'properties': setPropertiesItem, 'verify': checkPdfContent, 'move': setMoveItem,
-            'copy': setCopyItem, 'extract': extractArchive, 'edit-content': (d: any) => viewPreview(d, true)
+            'copy': setCopyItem, 'extract': extractArchive, 'edit-content': (d: any) => viewPreview(d, true),
+            'edit-image': (d: any) => { setImageEditorItem(d); setShowImageEditor(true); },
+            'scan-duplicates': (d: any) => { setDuplicateDetectorPath(d.path || (path === '/' ? `/${d.name}` : `${path}/${d.name}`)); setShowDuplicateDetector(true); }
         };
         actions[action]?.(file);
     };
@@ -194,22 +236,31 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
 
             <main className="flex-1 flex flex-col p-6 md:p-10 transition-all duration-300 overflow-hidden">
                 <ExplorerHeader
-                    searchQuery={searchQuery} setSearchQuery={setSearchQuery} searchType={searchType} setSearchType={setSearchType} performSearch={performSearch} user={user}
-                    selectedFiles={selectedFiles} downloadSelected={downloadSelected} onCompress={() => setShowCompressModal(true)} toggleTheme={toggleTheme} isDarkMode={isDarkMode}
-                    downloadFileList={downloadFileList} viewMode={viewMode} setViewMode={setViewMode} onOpenSettings={() => setShowSettings(true)} avatarUrl={userProfile.avatar}
-                    currentPath={path} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} activeView={activeView}
+                    user={user}
+                    onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+                    toggleTheme={toggleTheme}
+                    isDarkMode={isDarkMode}
+                    onOpenSettings={() => setShowSettings(true)}
+                    onLogout={onLogout}
+                    avatarUrl={userProfile.avatar}
                 />
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4" onDragEnter={(e) => { e.preventDefault(); if (user.role !== 'viewer') setIsDragging(true); }}>
                     <ExplorerBreadcrumbs activeView={activeView} path={path} fetchFiles={fetchFiles} clearRecentFiles={clearRecentFiles} setShowAddWebsite={setShowAddWebsite} setShowAddDatabase={setShowAddDatabase} setShowAddDNS={setShowAddDNS} />
-                    <div className="flex items-center justify-between md:justify-end gap-6 text-[var(--text-muted)] text-sm font-semibold">
-                        <div className="flex items-center gap-3 bg-[var(--nav-hover)] px-4 py-2 rounded-full border border-[var(--border)]"><span>{filteredFiles.filter(f => f.type === 'file').length} items</span><span className="opacity-20">|</span><span>{filteredFiles.filter(f => f.type === 'directory').length} folders</span></div>
-                        <div className="hidden sm:flex items-center gap-2 text-[var(--primary)] bg-[var(--primary)]/10 px-4 py-2 rounded-full border border-[var(--primary)]/20"><Shield size={14} /><span>Secure Workspace</span></div>
-                    </div>
                 </div>
 
                 <div className="flex-1 overflow-auto pr-2 custom-scrollbar">
-                    {activeView === 'databases' ? (
+                    {activeView === 'websites' ? (
+                        <WebsiteManager
+                            userId={userId}
+                            userRole={user.role}
+                            onManageWebsite={(website: any) => {
+                                setManageWebsite(website);
+                                setShowWebsiteManagement(true);
+                            }}
+                            onOpenPath={handleOpenPath}
+                        />
+                    ) : activeView === 'databases' ? (
                         <DatabaseManager
                             databases={files}
                             loading={loading}
@@ -251,6 +302,8 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                             loading={loading}
                             onRefresh={fetchBackups}
                             onAddBackup={() => setShowAddBackup(true)}
+                            onAddSchedule={() => setShowAddBackupSchedule(true)}
+                            onAddStorage={() => setShowAddRemoteStorage(true)}
                         />
                     ) : activeView === 'ssh' ? (
                         <SSHManager
@@ -259,10 +312,55 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                             onRefresh={fetchSSH}
                             onAddAccount={() => setShowAddSSHAccount(true)}
                         />
+                    ) : activeView === 'ssl' ? (
+                        <SSLManager
+                            certificates={files}
+                            loading={loading}
+                            onRefresh={fetchSSL}
+                            onAddSSL={() => setShowAddSSL(true)}
+                        />
+                    ) : activeView === 'apps' ? (
+                        <AppInstaller
+                            userId={user.userId || user.id || 0}
+                            userRole={user.role}
+                        />
+                    ) : activeView === 'monitor' ? (
+                        <ResourceMonitor />
+                    ) : activeView === 'fail2ban' ? (
+                        <Fail2BanManager />
+                    ) : activeView === 'audit' ? (
+                        <SecurityAuditViewer />
+                    ) : activeView === 'waf' ? (
+                        <ModSecurityManager />
+                    ) : activeView === 'malware' ? (
+                        <MalwareScanner />
+                    ) : activeView === 'integrity' ? (
+                        <FileIntegrityManager />
+                    ) : activeView === 'vulnerability' ? (
+                        <VulnerabilityScanner />
+                    ) : activeView === '2fa' ? (
+                        <TwoFactorManager />
+                    ) : activeView === 'security-center' ? (
+                        <SecurityCenter />
+                    ) : activeView === 'ftp' ? (
+                        <FTPManager
+                            accounts={files}
+                            loading={loading}
+                            onRefresh={fetchFTP}
+                            onAddAccount={() => (window as any).showCreateFTPModal?.()}
+                        />
                     ) : activeView === 'cron' ? (
                         <CronManager />
                     ) : activeView === 'plugins' ? (
                         <PluginManager />
+                    ) : activeView === 'domains' ? (
+                        <DomainManager />
+                    ) : activeView === 'collaboration' ? (
+                        <CollaborationManager
+                            websiteId={manageWebsite?.id || (files.length > 0 ? (files[0] as any).id : 0)}
+                            websiteDomain={manageWebsite?.domain || (files.length > 0 ? (files[0] as any).domain || files[0].name : '')}
+                            isOwner={user.role === 'admin' || user.userId === 1 || user.id === 1}
+                        />
                     ) : (
                         <ExplorerFileList
                             loading={loading} filteredFiles={filteredFiles} searchQuery={searchQuery} isSearchActive={isSearchActive} activeView={activeView} viewMode={viewMode}
@@ -282,7 +380,11 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
             </main>
 
             <ExplorerModals
-                previewPdf={previewPdf} setPreviewPdf={setPreviewPdf} shareFile={shareFile} setShareFile={setShareFile} showSettings={showSettings} setShowSettings={setShowSettings} showUserManagement={showUserManagement} setShowUserManagement={setShowUserManagement} showShareManagement={showShareManagement} setShowShareManagement={setShowShareManagement} showUpload={showUpload} setShowUpload={setShowUpload} showCreateFolder={showCreateFolder} setShowCreateFolder={setShowCreateFolder} renameItem={renameItem} setRenameItem={setRenameItem} previewFile={previewFile} setPreviewFile={setPreviewFile} previewFileItem={previewFileItem} setPreviewFileItem={setPreviewFileItem} previewType={previewType} setPreviewType={setPreviewType} showActivityHistory={showActivityHistory} setShowActivityHistory={setShowActivityHistory} showTrash={showTrash} setShowTrash={setShowTrash} showAnalytics={showAnalytics} setShowAnalytics={setShowAnalytics} showSiteSettings={showSiteSettings} setShowSiteSettings={setShowSiteSettings} downloadProgress={downloadProgress} propertiesItem={propertiesItem} setPropertiesItem={setPropertiesItem} path={path} userId={userId} user={user} files={files} fetchFiles={fetchFiles} fetchSiteSettings={fetchSiteSettings} downloadFileList={downloadFileList} downloadFile={downloadFile} activeView={activeView} siteSettings={siteSettings} activeDownloads={activeDownloads} setActiveDownloads={setActiveDownloads} activeUploads={activeUploads} setActiveUploads={setActiveUploads} isManagerOpen={isManagerOpen} setIsManagerOpen={setIsManagerOpen} cancelDownload={cancelDownload} showSecuritySettings={showSecuritySettings} setShowSecuritySettings={setShowSecuritySettings} userProfile={userProfile} toggle2FA={toggle2FA} fetchUserProfile={fetchUserProfile} showAddWebsite={showAddWebsite} setShowAddWebsite={setShowAddWebsite} showWebsiteManagement={showWebsiteManagement} setShowWebsiteManagement={setShowWebsiteManagement} manageWebsite={manageWebsite} setManageWebsite={setManageWebsite} websiteTab={websiteTab} showAddDatabase={showAddDatabase} setShowAddDatabase={setShowAddDatabase} showAddDNS={showAddDNS} setShowAddDNS={setShowAddDNS} fetchWebsites={fetchWebsites} fetchDatabases={fetchDatabases} fetchDNS={fetchDNS} serverPulse={serverPulse} showServiceManager={showServiceManager} setShowServiceManager={setShowServiceManager} showFirewall={showFirewall} setShowFirewall={setShowFirewall} firewallTab={firewallTab} moveItem={moveItem} setMoveItem={setMoveItem} copyItem={copyItem} setCopyItem={setCopyItem} showCompressModal={showCompressModal} setShowCompressModal={setShowCompressModal} compressItems={compressItems} setCompressItems={setCompressItems} selectedFiles={selectedFiles} compressSelection={compressSelection}
+                previewPdf={previewPdf} setPreviewPdf={setPreviewPdf} shareFile={shareFile} setShareFile={setShareFile}
+                openTabs={openTabs} setOpenTabs={setOpenTabs} activeTabId={activeTabId} setActiveTabId={setActiveTabId}
+                showSettings={showSettings} setShowSettings={setShowSettings} showUserManagement={showUserManagement} setShowUserManagement={setShowUserManagement} showShareManagement={showShareManagement} setShowShareManagement={setShowShareManagement} showUpload={showUpload} setShowUpload={setShowUpload} showCreateFolder={showCreateFolder} setShowCreateFolder={setShowCreateFolder} renameItem={renameItem} setRenameItem={setRenameItem} showActivityHistory={showActivityHistory} setShowActivityHistory={setShowActivityHistory} showTrash={showTrash} setShowTrash={setShowTrash} showAnalytics={showAnalytics} setShowAnalytics={setShowAnalytics} showSiteSettings={showSiteSettings} setShowSiteSettings={setShowSiteSettings} downloadProgress={downloadProgress} propertiesItem={propertiesItem} setPropertiesItem={setPropertiesItem} path={path} userId={userId} user={user} files={files} fetchFiles={fetchFiles} fetchSiteSettings={fetchSiteSettings} downloadFileList={downloadFileList} downloadFile={downloadFile} activeView={activeView} siteSettings={siteSettings} activeDownloads={activeDownloads} setActiveDownloads={setActiveDownloads} activeUploads={activeUploads} setActiveUploads={setActiveUploads} isManagerOpen={isManagerOpen} setIsManagerOpen={setIsManagerOpen} cancelDownload={cancelDownload} showSecuritySettings={showSecuritySettings} setShowSecuritySettings={setShowSecuritySettings} userProfile={userProfile} toggle2FA={toggle2FA} fetchUserProfile={fetchUserProfile} showAddWebsite={showAddWebsite} setShowAddWebsite={setShowAddWebsite} showWebsiteManagement={showWebsiteManagement} setShowWebsiteManagement={setShowWebsiteManagement} manageWebsite={manageWebsite} setManageWebsite={setManageWebsite} websiteTab={websiteTab} showAddDatabase={showAddDatabase} setShowAddDatabase={setShowAddDatabase} showAddDNS={showAddDNS} setShowAddDNS={setShowAddDNS} fetchWebsites={fetchWebsites} fetchDatabases={fetchDatabases} fetchDNS={fetchDNS} serverPulse={serverPulse} showServiceManager={showServiceManager} setShowServiceManager={setShowServiceManager} showFirewall={showFirewall} setShowFirewall={setShowFirewall} firewallTab={firewallTab} moveItem={moveItem} setMoveItem={setMoveItem} copyItem={copyItem} setCopyItem={setCopyItem} showCompressModal={showCompressModal} setShowCompressModal={setShowCompressModal} compressItems={compressItems} setCompressItems={setCompressItems} selectedFiles={selectedFiles} compressSelection={compressSelection}
+                saveContent={saveContent} changePermissions={changePermissions}
+                initialEditMode={previewEdit}
                 showPHPExtensions={showPHPExtensions} setShowPHPExtensions={setShowPHPExtensions}
                 showPHPConfig={showPHPConfig} setShowPHPConfig={setShowPHPConfig}
                 showAddPHPVersion={showAddPHPVersion} setShowAddPHPVersion={setShowAddPHPVersion}
@@ -291,12 +393,16 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                 manageEmailDomain={manageEmailDomain} setManageEmailDomain={setManageEmailDomain}
                 showMaintenance={showMaintenance} setShowMaintenance={setShowMaintenance}
                 showAddBackup={showAddBackup} setShowAddBackup={setShowAddBackup}
+                showAddBackupSchedule={showAddBackupSchedule} setShowAddBackupSchedule={setShowAddBackupSchedule}
+                showAddRemoteStorage={showAddRemoteStorage} setShowAddRemoteStorage={setShowAddRemoteStorage}
                 showAddSSHAccount={showAddSSHAccount} setShowAddSSHAccount={setShowAddSSHAccount}
+                showImageEditor={showImageEditor} setShowImageEditor={setShowImageEditor}
+                imageEditorItem={imageEditorItem} setImageEditorItem={setImageEditorItem}
+                showDuplicateDetector={showDuplicateDetector} setShowDuplicateDetector={setShowDuplicateDetector}
+                duplicateDetectorPath={duplicateDetectorPath}
                 fetchPHP={fetchPHP} fetchMail={fetchMail} fetchBackups={fetchBackups} fetchSSH={fetchSSH} onInstallVersion={installPHPVersion}
+                showAddSSL={showAddSSL} setShowAddSSL={setShowAddSSL} fetchSSL={fetchSSL}
                 onOpenPath={handleOpenPath}
-                saveContent={saveContent}
-                changePermissions={changePermissions}
-                initialEditMode={previewEdit}
             />
             {showTerminal && <Terminal onClose={() => setShowTerminal(false)} />}
             <PWAInstallPrompt />

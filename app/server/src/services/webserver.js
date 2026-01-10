@@ -53,10 +53,7 @@ class WebServerService {
         };
     }
 
-    /**
-     * Generate Nginx VHost (Cross-Platform)
-     */
-    static async createNginxVHost(domain, rootPath, phpVersion = '8.2', ssl = false) {
+    static async createNginxVHost(domain, rootPath, phpVersion = '8.2', ssl = false, customCert = null, customKey = null, stack = 'nginx') {
         const { nginx, isWin } = this.getConfigs();
 
         // Normalize path for config file
@@ -70,27 +67,20 @@ class WebServerService {
         const sslPath = 'C:/YumnaPanel/etc/ssl';
         const logDir = 'C:/YumnaPanel/logs/nginx';
 
-        if (ssl) {
-            // HTTPS Configuration (with HTTP -> HTTPS Redirect)
-            config = `
-server {
-    listen 80;
-    server_name ${domain} www.${domain};
-    return 301 https://$host$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name ${domain} www.${domain};
-    root "${normalizedRoot}";
-    index index.php index.html;
-
-    access_log "${logDir}/${domain}.access.log";
-    error_log "${logDir}/${domain}.error.log";
-
-    ssl_certificate "${sslPath}/${domain}-chain.pem";
-    ssl_certificate_key "${sslPath}/${domain}-key.pem";
-
+        // Logic for different stacks
+        let locationBlock = '';
+        if (stack === 'hybrid') {
+            locationBlock = `
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+`;
+        } else {
+            locationBlock = `
     location / {
         try_files $uri $uri/ /index.php?$query_string;
     }
@@ -102,6 +92,39 @@ server {
         include fastcgi_params;
         fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
     }
+`;
+        }
+
+        // Sanitize domain
+        domain = domain.trim().replace(/^\.*|\.*$/g, '');
+        const wwwDomain = domain.startsWith('www.') ? domain : `www.${domain}`;
+        const baseDomain = domain.startsWith('www.') ? domain.substring(4) : domain;
+
+        if (ssl) {
+            const certFile = customCert || `${sslPath}/${baseDomain}-chain.pem`;
+            const keyFile = customKey || `${sslPath}/${baseDomain}-key.pem`;
+
+            // HTTPS Configuration (with HTTP -> HTTPS Redirect)
+            config = `
+server {
+    listen 80;
+    server_name ${baseDomain} ${wwwDomain};
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${baseDomain} ${wwwDomain};
+    root "${normalizedRoot}";
+    index index.php index.html;
+
+    access_log "${logDir}/${baseDomain}.access.log";
+    error_log "${logDir}/${baseDomain}.error.log";
+
+    ssl_certificate "${certFile}";
+    ssl_certificate_key "${keyFile}";
+
+    ${locationBlock}
 
     location = /yumna_blocked.html {
         alias "C:/YumnaPanel/etc/nginx/html/403.html";
@@ -114,24 +137,14 @@ server {
             config = `
 server {
     listen 80;
-    server_name ${domain} www.${domain};
+    server_name ${baseDomain} ${wwwDomain};
     root "${normalizedRoot}";
     index index.php index.html;
 
-    access_log "${logDir}/${domain}.access.log";
-    error_log "${logDir}/${domain}.error.log";
+    access_log "${logDir}/${baseDomain}.access.log";
+    error_log "${logDir}/${baseDomain}.error.log";
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \\.php$ {
-        fastcgi_split_path_info ^(.+\\.php)(/.+)$;
-        fastcgi_pass ${isWin ? `127.0.0.1:${phpPort}` : `unix:/var/run/php/php${phpVersion}-fpm.sock`};
-        fastcgi_index index.php;
-        include fastcgi_params;
-        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
-    }
+    ${locationBlock}
 
     location = /yumna_blocked.html {
         alias "C:/YumnaPanel/etc/nginx/html/403.html";
@@ -141,7 +154,7 @@ server {
 }`;
         }
 
-        const fileName = isWin ? `${domain}.conf` : domain;
+        const fileName = isWin ? `${baseDomain}.conf` : baseDomain;
         const availablePath = path.join(nginx.available, fileName);
 
         // 1. Ensure directory exists
@@ -149,7 +162,7 @@ server {
 
         // 2. Write Config
         await fs.writeFile(availablePath, config);
-        console.log(`[WEBSERVER] Nginx config created at ${availablePath} (SSL: ${ssl})`);
+        console.log(`[WEBSERVER] Nginx config created at ${availablePath} (SSL: ${ssl}, Stack: ${stack})`);
 
         // 3. Symbolic Link (Linux Only)
         if (!isWin) {
@@ -164,7 +177,7 @@ server {
         });
 
         // 5. Ensure PHP Process (Windows Only)
-        if (isWin && phpPort) {
+        if (isWin && phpPort && stack !== 'hybrid') {
             try {
                 const { findPHPDir } = require('../utils/phpUtils');
                 const phpDir = findPHPDir(phpVersion);
@@ -177,30 +190,48 @@ server {
         }
     }
 
+    static async removeNginxVHost(domain) {
+        const { nginx, isWin } = this.getConfigs();
+        const fileName = isWin ? `${domain}.conf` : domain;
+        const availablePath = path.join(nginx.available, fileName);
+        const enabledPath = isWin ? null : path.join(nginx.enabled, fileName);
+
+        try {
+            if (enabledPath) await fs.unlink(enabledPath).catch(() => { });
+            await fs.unlink(availablePath).catch(() => { });
+            exec(nginx.reload);
+        } catch (e) { }
+    }
+
 
     /**
      * Enable SSL for an existing site
      */
-    static async enableSSL(domain, rootPath, phpVersion = '8.2') {
-        await this.createNginxVHost(domain, rootPath, phpVersion, true);
+    static async enableSSL(domain, rootPath, phpVersion = '8.2', customCert = null, customKey = null) {
+        await this.createNginxVHost(domain, rootPath, phpVersion, true, customCert, customKey);
     }
 
     /**
      * Generate Apache VHost (Cross-Platform)
      */
-    static async createApacheVHost(domain, rootPath) {
+    static async createApacheVHost(domain, rootPath, port = 80) {
         const { apache, isWin } = this.getConfigs();
         const normalizedRoot = rootPath.replace(/\\/g, '/');
         const logDir = 'C:/YumnaPanel/logs/apache';
 
+        // Sanitize domain
+        domain = domain.trim().replace(/^\.*|\.*$/g, '');
+        const wwwDomain = domain.startsWith('www.') ? domain : `www.${domain}`;
+        const baseDomain = domain.startsWith('www.') ? domain.substring(4) : domain;
+
         const config = `
-<VirtualHost *:80>
-    ServerName ${domain}
-    ServerAlias www.${domain}
+<VirtualHost *:${port}>
+    ServerName ${baseDomain}
+    ServerAlias ${wwwDomain}
     DocumentRoot "${normalizedRoot}"
 
-    ErrorLog "${logDir}/${domain}.error.log"
-    CustomLog "${logDir}/${domain}.access.log" combined
+    ErrorLog "${logDir}/${baseDomain}.error.log"
+    CustomLog "${logDir}/${baseDomain}.access.log" combined
 
     <Directory "${normalizedRoot}">
         AllowOverride All
@@ -211,12 +242,12 @@ server {
     </Directory>
 </VirtualHost>`;
 
-        const fileName = `${domain}.conf`;
+        const fileName = `${baseDomain}.conf`;
         const availablePath = path.join(apache.available, fileName);
 
         await fs.mkdir(apache.available, { recursive: true });
         await fs.writeFile(availablePath, config);
-        console.log(`[WEBSERVER] Apache config created at ${availablePath}`);
+        console.log(`[WEBSERVER] Apache config created at ${availablePath} (Port: ${port})`);
 
         if (!isWin) {
             exec(`sudo a2ensite ${fileName}`);
@@ -226,6 +257,18 @@ server {
             if (err) console.error(`[WEBSERVER] Failed to reload Apache: ${err.message}`);
             else console.log('[WEBSERVER] Apache reloaded successfully');
         });
+    }
+
+    static async removeApacheVHost(domain) {
+        const { apache, isWin } = this.getConfigs();
+        const fileName = `${domain}.conf`;
+        const availablePath = path.join(apache.available, fileName);
+
+        try {
+            if (!isWin) exec(`sudo a2dissite ${fileName}`);
+            await fs.unlink(availablePath).catch(() => { });
+            exec(apache.reload);
+        } catch (e) { }
     }
 
     /**

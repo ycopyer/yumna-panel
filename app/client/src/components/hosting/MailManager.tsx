@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mail, Plus, Trash2, Shield, Settings, ExternalLink, Activity, Users } from 'lucide-react';
+import { Mail, Plus, Trash2, Shield, Settings, ExternalLink, Activity, Users, Globe } from 'lucide-react';
 
 interface MailManagerProps {
     domains: any[];
@@ -93,13 +93,15 @@ const MailManager: React.FC<MailManagerProps> = ({ domains, loading, onRefresh, 
                                 <button onClick={() => onManageDomain(domain)} className="flex-1 py-3 rounded-xl bg-[var(--nav-hover)] text-[var(--text-main)] font-bold text-xs hover:bg-[var(--primary)] hover:text-white transition-all border border-[var(--border)]">
                                     Manage Accounts
                                 </button>
-                                <button className="p-3 rounded-xl bg-[var(--nav-hover)] text-[var(--text-muted)] hover:text-sky-500 border border-[var(--border)] transition-all">
-                                    <Settings size={16} />
-                                </button>
-                                <button className="p-3 rounded-xl bg-[var(--nav-hover)] text-[var(--text-muted)] hover:text-amber-500 border border-[var(--border)] transition-all">
-                                    <ExternalLink size={16} />
+                                <button
+                                    onClick={() => window.open(`http://webmail.${domain.domain}`, '_blank')}
+                                    className="p-3 rounded-xl bg-[var(--nav-hover)] text-[var(--text-muted)] hover:text-sky-500 border border-[var(--border)] transition-all flex items-center justify-center gap-2 px-4 whitespace-nowrap"
+                                >
+                                    <Globe size={16} />
+                                    <span className="text-[10px] font-black uppercase">Webmail</span>
                                 </button>
                             </div>
+
                         </div>
                     ))}
                 </div>

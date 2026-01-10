@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Info, File, Folder, Calendar, HardDrive, Shield, User, Hash, Gavel, Scale, AlertCircle, Loader2 } from 'lucide-react';
+import { X, Info, File, Folder, Calendar, HardDrive, Shield, User, Hash, Gavel, Scale, AlertCircle, Loader2, History, Clock as ClockIcon } from 'lucide-react';
 import axios from 'axios';
+import FileVersionHistoryModal from './FileVersionHistoryModal';
 
 interface FileItem {
     name: string;
@@ -31,6 +32,7 @@ const PropertiesModal: React.FC<PropertiesModalProps> = ({ item, currentPath, ro
     const getOctal = (mode?: number) => mode ? (mode & 0o777).toString(8).padStart(3, '0') : '644';
     const [permissionInput, setPermissionInput] = useState(getOctal(item.permissions));
     const [savingPerms, setSavingPerms] = useState(false);
+    const [showHistory, setShowHistory] = useState(false);
 
     const fullPath = item.path || (currentPath === '/' ? `/${item.name}` : `${currentPath}/${item.name}`);
 
@@ -292,6 +294,17 @@ const PropertiesModal: React.FC<PropertiesModalProps> = ({ item, currentPath, ro
                         )}
                     </div>
 
+                    {item.type === 'file' && (
+                        <div style={{ marginTop: '12px' }}>
+                            <button
+                                onClick={() => setShowHistory(true)}
+                                className="w-full py-3 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-xl border border-indigo-500/20 text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                            >
+                                <History size={16} /> View Version History
+                            </button>
+                        </div>
+                    )}
+
                     <div style={{ marginTop: '12px' }}>
                         <button
                             onClick={onClose}
@@ -303,6 +316,17 @@ const PropertiesModal: React.FC<PropertiesModalProps> = ({ item, currentPath, ro
                     </div>
                 </div>
             </div>
+
+            {showHistory && (
+                <FileVersionHistoryModal
+                    filePath={fullPath}
+                    onClose={() => setShowHistory(false)}
+                    onRestoreSuccess={() => {
+                        setShowHistory(false);
+                        onClose();
+                    }}
+                />
+            )}
         </div>
     );
 };

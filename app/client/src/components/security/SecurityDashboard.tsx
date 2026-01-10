@@ -309,7 +309,9 @@ const SecurityDashboard: React.FC = () => {
                                                 <div className="flex items-center gap-4 mt-1">
                                                     <span className="text-xs font-mono font-bold text-indigo-400">{attempt.ip}</span>
                                                     <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase flex items-center gap-1">
-                                                        <MapPin size={10} />
+                                                        {getFlagUrl(attempt.country) && (
+                                                            <img src={getFlagUrl(attempt.country)!} className="w-3.5 h-2.5 rounded-sm object-cover" alt={attempt.country} />
+                                                        )}
                                                         {attempt.country || 'Unknown'}
                                                     </span>
                                                     <span className="text-[10px] text-[var(--text-muted)] font-bold uppercase flex items-center gap-1">

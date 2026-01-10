@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS `file_versions` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `userId` INT NOT NULL,
+  `filePath` TEXT NOT NULL,
+  `versionPath` TEXT NOT NULL,
+  `size` BIGINT DEFAULT 0,
+  `comment` TEXT,
+  `createdAt` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

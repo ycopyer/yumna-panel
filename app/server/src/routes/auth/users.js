@@ -212,7 +212,7 @@ router.get('/users/me/usage', requireAuth, async (req, res) => {
             WHERE w.userId = ?`, [userId]);
 
         // 4. Count Databases
-        const [dbRes] = await connection.query('SELECT COUNT(*) as count FROM databases WHERE userId = ?', [userId]);
+        const [dbRes] = await connection.query('SELECT COUNT(*) as count FROM `databases` WHERE userId = ?', [userId]);
 
         // 5. Count Email Accounts (across all domains owned by user)
         const [mailRes] = await connection.query(`

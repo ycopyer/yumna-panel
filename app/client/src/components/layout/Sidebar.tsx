@@ -2,7 +2,7 @@ import React from 'react';
 import {
     LayoutGrid, History, Trash2, Heart, Globe, Database, Server as ServerIcon, Lock, Users, Share2, BarChart2, Shield, Settings,
     Activity as ActivityIcon, ShieldAlert, Cpu, LogOut, Search, ChevronRight, Upload, Folder, FolderPlus, ShieldCheck, Scale, Star, User, Menu, X,
-    LayoutDashboard, HardDrive, Fingerprint, Plus, Link2, Power, Package, ExternalLink, RefreshCw, Puzzle, FileEdit, Mail, Archive, Wrench, Terminal, Key, Clock
+    LayoutDashboard, HardDrive, Fingerprint, Plus, Link2, Power, Package, ExternalLink, RefreshCw, Puzzle, FileEdit, Mail, Archive, Wrench, Terminal, Key, Clock, Camera, Zap
 } from 'lucide-react';
 import ResourceUsageWidget from '../common/ResourceUsageWidget';
 
@@ -40,9 +40,20 @@ const Sidebar: React.FC<SidebarProps> = ({
     isOpen = false,
     onClose
 }) => {
-    const isAdmin = user.role?.toLowerCase() === 'admin' || (user.userId === 1 || user.id === 1);
-    const usagePercent = userProfile?.storage_quota
-        ? Math.min(100, ((userProfile.used_storage || 0) / userProfile.storage_quota) * 100)
+    const onCloseSafe = onClose || (() => { });
+    const userRole = (user.role || '').toLowerCase();
+    const isAdmin = userRole === 'admin' || (user.userId === 1 || user.id === 1);
+
+    // Add null check for userProfile
+    const safeUserProfile = userProfile || {
+        storage_quota: 0,
+        used_storage: 0,
+        cpu_usage: 0,
+        ram_usage: 0
+    };
+
+    const usagePercent = safeUserProfile.storage_quota
+        ? Math.min(100, ((safeUserProfile.used_storage || 0) / safeUserProfile.storage_quota) * 100)
         : 0;
     const isCritical = usagePercent > 90;
 
@@ -53,12 +64,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     return (
         <>
             {/* Mobile Overlay */}
-            {isOpen && (
-                <div
-                    className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-md animate-fade"
-                    onClick={onClose}
-                />
-            )}
+            {
+                isOpen && (
+                    <div
+                        className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-md animate-fade"
+                        onClick={onClose}
+                    />
+                )
+            }
 
             <aside
                 className={`
@@ -73,16 +86,15 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <div className="flex items-center justify-between mb-8">
                         <div className="flex items-center gap-3.5 group cursor-pointer">
                             <div className="relative">
-                                <div className="absolute inset-0 bg-[var(--primary)] blur-lg opacity-20 group-hover:opacity-40 transition-opacity"></div>
-                                <div className="relative bg-gradient-to-br from-[var(--primary)] to-indigo-600 rounded-2xl p-2.5 w-12 h-12 flex items-center justify-center shadow-xl border border-white/10 overflow-hidden transform group-hover:rotate-6 transition-transform">
+                                <div className="relative w-24 h-24 flex items-center justify-center transform group-hover:scale-105 transition-transform">
                                     {siteSettings.logo_url ? (
                                         <img src={siteSettings.logo_url} alt="Logo" className="w-full h-full object-contain" />
                                     ) : (
-                                        <Shield className="text-white" size={24} />
+                                        <Shield className="text-[var(--primary)]" size={64} />
                                     )}
                                 </div>
                             </div>
-                            <div className="flex flex-col">
+                            <div className="flex flex-col ml-2">
                                 <span className="text-lg font-black tracking-tight text-[var(--text-main)] truncate max-w-[140px] leading-tight">
                                     {siteSettings.site_title || 'Yumna Panel'}
                                 </span>
@@ -99,50 +111,13 @@ const Sidebar: React.FC<SidebarProps> = ({
                         </button>
                     </div>
 
-                    {/* Quick Actions */}
-                    {user.role !== 'viewer' && (
-                        <div className="grid grid-cols-2 gap-3 mb-2">
-                            <button
-                                onClick={() => { onAction('upload'); onClose?.(); }}
-                                className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-[var(--primary)] text-white shadow-lg shadow-indigo-500/25 active:scale-95 transition-all hover:brightness-110"
-                            >
-                                <Upload size={18} />
-                                <span className="text-[10px] font-black uppercase tracking-wider">Upload</span>
-                            </button>
-                            <button
-                                onClick={() => { onAction('createFolder'); onClose?.(); }}
-                                className="flex flex-col items-center justify-center gap-2 p-3 rounded-2xl bg-[var(--nav-hover)] text-[var(--text-main)] border border-[var(--border)] hover:border-[var(--primary)]/40 active:scale-95 transition-all group"
-                            >
-                                <FolderPlus size={18} className="text-[var(--text-muted)] group-hover:text-[var(--primary)] transition-colors" />
-                                <span className="text-[10px] font-black uppercase tracking-wider">New Dir</span>
-                            </button>
-                        </div>
-                    )}
+
                 </div>
 
                 {/* Navigation Menu */}
                 <div className="flex-1 px-4 pb-6 space-y-7 overflow-y-auto custom-scrollbar">
 
-                    {/* SYSTEM DASHBOARD */}
-                    <div>
-                        <p className="px-4 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] opacity-40">Intelligence</p>
-                        <div className="space-y-1">
-                            <div
-                                className={`${navItemBase} ${activeView === 'analytics' ? navItemActive : navItemInactive}`}
-                                onClick={() => { onAction('analytics'); onClose?.(); }}
-                            >
-                                <ActivityIcon size={19} className={activeView === 'analytics' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
-                                <span className="font-bold text-sm">Server Pulse</span>
-                            </div>
-                            <div
-                                className={`${navItemBase} ${activeView === 'audit' ? navItemActive : navItemInactive}`}
-                                onClick={() => { onAction('activity'); onClose?.(); }}
-                            >
-                                <Fingerprint size={19} className={activeView === 'audit' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
-                                <span className="font-bold text-sm">Security Audit</span>
-                            </div>
-                        </div>
-                    </div>
+
 
                     {/* HOSTING & CLOUD */}
                     <div>
@@ -179,48 +154,29 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         <LayoutGrid size={14} className={activeView === 'websites' ? 'opacity-100' : 'opacity-40 group-hover/sub:opacity-100'} />
                                         List Websites
                                     </div>
-                                    <div
-                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-amber-500 hover:bg-amber-500/5 cursor-pointer transition-all group/sub"
-                                        onClick={() => { onAction('manage-subdomains'); onClose?.(); }}
-                                    >
-                                        <Link2 size={14} className="opacity-40 group-hover/sub:opacity-100" />
-                                        Create Sub/Addon
-                                    </div>
-                                    <div
-                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-sky-500 hover:bg-sky-500/5 cursor-pointer transition-all group/sub"
-                                        onClick={() => { onAction('manage-subdomains'); onClose?.(); }}
-                                    >
-                                        <History size={14} className="opacity-40 group-hover/sub:opacity-100" />
-                                        List Sub/Addon
-                                    </div>
-                                    <div
-                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-violet-500 hover:bg-violet-500/5 cursor-pointer transition-all group/sub"
-                                        onClick={() => { onAction('modify-website'); onClose?.(); }}
-                                    >
-                                        <Settings size={14} className="opacity-40 group-hover/sub:opacity-100" />
-                                        Modify Website
-                                    </div>
-                                    <div
-                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-emerald-500 hover:bg-emerald-500/5 cursor-pointer transition-all group/sub"
-                                        onClick={() => { onAction('website-installer'); onClose?.(); }}
-                                    >
-                                        <Package size={14} className="opacity-40 group-hover/sub:opacity-100" />
-                                        App Installer
-                                    </div>
-                                    <div
-                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-rose-500 hover:bg-rose-500/5 cursor-pointer transition-all group/sub"
-                                        onClick={() => { onAction('suspend-website'); onClose?.(); }}
-                                    >
-                                        <Power size={14} className="opacity-40 group-hover/sub:opacity-100" />
-                                        Suspend/Unsuspend
-                                    </div>
-                                    <div
-                                        className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/5 cursor-pointer transition-all group/sub"
-                                        onClick={() => { onAction('delete-website'); onClose?.(); }}
-                                    >
-                                        <Trash2 size={14} className="opacity-40 group-hover/sub:opacity-100" />
-                                        Delete Website
-                                    </div>
+                                </div>
+                            </div>
+
+
+                            {/* Domain Management Item */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'domains' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('domains'); onClose?.(); }}
+                                >
+                                    <Globe size={19} className={activeView === 'domains' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">Domain Manager</span>
+                                </div>
+                            </div>
+
+                            {/* Collaboration Item */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'collaboration' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('collaboration'); onClose?.(); }}
+                                >
+                                    <Users size={19} className={activeView === 'collaboration' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">Collaboration</span>
                                 </div>
                             </div>
 
@@ -252,7 +208,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         List Databases
                                     </div>
                                     <a
-                                        href="/phpmyadmin"
+                                        href="http://localhost:8090"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="flex items-center gap-3 px-4 py-2 rounded-xl text-[12px] font-bold text-[var(--text-muted)] hover:text-blue-500 hover:bg-blue-500/5 cursor-pointer transition-all group/sub"
@@ -417,6 +373,28 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 </div>
                             </div>
 
+                            {/* SSL Hub Item */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'ssl' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('ssl'); onClose?.(); }}
+                                >
+                                    <ShieldCheck size={19} className={activeView === 'ssl' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">SSL Hub</span>
+                                </div>
+                            </div>
+
+                            {/* FTP Manager Item */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'ftp' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('ftp'); onClose?.(); }}
+                                >
+                                    <Folder size={19} className={activeView === 'ftp' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">FTP Manager</span>
+                                </div>
+                            </div>
+
                             {/* Plugin Marketplace Item */}
                             <div>
                                 <div
@@ -437,6 +415,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     </div>
                                 </div>
                             </div>
+
+
                         </div>
                     </div>
 
@@ -473,8 +453,15 @@ const Sidebar: React.FC<SidebarProps> = ({
 
                     {/* ADVANCED SECURITY */}
                     <div>
-                        <p className="px-4 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] opacity-40">Cyber Security</p>
+                        <p className="px-4 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--text-muted)] opacity-40">System & Security</p>
                         <div className="space-y-1">
+                            <div
+                                className={`${navItemBase} ${activeView === 'monitor' ? navItemActive : navItemInactive}`}
+                                onClick={() => { onNavigate('monitor'); onClose?.(); }}
+                            >
+                                <ActivityIcon size={19} className={activeView === 'monitor' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                <span className="font-bold text-sm">Server Pulse</span>
+                            </div>
                             <div
                                 className={`${navItemBase} ${navItemInactive}`}
                                 onClick={() => { onAction('php-services'); onClose?.(); }}
@@ -483,25 +470,11 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <span className="font-bold text-sm">PHP & Services</span>
                             </div>
                             <div
-                                className={`${navItemBase} ${navItemInactive}`}
-                                onClick={() => { onAction('firewall'); onClose?.(); }}
+                                className={`${navItemBase} ${activeView === 'security-center' ? navItemActive : navItemInactive}`}
+                                onClick={() => { onNavigate('security-center'); onClose?.(); }}
                             >
-                                <ShieldAlert size={19} className="opacity-70 group-hover:text-amber-500" />
-                                <span className="font-bold text-sm">Threat Map</span>
-                            </div>
-                            <div
-                                className={`${navItemBase} ${navItemInactive}`}
-                                onClick={() => { onAction('firewall-malware'); onClose?.(); }}
-                            >
-                                <ShieldCheck size={19} className="opacity-70 group-hover:text-rose-500" />
-                                <span className="font-bold text-sm">Malware Guard</span>
-                            </div>
-                            <div
-                                className={`${navItemBase} ${navItemInactive}`}
-                                onClick={() => { onAction('firewall-compliance'); onClose?.(); }}
-                            >
-                                <Scale size={19} className="opacity-70 group-hover:text-indigo-500" />
-                                <span className="font-bold text-sm">Compliance</span>
+                                <ShieldCheck size={19} className={activeView === 'security-center' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:text-indigo-500'} />
+                                <span className="font-bold text-sm">Threat Defense</span>
                             </div>
                         </div>
                     </div>
@@ -509,8 +482,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {/* ADMINISTRATION (Conditionally Integrated) */}
                     {isAdmin && (
                         <div className="pt-2 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <p className="px-4 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-500/70">Terminal Admin</p>
+                            <p className="px-4 mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-red-500/70">Administration</p>
                             <div className="space-y-1">
+                                <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('siteSettings'); onClose?.(); }}>
+                                    <Settings size={19} className="opacity-70 group-hover:text-violet-400" />
+                                    <span className="font-bold text-sm">System Branding</span>
+                                </div>
+                                <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('manageShares'); onClose?.(); }}>
+                                    <Share2 size={19} className="opacity-70 group-hover:text-pink-400" />
+                                    <span className="font-bold text-sm">Global Shares</span>
+                                </div>
                                 <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('terminal'); onClose?.(); }}>
                                     <Terminal size={19} className="opacity-70 group-hover:text-emerald-400" />
                                     <span className="font-bold text-sm">System Terminal</span>
@@ -518,14 +499,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('manageUsers'); onClose?.(); }}>
                                     <Users size={19} className="opacity-70 group-hover:text-sky-400" />
                                     <span className="font-bold text-sm">User Management</span>
-                                </div>
-                                <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('manageShares'); onClose?.(); }}>
-                                    <Share2 size={19} className="opacity-70 group-hover:text-pink-400" />
-                                    <span className="font-bold text-sm">Global Shares</span>
-                                </div>
-                                <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('siteSettings'); onClose?.(); }}>
-                                    <Settings size={19} className="opacity-70 group-hover:text-violet-400" />
-                                    <span className="font-bold text-sm">System Branding</span>
                                 </div>
                                 <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('maintenance'); onClose?.(); }}>
                                     <Wrench size={19} className="opacity-70 group-hover:text-amber-400" />
@@ -536,38 +509,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </div>
 
-                {/* Footer / Account Settings */}
-                <div className="p-4 mt-auto">
-                    <div className="bg-[var(--nav-hover)]/40 rounded-3xl border border-[var(--border)] p-2">
-                        <div className="flex flex-col gap-1">
-                            <div
-                                className="flex items-center gap-3 p-3 rounded-2xl hover:bg-[var(--nav-hover)] transition-all cursor-pointer group"
-                                onClick={() => { onAction('settings'); onClose?.(); }}
-                            >
-                                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center border border-white/5 shadow-lg group-hover:border-[var(--primary)]/50 transition-colors">
-                                    <User size={20} className="text-white/80" />
-                                </div>
-                                <div className="flex flex-col overflow-hidden">
-                                    <span className="text-sm font-black text-[var(--text-main)] truncate">{user.username}</span>
-                                    <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-wider">{user.role}</span>
-                                </div>
-                                <ChevronRight size={16} className="ml-auto text-[var(--text-muted)] group-hover:translate-x-1 transition-transform" />
-                            </div>
 
-                            <div className="h-[1px] bg-[var(--border)] mx-3 my-1"></div>
-
-                            <button
-                                onClick={onLogout}
-                                className="flex items-center gap-3 p-3 rounded-2xl hover:bg-red-500/10 text-red-500/70 hover:text-red-500 transition-all font-bold text-sm group"
-                            >
-                                <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-red-500/5 group-hover:bg-red-500/20 transition-colors">
-                                    <LogOut size={18} />
-                                </div>
-                                <span>Logout Session</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
             </aside>
         </>
     );

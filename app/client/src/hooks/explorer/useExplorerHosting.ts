@@ -247,6 +247,52 @@ export const useExplorerHosting = (state: any) => {
         }
     }, [setLoading, setActiveView, setFiles, setPath]);
 
+    const fetchSSL = useCallback(async () => {
+        setLoading(true);
+        setActiveView('ssl');
+        setFiles([]);
+        setPath('/ssl');
+        try {
+            const res = await axios.get('/api/ssl');
+            const certs = res.data.map((c: any) => ({
+                ...c,
+                name: c.domain,
+                type: 'file',
+                size: 0,
+                mtime: new Date(c.createdAt).getTime() / 1000
+            }));
+            setFiles(certs);
+        } catch (err: any) {
+            console.error('Failed to fetch SSL certificates:', err);
+            alert('Failed to load SSL certificates: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    }, [setLoading, setActiveView, setFiles, setPath]);
+
+    const fetchFTP = useCallback(async () => {
+        setLoading(true);
+        setActiveView('ftp');
+        setFiles([]);
+        setPath('/ftp');
+        try {
+            const res = await axios.get('/api/ftp');
+            const accounts = res.data.map((acc: any) => ({
+                ...acc,
+                name: acc.username,
+                type: 'file',
+                size: 0,
+                mtime: new Date(acc.createdAt).getTime() / 1000
+            }));
+            setFiles(accounts);
+        } catch (err: any) {
+            console.error('Failed to fetch FTP accounts:', err);
+            alert('Failed to load FTP accounts: ' + (err.response?.data?.error || err.message));
+        } finally {
+            setLoading(false);
+        }
+    }, [setLoading, setActiveView, setFiles, setPath]);
+
     return {
         fetchWebsites,
         fetchDatabases,
@@ -255,6 +301,8 @@ export const useExplorerHosting = (state: any) => {
         fetchMail,
         fetchBackups,
         fetchSSH,
+        fetchSSL,
+        fetchFTP,
         installPHPVersion,
         uninstallPHPVersion,
         setPHPDefaultVersion

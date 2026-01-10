@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Globe, Folder, Cpu, Loader2, Shield } from 'lucide-react';
+import { X, Globe, Folder, Cpu, Loader2, Shield, RefreshCw } from 'lucide-react';
 import axios from 'axios';
 
 interface AddWebsiteModalProps {
@@ -13,6 +13,7 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
     const [domain, setDomain] = useState('');
     const [rootPath, setRootPath] = useState('');
     const [phpVersion, setPhpVersion] = useState('8.2');
+    const [webStack, setWebStack] = useState<'nginx' | 'apache' | 'hybrid'>('nginx');
     const [targetUserId, setTargetUserId] = useState<number>(userId);
     const [users, setUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
@@ -43,6 +44,7 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
                 domain,
                 rootPath,
                 phpVersion,
+                webStack,
                 targetUserId: isAdmin ? targetUserId : userId
             }, {
                 headers: { 'x-user-id': userId }
@@ -125,6 +127,23 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
                                     <option value="8.1">PHP 8.1</option>
                                     <option value="8.0">PHP 8.0</option>
                                     <option value="7.4">PHP 7.4 (Legacy)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Web Server Stack</label>
+                            <div style={{ position: 'relative' }}>
+                                <RefreshCw size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                <select
+                                    className="input-glass"
+                                    style={{ width: '100%', padding: '14px 14px 14px 44px', borderRadius: '14px', appearance: 'none', cursor: 'pointer' }}
+                                    value={webStack}
+                                    onChange={e => setWebStack(e.target.value as any)}
+                                >
+                                    <option value="nginx">Nginx Only (High Performance)</option>
+                                    <option value="apache">Apache Only (Maximum Compatibility)</option>
+                                    <option value="hybrid">Nginx + Apache (Hybrid Power)</option>
                                 </select>
                             </div>
                         </div>

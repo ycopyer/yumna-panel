@@ -7,6 +7,8 @@ const { exec } = require('child_process');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const TwoFactorService = require('../../services/TwoFactorService');
+const { authenticator } = require('otplib');
 
 const dbConfig = {
     host: process.env.DB_HOST,
@@ -23,7 +25,7 @@ router.get('/ssh-accounts', requireAuth, async (req, res) => {
 
     try {
         const connection = await mysql.createConnection(dbConfig);
-        let query = 'SELECT id, userId, username, status, rootPath, createdAt FROM ssh_accounts';
+        let query = 'SELECT id, userId, username, status, rootPath, two_factor_enabled, createdAt FROM ssh_accounts';
         let params = [];
 
         if (!isAdmin) {
@@ -288,6 +290,71 @@ router.delete('/ssh-accounts/:id', requireAuth, auditLogger('DELETE_SSH_ACCOUNT'
         });
 
         res.json({ success: true, message: 'SSH account deleted successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2FA: Generate secret
+router.post('/ssh-accounts/:id/2fa/setup', requireAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const [accounts] = await connection.query('SELECT username, userId FROM ssh_accounts WHERE id = ?', [id]);
+
+        if (accounts.length === 0) {
+            await connection.end();
+            return res.status(404).json({ error: 'SSH account not found' });
+        }
+
+        if (req.userRole !== 'admin' && accounts[0].userId !== req.userId) {
+            await connection.end();
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        const { secret, qrContent } = await TwoFactorService.generateSecret(`${accounts[0].username}@YumnaSSH`);
+        await connection.end();
+        res.json({ secret, qrContent });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2FA: Enable
+router.post('/ssh-accounts/:id/2fa/enable', requireAuth, auditLogger('ENABLE_SSH_2FA'), async (req, res) => {
+    const { id } = req.params;
+    const { secret, token } = req.body;
+
+    if (!secret || !token) return res.status(400).json({ error: 'Secret and token required' });
+
+    try {
+        const isValid = authenticator.check(token, secret);
+        if (!isValid) return res.status(400).json({ error: 'Invalid verification code' });
+
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query(
+            'UPDATE ssh_accounts SET two_factor_secret = ?, two_factor_enabled = 1 WHERE id = ?',
+            [secret, id]
+        );
+        await connection.end();
+
+        res.json({ success: true, message: '2FA enabled for SSH account' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2FA: Disable
+router.post('/ssh-accounts/:id/2fa/disable', requireAuth, auditLogger('DISABLE_SSH_2FA'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query(
+            'UPDATE ssh_accounts SET two_factor_secret = NULL, two_factor_enabled = 0 WHERE id = ?',
+            [id]
+        );
+        await connection.end();
+        res.json({ success: true, message: '2FA disabled for SSH account' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

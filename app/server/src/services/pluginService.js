@@ -222,6 +222,7 @@ class PluginService {
         // Calculate Port
         const vPart = selectedVersion.replace(/[^0-9]/g, ''); // 8.2 -> 82
         const phpPort = vPart.length >= 2 ? `90${vPart.substring(0, 2)}` : '9000'; // 9082
+        const fastCgiPass = `127.0.0.1:${phpPort}`;
 
         console.log(`[Plugin] Using PHP ${selectedVersion} at ${phpDir || 'default'} on port ${phpPort}`);
 

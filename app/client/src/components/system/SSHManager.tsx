@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Key, Plus, Trash2, Power, RefreshCw, Loader2, Shield, Lock, Unlock, Terminal as TerminalIcon } from 'lucide-react';
 import axios from 'axios';
 import Terminal from './Terminal';
+import TwoFactorSetupModal from '../modals/TwoFactorSetupModal';
 
 interface SSHManagerProps {
     accounts: any[];
@@ -13,6 +14,7 @@ interface SSHManagerProps {
 const SSHManager: React.FC<SSHManagerProps> = ({ accounts, loading, onRefresh, onAddAccount }) => {
     const [processingId, setProcessingId] = useState<number | null>(null);
     const [activeTerminal, setActiveTerminal] = useState<{ id: number, username: string } | null>(null);
+    const [setup2FA, setSetup2FA] = useState<{ id: number, username: string } | null>(null);
 
     const handleToggleStatus = async (id: number, currentStatus: string) => {
         const newStatus = currentStatus === 'active' ? 'suspended' : 'active';
@@ -53,6 +55,19 @@ const SSHManager: React.FC<SSHManagerProps> = ({ accounts, loading, onRefresh, o
             onRefresh();
         } catch (err: any) {
             alert(err.response?.data?.error || 'Failed to reset password');
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleDisable2FA = async (id: number) => {
+        if (!confirm('Are you sure you want to disable 2FA for this SSH account? This will reduce security.')) return;
+        setProcessingId(id);
+        try {
+            await axios.post(`/api/ssh-accounts/${id}/2fa/disable`);
+            onRefresh();
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Failed to disable 2FA');
         } finally {
             setProcessingId(null);
         }
@@ -129,9 +144,9 @@ const SSHManager: React.FC<SSHManagerProps> = ({ accounts, loading, onRefresh, o
                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                                         <span>Host: {window.location.hostname}</span>
                                     </div>
-                                    <div className="flex items-center gap-1.5">
-                                        <Shield size={14} />
-                                        <span>Root: {account.rootPath || 'System'}</span>
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                        <Shield size={10} />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">{account.two_factor_enabled ? '2FA Active' : '2FA Off'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -153,11 +168,22 @@ const SSHManager: React.FC<SSHManagerProps> = ({ accounts, loading, onRefresh, o
                                     {processingId === account.id ? <Loader2 size={20} className="animate-spin" /> : <Key size={20} />}
                                 </button>
                                 <button
+                                    onClick={() => account.two_factor_enabled ? handleDisable2FA(account.id) : setSetup2FA({ id: account.id, username: account.username })}
+                                    disabled={processingId === account.id}
+                                    className={`p-3 rounded-2xl bg-[var(--bg-dark)] border border-[var(--border)] transition-all disabled:opacity-50 ${account.two_factor_enabled
+                                        ? 'text-indigo-400 border-indigo-400/50 bg-indigo-500/10'
+                                        : 'text-[var(--text-muted)] hover:text-indigo-400 hover:border-indigo-400/50'
+                                        }`}
+                                    title={account.two_factor_enabled ? 'Disable 2FA' : 'Setup 2FA'}
+                                >
+                                    <Shield size={20} />
+                                </button>
+                                <button
                                     onClick={() => handleToggleStatus(account.id, account.status)}
                                     disabled={processingId === account.id}
                                     className={`p-3 rounded-2xl bg-[var(--bg-dark)] border border-[var(--border)] transition-all disabled:opacity-50 ${account.status === 'active'
-                                            ? 'text-[var(--text-muted)] hover:text-amber-500 hover:border-amber-500/50'
-                                            : 'text-[var(--text-muted)] hover:text-emerald-500 hover:border-emerald-500/50'
+                                        ? 'text-[var(--text-muted)] hover:text-amber-500 hover:border-amber-500/50'
+                                        : 'text-[var(--text-muted)] hover:text-emerald-500 hover:border-emerald-500/50'
                                         }`}
                                 >
                                     {processingId === account.id ? <Loader2 size={20} className="animate-spin" /> : <Power size={20} />}
@@ -180,6 +206,16 @@ const SSHManager: React.FC<SSHManagerProps> = ({ accounts, loading, onRefresh, o
                     sshAccountId={activeTerminal.id}
                     contextTitle={`SSH: ${activeTerminal.username}`}
                     onClose={() => setActiveTerminal(null)}
+                />
+            )}
+
+            {setup2FA && (
+                <TwoFactorSetupModal
+                    type="ssh"
+                    accountId={setup2FA.id}
+                    username={setup2FA.username}
+                    onClose={() => setSetup2FA(null)}
+                    onSuccess={onRefresh}
                 />
             )}
         </div>

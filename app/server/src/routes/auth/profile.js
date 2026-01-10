@@ -13,6 +13,8 @@ router.put('/profile', requireAuth, uploadAvatar.single('avatar'), async (req, r
     const userId = req.userId; // Use userId from session set by requireAuth
     let { password, email, sftp } = req.body;
 
+    console.log(`[PROFILE UPDATE] User: ${userId}, Email: ${email}, Has Password: ${!!password}, Has File: ${!!req.file}`);
+
     if (typeof sftp === 'string') {
         try { sftp = JSON.parse(sftp); } catch (e) { sftp = null; }
     }
@@ -20,7 +22,10 @@ router.put('/profile', requireAuth, uploadAvatar.single('avatar'), async (req, r
     let avatar = undefined;
     if (req.file) {
         try {
-            const uploadDir = path.join(__dirname, '../../uploads');
+            console.log('[PROFILE UPDATE] Processing avatar file...');
+            // Fix path: __dirname is src/routes/auth
+            // We need to go up to app/server/uploads
+            const uploadDir = path.join(__dirname, '../../../uploads');
             await fs.mkdir(uploadDir, { recursive: true });
 
             const filename = `avatar-${userId}-${Date.now()}.webp`;
@@ -32,6 +37,7 @@ router.put('/profile', requireAuth, uploadAvatar.single('avatar'), async (req, r
                 .toFile(fullPath);
 
             avatar = `/uploads/${filename}`;
+            console.log(`[PROFILE UPDATE] Avatar saved to: ${avatar} (Physical: ${fullPath})`);
         } catch (sharpErr) {
             console.error('[AVATAR ERROR]', sharpErr);
             return res.status(400).json({ error: 'Failed to process image. Make sure it is a valid image file.' });
@@ -45,6 +51,8 @@ router.put('/profile', requireAuth, uploadAvatar.single('avatar'), async (req, r
     if (avatar) { query += ', avatar = ?'; params.push(avatar); }
     query += ' WHERE id = ?';
     params.push(userId);
+
+    console.log('[PROFILE UPDATE] Executing query:', query, params);
 
     db.query(query, params, (err) => {
         if (err) {
@@ -72,7 +80,7 @@ router.put('/profile', requireAuth, uploadAvatar.single('avatar'), async (req, r
                     }
                 );
             } else {
-                // If password not provided, check if record exists to decide between INSERT or UPDATE (preserving old password)
+                // If password not provided, check if record exists to decide between INSERT or UPDATE
                 db.query('SELECT * FROM sftp_configs WHERE userId = ?', [userId], (checkErr, checkRes) => {
                     if (checkErr) return res.status(500).json({ error: 'Database error checking SFTP config' });
 

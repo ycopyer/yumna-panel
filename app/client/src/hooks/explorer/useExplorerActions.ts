@@ -6,7 +6,7 @@ export const useExplorerActions = (state: any, data: any, hosting: any, transfer
         userId, path, activeView, setLoading, setFiles, setPath,
         setPreviewEdit, setPreviewFile, setPreviewFileItem, setPreviewType, setMatchResults,
         setIsDragging, setSelectedFiles, compressItems, setShowCompressModal,
-        setCompressItems
+        setCompressItems, openTabs, setOpenTabs, activeTabId, setActiveTabId
     } = state;
 
     const { fetchFiles } = data;
@@ -80,11 +80,6 @@ export const useExplorerActions = (state: any, data: any, hosting: any, transfer
     const viewPreview = (file: FileItem, editMode: boolean = false) => {
         console.log('[useExplorerActions] viewPreview called:', { fileName: file.name, editMode, activeView, path });
 
-        setPreviewFile(null);
-        setPreviewType(null);
-        setPreviewFileItem(null);
-        setPreviewEdit(editMode);
-
         const ext = file.name.split('.').pop()?.toLowerCase() || '';
         const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
         const videoExts = ['mp4', 'webm', 'ogg', 'mov', 'mkv'];
@@ -102,24 +97,33 @@ export const useExplorerActions = (state: any, data: any, hosting: any, transfer
         const sessionId = localStorage.getItem('sessionId');
         const baseUrl = `/api/preview?path=${encodeURIComponent(itemPath)}&userId=${userId}&sessionId=${sessionId}`;
 
-        setPreviewFileItem(file);
+        let type = '';
+        if (imageExts.includes(ext)) type = 'image';
+        else if (videoExts.includes(ext)) type = 'video';
+        else if (ext === 'pdf') type = 'pdf';
+        else if (textExts.includes(ext) || ['dockerfile', 'makefile', 'license'].includes(file.name.toLowerCase())) type = 'text';
 
-        if (imageExts.includes(ext)) {
-            setPreviewFile(`${baseUrl}&type=image`);
-            setPreviewType('image');
-        } else if (videoExts.includes(ext)) {
-            setPreviewFile(`${baseUrl}&type=video`);
-            setPreviewType('video');
-        } else if (ext === 'pdf') {
-            const pdfUrl = `/api/view-pdf?path=${encodeURIComponent(itemPath)}&userId=${userId}&sessionId=${sessionId}`;
-            setPreviewFile(pdfUrl);
-            setPreviewType('pdf');
-        } else if (textExts.includes(ext) || ['dockerfile', 'makefile', 'license'].includes(file.name.toLowerCase())) {
-            setPreviewFile(`${baseUrl}&type=text`);
-            setPreviewType('text');
-        } else {
+        if (!type) {
             console.warn('[useExplorerActions] viewPreview: File type not supported for preview:', ext);
+            return;
         }
+
+        // Multi-tab check
+        const existingTab = openTabs.find((t: any) => t.file.path === itemPath || (t.file.name === file.name && t.url.includes(encodeURIComponent(itemPath))));
+        if (existingTab) {
+            setActiveTabId(existingTab.file.path || itemPath);
+            return;
+        }
+
+        const newTab = {
+            file: { ...file, path: itemPath },
+            url: type === 'pdf' ? `/api/view-pdf?path=${encodeURIComponent(itemPath)}&userId=${userId}&sessionId=${sessionId}` : `${baseUrl}&type=${type}`,
+            type,
+            editMode
+        };
+
+        setOpenTabs((prev: any) => [...prev, newTab]);
+        setActiveTabId(itemPath);
     };
 
     const checkPdfContent = async (file: FileItem) => {

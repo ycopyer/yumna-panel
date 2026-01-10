@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Server, Plus, Search, Key, FolderOpen, Activity, Lock, Unlock } from 'lucide-react';
+import { Server, Plus, Search, Key, FolderOpen, Activity, Lock, Unlock, Shield } from 'lucide-react';
 import FTPManagementModal from '../modals/FTPManagementModal';
 import CreateFTPModal from '../modals/CreateFTPModal';
 
@@ -100,6 +100,12 @@ const FTPManager: React.FC<FTPManagerProps> = ({ accounts, loading, onRefresh, o
                                                 <span className={`text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded border ${getStatusColor(account.status)}`}>
                                                     {account.status}
                                                 </span>
+                                                {account.two_factor_enabled && (
+                                                    <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded border border-indigo-500/20 bg-indigo-500/10 text-indigo-400">
+                                                        <Shield size={10} />
+                                                        2FA
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

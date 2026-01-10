@@ -1,61 +1,30 @@
-import React from 'react';
-import { Search, Download, Sun, Moon, FileText, LayoutGrid, List as ListIcon, Archive, Menu } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, Sun, Moon, User, LogOut, Settings, ChevronDown } from 'lucide-react';
 
 interface ExplorerHeaderProps {
-    searchQuery: string;
-    setSearchQuery: (query: string) => void;
-    searchType: 'name' | 'content';
-    setSearchType: (type: 'name' | 'content') => void;
-    performSearch: (query: string, type: 'name' | 'content') => void;
     user: any;
-    selectedFiles: string[];
-    downloadSelected: () => void;
-    onCompress: () => void;
+    onToggleSidebar: () => void;
     toggleTheme: () => void;
     isDarkMode: boolean;
-    downloadFileList: () => void;
-    viewMode: 'grid' | 'list';
-    setViewMode: (mode: 'grid' | 'list') => void;
     onOpenSettings: () => void;
+    onLogout: () => void;
     avatarUrl?: string;
-    currentPath?: string;
-    onToggleSidebar?: () => void;
-    activeView?: string;
 }
 
 const ExplorerHeader: React.FC<ExplorerHeaderProps> = ({
-    searchQuery,
-    setSearchQuery,
-    searchType,
-    setSearchType,
-    performSearch,
     user,
-    selectedFiles,
-    downloadSelected,
-    onCompress,
+    onToggleSidebar,
     toggleTheme,
     isDarkMode,
-    downloadFileList,
-    viewMode,
-    setViewMode,
     onOpenSettings,
-    avatarUrl,
-    currentPath,
-    onToggleSidebar,
-    activeView
+    onLogout,
+    avatarUrl
 }) => {
-    // Only show compress button if we are NOT in a pure SFTP path
-    // We assume paths starting with '/Local Storage' or root '/' allow compression (mixed or local)
-    // If user navigates to /SFTP, hide it.
-    // Also if specific custom SFTP name is used, we might need stricter check, 
-    // but usually checking for '/Local Storage' or '/' is safer whitelist.
-
-    // Logic: Show if path is '/' OR path starts with '/Local Storage'
-    // This effectively hides it for '/SFTP' and deep links there.
-    const canCompress = currentPath === '/' || currentPath?.startsWith('/Local Storage');
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
+    const [imgError, setImgError] = useState(false);
 
     return (
-        <header className="flex items-center justify-between mb-6 md:mb-8 gap-2 md:gap-4">
+        <header className="flex items-center justify-between mb-8">
             {/* Mobile Sidebar Toggle */}
             <button
                 onClick={onToggleSidebar}
@@ -64,115 +33,79 @@ const ExplorerHeader: React.FC<ExplorerHeaderProps> = ({
                 <Menu size={24} />
             </button>
 
-            <div className="relative flex-1 max-w-2xl mr-2 md:mx-10 flex items-center gap-2">
-                <div className="relative flex-1">
-                    <Search
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)] cursor-pointer hover:text-[var(--primary)] transition-colors"
-                        size={18}
-                        onClick={() => performSearch(searchQuery, searchType)}
-                    />
-                    <input
-                        className="input-glass w-full pl-12 pr-4 rounded-xl h-11"
-                        placeholder={
-                            searchType === 'content' ? "Deep content search..." :
-                                activeView === 'websites' ? "Search websites & domains..." :
-                                    activeView === 'databases' ? "Search database names..." :
-                                        activeView === 'dns' ? "Search DNS zones..." :
-                                            "Search files globally..."
-                        }
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && performSearch(searchQuery, searchType)}
-                    />
-                </div>
-                <select
-                    value={searchType}
-                    onChange={(e) => setSearchType(e.target.value as 'name' | 'content')}
-                    className="h-11 rounded-xl bg-[var(--nav-hover)] border border-[var(--border)] text-[var(--text-main)] px-3 text-sm focus:outline-none cursor-pointer"
-                    title="Search Mode"
-                >
-                    <option value="name">Name</option>
-                    <option value="content">Content</option>
-                </select>
-            </div>
+            {/* Spacer to push everything to right */}
+            <div className="flex-1"></div>
 
+            {/* Right Section: Theme & Profile */}
             <div className="flex items-center gap-4">
-                <div className="text-sm text-[var(--text-muted)] flex items-center">
-                    {avatarUrl && (
-                        <div className="mr-3 w-8 h-8 rounded-full overflow-hidden border border-[var(--primary)]/30 p-0.5">
-                            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover rounded-full" />
+                {/* Theme Toggle */}
+                <button
+                    onClick={toggleTheme}
+                    className="p-2.5 rounded-xl text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)] border border-transparent hover:border-[var(--border)] transition-all"
+                    title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                >
+                    {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
+
+                {/* Profile Section */}
+                <div className="relative">
+                    <button
+                        onClick={() => setIsProfileOpen(!isProfileOpen)}
+                        className="flex items-center gap-4 pl-2 pr-5 py-2 rounded-full bg-[var(--nav-hover)]/50 hover:bg-[var(--nav-hover)] border border-[var(--border)] transition-all group"
+                    >
+                        <div className="w-12 h-12 shrink-0 rounded-full overflow-hidden shadow-sm border border-[var(--border)]">
+                            {avatarUrl && !imgError ? (
+                                <img
+                                    src={avatarUrl}
+                                    alt="Avatar"
+                                    className="w-full h-full object-cover bg-[var(--bg-main)]"
+                                    onError={() => setImgError(true)}
+                                />
+                            ) : (
+                                <div className="w-full h-full bg-[var(--nav-hover)] flex items-center justify-center text-[var(--text-muted)]">
+                                    <User size={24} />
+                                </div>
+                            )}
                         </div>
+                        <div className="text-left hidden sm:block">
+                            <p className="text-base font-black text-[var(--text-main)] leading-none mb-1">{user.username}</p>
+                            <p className="text-xs uppercase tracking-wider font-bold text-[var(--text-muted)]">{user.role}</p>
+                        </div>
+                        <ChevronDown size={16} className={`text-[var(--text-muted)] transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
+                    </button>
+
+                    {/* Profile Dropdown */}
+                    {isProfileOpen && (
+                        <>
+                            <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                            <div className="absolute right-0 top-full mt-2 w-56 bg-[var(--bg-main)]/95 backdrop-blur-xl border border-[var(--border)] rounded-2xl shadow-xl z-50 p-2 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="px-3 py-2 border-b border-[var(--border)] mb-2">
+                                    <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Signed in as</p>
+                                    <p className="text-sm font-black text-[var(--text-main)] truncate">{user.username}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <button
+                                        onClick={() => { onOpenSettings(); setIsProfileOpen(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)] transition-all"
+                                    >
+                                        <Settings size={16} />
+                                        Profile Settings
+                                    </button>
+                                    <button
+                                        onClick={() => { onLogout(); setIsProfileOpen(false); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-red-500 hover:bg-red-500/10 transition-all"
+                                    >
+                                        <LogOut size={16} />
+                                        Sign Out
+                                    </button>
+                                </div>
+                            </div>
+                        </>
                     )}
-                    <div>
-                        Welcome back, <span className="font-semibold text-[var(--text-main)]">{user.username}</span>
-                    </div>
-                </div>
-                {selectedFiles.length > 0 && (
-                    <>
-                        {canCompress && (
-                            <button
-                                className="bg-[var(--nav-hover)] hover:bg-[var(--primary)] hover:text-white text-[var(--text-main)] p-2.5 rounded-xl transition-all duration-200 active:scale-95 shadow-sm flex items-center justify-center border border-[var(--border)]"
-                                onClick={onCompress}
-                                title={`Compress ${selectedFiles.length} selected files`}
-                            >
-                                <Archive size={18} />
-                            </button>
-                        )}
-                        <button
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white p-2.5 rounded-xl transition-all duration-200 active:scale-95 shadow-sm flex items-center justify-center"
-                            onClick={downloadSelected}
-                            title={`Download ${selectedFiles.length} selected files`}
-                        >
-                            <Download size={18} />
-                        </button>
-                    </>
-                )}
-                <div className="flex items-center bg-[var(--nav-hover)] border border-[var(--border)] rounded-xl p-1 shadow-sm">
-                    <button
-                        onClick={toggleTheme}
-                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)] rounded-lg transition-colors cursor-pointer"
-                        title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-                    >
-                        {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
-                    </button>
-
-                    <div className="w-px h-6 bg-[var(--border)] mx-1"></div>
-
-                    <button
-                        onClick={downloadFileList}
-                        className="p-2 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)] rounded-lg transition-colors cursor-pointer"
-                        title="Export Directory Map (.txt)"
-                    >
-                        <FileText size={18} />
-                    </button>
-
-                    <div className="w-px h-6 bg-[var(--border)] mx-1"></div>
-
-                    <div className="flex gap-1">
-                        <button
-                            onClick={() => setViewMode('grid')}
-                            className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === 'grid'
-                                ? 'bg-[var(--primary)] text-white shadow-sm'
-                                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)]'
-                                }`}
-                        >
-                            <LayoutGrid size={18} />
-                        </button>
-                        <button
-                            onClick={() => setViewMode('list')}
-                            className={`p-2 rounded-lg transition-all cursor-pointer ${viewMode === 'list'
-                                ? 'bg-[var(--primary)] text-white shadow-sm'
-                                : 'text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-[var(--nav-hover)]'
-                                }`}
-                        >
-                            <ListIcon size={18} />
-                        </button>
-                    </div>
                 </div>
             </div>
         </header>
     );
 };
-
 
 export default ExplorerHeader;

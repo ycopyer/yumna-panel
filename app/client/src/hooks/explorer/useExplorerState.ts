@@ -23,10 +23,12 @@ export const useExplorerState = (user: any) => {
     const [previewFile, setPreviewFile] = useState<string | null>(null);
     const [previewFileItem, setPreviewFileItem] = useState<FileItem | null>(null);
     const [previewType, setPreviewType] = useState<'image' | 'video' | 'pdf' | 'text' | null>(null);
+    const [openTabs, setOpenTabs] = useState<Array<{ file: FileItem, url: string, type: string, editMode: boolean }>>([]);
+    const [activeTabId, setActiveTabId] = useState<string | null>(null);
     const [showActivityHistory, setShowActivityHistory] = useState(false);
     const [showTrash, setShowTrash] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins' | 'mail' | 'backups' | 'ssh' | 'cron'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
+    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins' | 'mail' | 'backups' | 'ssh' | 'cron' | 'ssl' | 'ftp' | 'apps' | 'monitor' | 'fail2ban' | 'audit' | 'waf' | 'malware' | 'integrity' | 'vulnerability' | '2fa' | 'security-dashboard' | 'domains' | 'collaboration' | 'security-center'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
     const [propertiesItem, setPropertiesItem] = useState<FileItem | null>(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
@@ -61,11 +63,18 @@ export const useExplorerState = (user: any) => {
     const [manageEmailDomain, setManageEmailDomain] = useState<any>(null);
     const [showMaintenance, setShowMaintenance] = useState(false);
     const [showAddBackup, setShowAddBackup] = useState(false);
+    const [showAddBackupSchedule, setShowAddBackupSchedule] = useState(false);
+    const [showAddRemoteStorage, setShowAddRemoteStorage] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
     const [showAddSSHAccount, setShowAddSSHAccount] = useState(false);
     const [serverPulse, setServerPulse] = useState<any>(null);
     const [phpOperations, setPhpOperations] = useState<Record<string, any>>({});
+    const [showAddSSL, setShowAddSSL] = useState(false);
     const [previewEdit, setPreviewEdit] = useState(false);
+    const [showImageEditor, setShowImageEditor] = useState(false);
+    const [imageEditorItem, setImageEditorItem] = useState<FileItem | null>(null);
+    const [showDuplicateDetector, setShowDuplicateDetector] = useState(false);
+    const [duplicateDetectorPath, setDuplicateDetectorPath] = useState('');
     const abortControllers = useRef<Record<string, AbortController>>({});
 
     const userId = (user.userId || user.id || 0) as number;
@@ -103,6 +112,8 @@ export const useExplorerState = (user: any) => {
         previewFile, setPreviewFile,
         previewFileItem, setPreviewFileItem,
         previewType, setPreviewType,
+        openTabs, setOpenTabs,
+        activeTabId, setActiveTabId,
         showActivityHistory, setShowActivityHistory,
         showTrash, setShowTrash,
         isDragging, setIsDragging,
@@ -141,11 +152,18 @@ export const useExplorerState = (user: any) => {
         manageEmailDomain, setManageEmailDomain,
         showMaintenance, setShowMaintenance,
         showAddBackup, setShowAddBackup,
+        showAddBackupSchedule, setShowAddBackupSchedule,
+        showAddRemoteStorage, setShowAddRemoteStorage,
         showTerminal, setShowTerminal,
         showAddSSHAccount, setShowAddSSHAccount,
+        showAddSSL, setShowAddSSL,
         serverPulse, setServerPulse,
         phpOperations, setPhpOperations,
         previewEdit, setPreviewEdit,
+        showImageEditor, setShowImageEditor,
+        imageEditorItem, setImageEditorItem,
+        showDuplicateDetector, setShowDuplicateDetector,
+        duplicateDetectorPath, setDuplicateDetectorPath,
         abortControllers,
         userId,
         toggleTheme

@@ -4,6 +4,29 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
+## [2.2.2] - 2026-01-10
+### Added
+- **Git Integration**: New "Git & Deploy" module for linking repositories (GitHub, GitLab, Bitbucket) and manual/webhook auto-deployment.
+- **Auto-Deployment Webhooks**: Public endpoint for automated repository updates on push events.
+
+### Fixed
+- **FTP Architecture**: Resolved critical "Table not found" and missing column (updatedAt, description) errors in the FTP Account management system.
+- **Process Management**: Fixed `EADDRINUSE` port 5000 conflicts during server restarts by implementing aggressive zombie process cleanup.
+
+## [2.2.1] - 2026-01-10
+### Fixed
+- **PWA Stability**: Resolved persistent Service Worker "Failed to fetch" errors by switching to a robust network-only strategy.
+- **Avatar System**: Fixed backend path handling for profile picture uploads, ensuring avatars are saved and retrieved correctly.
+- **UI/UX Polish**: Updated sidebar logo size to 96px for better branding, reordered admin menu items, and removed gradient artifacts from profile pictures.
+- **Admin Robustness**: Hardened role verification logic in Sidebar to prevent potential rendering crashes.
+
+## [2.2.0] - 2026-01-09
+### Added
+- **DNS Enhancements**: Added DNSSEC key generation and Cloudflare synchronization.
+- **FTP Manager**: Complete FTP account management system with quota enforcement.
+- **Database Security**: Added `ftp_accounts` table and DNS security architecture.
+- **Security Core**: Implemented Bcrypt password hashing for FTP accounts and rigorous ownership checking.
+
 ## [2.1.0] - 2026-01-09
 ### Added
 - **Native Desktop GUI**: 
@@ -96,5 +119,5 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
-**Current Version**: 2.1.0
-**Last Updated**: 2026-01-09
+**Current Version**: 2.2.2
+**Last Updated**: 2026-01-10

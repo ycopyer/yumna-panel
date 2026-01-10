@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { X, Globe, Folder, Cpu, Loader2, Link2, Plus, Trash2, AlertTriangle, ShieldCheck, Scale, History, Power, Package, DownloadCloud, FileCode, Lock, Terminal, RefreshCw } from 'lucide-react';
+import { X, Globe, Folder, Cpu, Loader2, Link2, Plus, Trash2, AlertTriangle, ShieldCheck, Scale, History, Power, Package, DownloadCloud, FileCode, Lock, Terminal, RefreshCw, ShieldAlert, Activity } from 'lucide-react';
 import axios from 'axios';
+import IPAccessControlManager from '../security/IPAccessControlManager';
 
 interface WebsiteManagementModalProps {
     website: any;
@@ -9,19 +10,20 @@ interface WebsiteManagementModalProps {
     onRefresh: () => void;
     onOpenPath: (path: string) => void;
     userRole: string;
-    initialTab?: 'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced';
+    initialTab?: 'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access';
 }
 
 const WebsiteManagementModal: React.FC<WebsiteManagementModalProps> = ({ website, userId, onClose, onRefresh, onOpenPath, userRole, initialTab = 'general' }) => {
 
-    const [activeTab, setActiveTab] = useState<'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced'>(initialTab);
+    const [activeTab, setActiveTab] = useState<'general' | 'subdomains' | 'config' | 'ssl' | 'logs' | 'apps' | 'files' | 'advanced' | 'ip-access'>(initialTab);
     const [subdomains, setSubdomains] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [actionLoading, setActionLoading] = useState<string | null>(null);
 
     // Settings State
     const [rootPath, setRootPath] = useState(website.rootPath);
-    const [phpVersion, setPhpVersion] = useState(website.php || '8.2');
+    const [phpVersion, setPhpVersion] = useState(website.phpVersion || '8.2');
+    const [webStack, setWebStack] = useState<'nginx' | 'apache' | 'hybrid'>(website.webStack || 'nginx');
     const [status, setStatus] = useState<'active' | 'suspended'>(website.status || 'active');
     const [maintenanceMode, setMaintenanceMode] = useState(!!website.maintenance_mode);
 
@@ -127,7 +129,7 @@ const WebsiteManagementModal: React.FC<WebsiteManagementModalProps> = ({ website
         e.preventDefault();
         setActionLoading('updating');
         try {
-            await axios.put(`/api/websites/${website.id}`, { rootPath, phpVersion });
+            await axios.put(`/api/websites/${website.id}`, { rootPath, phpVersion, webStack });
             onRefresh();
         } catch (err: any) {
             alert(err.response?.data?.error || 'Update failed');
@@ -228,56 +230,89 @@ const WebsiteManagementModal: React.FC<WebsiteManagementModalProps> = ({ website
 
     return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-xl z-[1100] flex items-center justify-center p-4">
-            <div className="glass w-full max-w-4xl rounded-[40px] overflow-hidden border border-white/5 shadow-2xl animate-scale-up flex flex-col h-[85vh]">
+            <div className="glass w-full max-w-6xl rounded-3xl overflow-hidden border border-[var(--border)] shadow-2xl animate-scale-up flex flex-col h-[90vh]">
 
-                {/* Left Sidebar Layout */}
-                <div className="flex h-full min-h-0">
-                    <div className="w-64 bg-black/20 border-r border-white/5 p-6 flex flex-col">
-                        <div className="flex items-center gap-3 mb-8 px-2">
-                            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20 shadow-lg shrink-0">
-                                <Globe size={20} className="text-indigo-400" />
+                {/* Modern Header with Gradient */}
+                <div className="relative bg-gradient-to-r from-[var(--primary)] via-[var(--primary)]/80 to-[var(--primary)]/60 px-8 py-6 border-b border-white/10">
+                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItMnptMC0ydjJoLTJ2LTJoMnptLTItMmgydjJoLTJ2LTJ6bTItMmgydjJoLTJ2LTJ6bTAtMmgydjJoLTJ2LTJ6bTItMmgydjJoLTJ2LTJ6bS0yLTJoMnYyaC0ydi0yem0yLTJoMnYyaC0ydi0yem0wLTJoMnYyaC0ydi0yem0yLTJoMnYyaC0ydi0yeiIvPjwvZz48L2c+PC9zdmc+')] opacity-30"></div>
+                    <div className="relative flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20 shadow-xl">
+                                <Globe size={32} className="text-white" />
                             </div>
-                            <div className="min-w-0">
-                                <h3 className="text-sm font-black text-white tracking-tight truncate">{website.domain}</h3>
-                                <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest leading-none mt-1">Managed Host</p>
+                            <div>
+                                <h2 className="text-2xl font-black text-white tracking-tight">{website.domain}</h2>
+                                <p className="text-sm font-bold text-white/60 mt-1">Website Management Console</p>
                             </div>
                         </div>
+                        <div className="flex items-center gap-3">
+                            <div className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 ${status === 'active'
+                                ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                                : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                }`}>
+                                <span className={`w-2 h-2 rounded-full ${status === 'active' ? 'bg-green-400' : 'bg-red-400'} animate-pulse`}></span>
+                                {status === 'active' ? 'Active' : 'Suspended'}
+                            </div>
+                            <button
+                                onClick={onClose}
+                                className="p-3 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
-                        <div className="space-y-1 flex-1">
+                {/* Main Layout */}
+                <div className="flex h-full min-h-0">
+                    {/* Enhanced Sidebar */}
+                    <div className="w-72 bg-[var(--bg-dark)] border-r border-[var(--border)] p-6 flex flex-col">
+                        <div className="space-y-2 flex-1">
+                            <p className="text-xs font-black text-[var(--text-muted)] uppercase tracking-wider px-3 mb-4">Navigation</p>
                             {[
-                                { id: 'general', icon: Globe, label: 'Website Home' },
-                                { id: 'subdomains', icon: Link2, label: 'Domain Manager' },
-                                { id: 'files', icon: Folder, label: 'File Manager' },
-                                { id: 'config', icon: FileCode, label: 'Configuration' },
-                                { id: 'ssl', icon: Lock, label: 'SSL Certificate' },
-                                { id: 'logs', icon: Terminal, label: 'Site Logs' },
-                                { id: 'apps', icon: Package, label: 'App Installer' },
-                                { id: 'advanced', icon: ShieldCheck, label: 'Safety & Tools' }
+                                { id: 'general', icon: Globe, label: 'Overview', color: 'indigo' },
+                                { id: 'subdomains', icon: Link2, label: 'Subdomains', color: 'blue' },
+                                { id: 'files', icon: Folder, label: 'File Manager', color: 'emerald' },
+                                { id: 'config', icon: FileCode, label: 'Configuration', color: 'amber' },
+                                { id: 'ssl', icon: Lock, label: 'SSL/TLS', color: 'green' },
+                                { id: 'ip-access', icon: ShieldAlert, label: 'IP Control', color: 'purple' },
+                                { id: 'logs', icon: Terminal, label: 'Logs', color: 'slate' },
+                                { id: 'apps', icon: Package, label: 'Applications', color: 'cyan' },
+                                { id: 'advanced', icon: ShieldCheck, label: 'Advanced', color: 'rose' }
                             ].map(tab => (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id as any)}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${activeTab === tab.id ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/20' : 'text-white/40 hover:bg-white/5 hover:text-white/80'}`}
+                                    className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-bold transition-all group ${activeTab === tab.id
+                                        ? 'bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/20'
+                                        : 'text-[var(--text-muted)] hover:bg-[var(--nav-hover)] hover:text-[var(--text-main)]'
+                                        }`}
                                 >
-                                    <tab.icon size={16} />
-                                    {tab.label}
+                                    <tab.icon size={18} className={activeTab === tab.id ? '' : 'opacity-60 group-hover:opacity-100'} />
+                                    <span>{tab.label}</span>
                                 </button>
                             ))}
                         </div>
 
-                        <div className="mt-auto pt-6 border-t border-white/5 px-2">
-                            <div className="flex items-center gap-2 mb-3">
-                                <span className={`w-2 h-2 rounded-full ${status === 'active' ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{status}</span>
+                        <div className="mt-auto pt-6 border-t border-[var(--border)]">
+                            <div className="p-4 bg-[var(--nav-hover)] rounded-xl mb-3">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Activity size={14} className="text-[var(--primary)]" />
+                                    <span className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider">Status</span>
+                                </div>
+                                <div className="text-lg font-black text-[var(--text-main)]">{status}</div>
                             </div>
-                            <button onClick={onClose} className="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-black text-[10px] uppercase tracking-widest transition-all">
-                                Exit Management
+                            <button
+                                onClick={onClose}
+                                className="w-full py-3 rounded-xl bg-[var(--nav-hover)] hover:bg-[var(--border)] text-[var(--text-main)] font-bold text-sm transition-all"
+                            >
+                                Close Panel
                             </button>
                         </div>
                     </div>
 
                     {/* Main Content Area */}
-                    <div className="flex-1 flex flex-col min-w-0 bg-gradient-to-br from-indigo-500/5 to-transparent">
+                    <div className="flex-1 flex flex-col min-w-0 bg-[var(--bg-main)]">
                         <div className="p-8 pb-4 flex justify-between items-center">
                             <div>
                                 <h4 className="text-xl font-black text-white">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Management</h4>
@@ -340,6 +375,49 @@ const WebsiteManagementModal: React.FC<WebsiteManagementModalProps> = ({ website
                                                 <option value="7.4">PHP 7.4 (End of Life)</option>
                                                 <option value="5.6">PHP 5.6 (Vintage)</option>
                                             </select>
+                                        </div>
+                                    </div>
+
+                                    {/* Web Stack Selection */}
+                                    <div className="glass p-8 rounded-[32px] border border-white/5 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-8 text-indigo-500/5 rotate-12 transition-transform group-hover:rotate-0 duration-700">
+                                            <RefreshCw size={120} />
+                                        </div>
+                                        <div className="relative z-10">
+                                            <div className="flex items-center gap-3 mb-6">
+                                                <div className="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
+                                                    <RefreshCw size={18} className="text-indigo-400" />
+                                                </div>
+                                                <div>
+                                                    <h5 className="text-sm font-black text-white uppercase tracking-tight">Web Server Stack</h5>
+                                                    <p className="text-[10px] font-bold text-white/30 uppercase tracking-widest mt-1">Choose your processing engine</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                {[
+                                                    { id: 'nginx', label: 'Nginx Only', desc: 'Lightweight & Fast' },
+                                                    { id: 'apache', label: 'Apache Only', desc: '.htaccess Support' },
+                                                    { id: 'hybrid', label: 'Nginx + Apache', desc: 'Speed + Compatibility' }
+                                                ].map(stack => (
+                                                    <button
+                                                        key={stack.id}
+                                                        type="button"
+                                                        onClick={() => setWebStack(stack.id as any)}
+                                                        className={`p-5 rounded-2xl border transition-all text-left ${webStack === stack.id
+                                                            ? 'bg-indigo-500 border-indigo-400 shadow-lg shadow-indigo-500/20'
+                                                            : 'bg-white/5 border-white/5 hover:border-white/10'
+                                                            }`}
+                                                    >
+                                                        <p className={`text-xs font-black uppercase tracking-widest mb-1 ${webStack === stack.id ? 'text-white' : 'text-indigo-400'}`}>
+                                                            {stack.label}
+                                                        </p>
+                                                        <p className={`text-[10px] font-bold ${webStack === stack.id ? 'text-white/70' : 'text-white/30'}`}>
+                                                            {stack.desc}
+                                                        </p>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -678,6 +756,9 @@ const WebsiteManagementModal: React.FC<WebsiteManagementModalProps> = ({ website
                                         </div>
                                     </div>
                                 </div>
+                            )}
+                            {activeTab === 'ip-access' && (
+                                <IPAccessControlManager websiteId={website.id} domain={website.domain} />
                             )}
                         </div>
 

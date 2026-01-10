@@ -1,28 +1,52 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
+const { requireAuth } = require('../../middleware/auth');
 const { auditLogger } = require('../../middleware/audit');
+const { encrypt, decrypt } = require('../../utils/helpers');
+const BackupService = require('../../services/BackupService');
 const fs = require('fs');
 const path = require('path');
-const archiver = require('archiver');
+const SftpClient = require('ssh2-sftp-client');
 
 const dbConfig = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-    dateStrings: true // Ensure dates are returned as strings
+    database: process.env.DB_NAME
 };
 
-// Ensure backups directory exists
-const BACKUP_DIR = path.join(__dirname, '../../../../backups');
-if (!fs.existsSync(BACKUP_DIR)) {
-    fs.mkdirSync(BACKUP_DIR, { recursive: true });
-}
+// --- BACKUP HISTORY ---
+// --- BACKUP STATS ---
+router.get('/backups/stats', requireAuth, async (req, res) => {
+    const userId = req.userId;
+    const isAdmin = req.userRole === 'admin';
 
-// --- BACKUP MANAGEMENT ---
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        let query = `
+            SELECT 
+                COUNT(*) as count,
+                SUM(size) as total_size,
+                SUM(CASE WHEN storage_type = 'local' THEN size ELSE 0 END) as local_size,
+                SUM(CASE WHEN storage_type != 'local' THEN size ELSE 0 END) as remote_size
+            FROM backups
+            WHERE status = 'completed'
+        `;
+        let params = [];
+        if (!isAdmin) {
+            query += ' AND userId = ?';
+            params.push(userId);
+        }
+
+        const [rows] = await connection.query(query, params);
+        await connection.end();
+        res.json(rows[0] || { count: 0, total_size: 0, local_size: 0, remote_size: 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 router.get('/backups', requireAuth, async (req, res) => {
     const userId = req.userId;
@@ -31,18 +55,17 @@ router.get('/backups', requireAuth, async (req, res) => {
     try {
         const connection = await mysql.createConnection(dbConfig);
         let query = `
-            SELECT 
-                id, userId, type, target, storage_type, status, createdAt,
-                size as size_bytes, 
-                CONCAT(UPPER(SUBSTRING(target, 1, 1)), SUBSTRING(target, 2), ' Backup') as name,
-                filePath
-            FROM backups`;
+            SELECT b.*, s.name as schedule_name, r.name as storage_name 
+            FROM backups b
+            LEFT JOIN backup_schedules s ON b.scheduleId = s.id
+            LEFT JOIN remote_storage_configs r ON b.storageId = r.id
+        `;
         let params = [];
         if (!isAdmin) {
-            query += ' WHERE userId = ?';
+            query += ' WHERE b.userId = ?';
             params.push(userId);
         }
-        query += ' ORDER BY createdAt DESC';
+        query += ' ORDER BY b.createdAt DESC LIMIT 50';
         const [rows] = await connection.query(query, params);
         await connection.end();
         res.json(rows);
@@ -52,254 +75,180 @@ router.get('/backups', requireAuth, async (req, res) => {
 });
 
 router.post('/backups', requireAuth, auditLogger('CREATE_BACKUP'), async (req, res) => {
-    const { target, storage_type, targetDomainId } = req.body;
+    const { target, storageId, encrypted } = req.body;
     const userId = req.userId;
-    const isAdmin = req.userRole === 'admin';
 
-    // Create record in DB first
-    let connection;
     try {
-        connection = await mysql.createConnection(dbConfig);
+        const connection = await mysql.createConnection(dbConfig);
         const [result] = await connection.query(
-            'INSERT INTO backups (userId, target, storage_type, status) VALUES (?, ?, ?, ?)',
-            [userId, target || 'full', storage_type || 'local', 'pending']
+            'INSERT INTO backups (userId, type, target, storageId, status) VALUES (?, "manual", ?, ?, "pending")',
+            [userId, target || 'full', storageId || null]
         );
         const backupId = result.insertId;
         await connection.end();
 
-        // Start background backup process
-        performRealBackup(backupId, userId, target, targetDomainId, isAdmin);
+        // Run in background
+        BackupService.performBackup(backupId, {
+            userId,
+            target: target || 'full',
+            storageId: storageId || null,
+            encrypted: !!encrypted
+        });
 
-        res.status(202).json({ success: true, message: 'Backup started in background', backupId });
+        res.json({ success: true, message: 'Backup task started', backupId });
     } catch (err) {
-        if (connection) await connection.end();
         res.status(500).json({ error: err.message });
-    }
-});
-
-router.get('/backups/:id/download', requireAuth, async (req, res) => {
-    const { id } = req.params;
-    const userId = req.userId;
-    const isAdmin = req.userRole === 'admin';
-
-    try {
-        const connection = await mysql.createConnection(dbConfig);
-        const [rows] = await connection.query('SELECT * FROM backups WHERE id = ?', [id]);
-        await connection.end();
-
-        if (rows.length === 0) return res.status(404).json({ error: 'Backup not found' });
-        const backup = rows[0];
-
-        if (backup.userId !== userId && !isAdmin) return res.status(403).json({ error: 'Unauthorized' });
-
-        if (!backup.filePath || !fs.existsSync(backup.filePath)) {
-            return res.status(404).json({ error: 'Backup file not found on server' });
-        }
-
-        const fileName = path.basename(backup.filePath);
-        const downloadName = fileName.endsWith('.zip') ? fileName : `${fileName}.zip`;
-
-        res.download(backup.filePath, downloadName);
-
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
 router.delete('/backups/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
     const userId = req.userId;
-    const isAdmin = req.userRole === 'admin';
-
     try {
         const connection = await mysql.createConnection(dbConfig);
-        const [backup] = await connection.query('SELECT userId, filePath FROM backups WHERE id = ?', [id]);
+        const [rows] = await connection.query('SELECT filePath, userId FROM backups WHERE id = ?', [id]);
+        if (rows.length === 0) return res.status(404).json({ error: 'Backup not found' });
 
-        if (backup.length === 0) {
-            await connection.end();
-            return res.status(404).json({ error: 'Backup not found' });
-        }
-        if (backup[0].userId !== userId && !isAdmin) {
+        if (rows[0].userId !== userId && req.userRole !== 'admin') {
             await connection.end();
             return res.status(403).json({ error: 'Unauthorized' });
         }
 
-        if (backup[0].filePath && fs.existsSync(backup[0].filePath)) {
-            try { fs.unlinkSync(backup[0].filePath); } catch (e) { }
+        if (rows[0].filePath && fs.existsSync(rows[0].filePath)) {
+            try { fs.unlinkSync(rows[0].filePath); } catch (e) { }
         }
 
         await connection.query('DELETE FROM backups WHERE id = ?', [id]);
         await connection.end();
-        res.json({ success: true, message: 'Backup deleted' });
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
 
-// Helper to generate SQL Dump
-async function generateSQLDump(connection, dbName) {
-    let sql = `-- YumnaPanel SQL Dump\n`;
-    sql += `-- Database: ${dbName}\n`;
-    sql += `-- Generated: ${new Date().toISOString()}\n\n`;
-    sql += `USE \`${dbName}\`;\n\n`;
-
-    const [tables] = await connection.query(`SHOW TABLES FROM \`${dbName}\``);
-    const tableKey = `Tables_in_${dbName}`;
-
-    for (const row of tables) {
-        const tableName = row[tableKey];
-        const [createTable] = await connection.query(`SHOW CREATE TABLE \`${dbName}\`.\`${tableName}\``);
-        sql += `DROP TABLE IF EXISTS \`${tableName}\`;\n`;
-        sql += `${createTable[0]['Create Table']};\n\n`;
-
-        const [rows] = await connection.query(`SELECT * FROM \`${dbName}\`.\`${tableName}\``);
-        if (rows.length > 0) {
-            sql += `INSERT INTO \`${tableName}\` VALUES \n`;
-            const values = rows.map(r => {
-                const vals = Object.values(r).map(v => {
-                    if (v === null) return 'NULL';
-                    if (typeof v === 'number') return v;
-                    return `'${String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
-                });
-                return `(${vals.join(', ')})`;
-            });
-            sql += values.join(',\n') + ';\n\n';
-        }
-    }
-    return sql;
-}
-
-// --- REAL BACKUP ENGINE ---
-async function performRealBackup(backupId, userId, target, targetDomainId, isAdmin) {
-    let connection;
+// --- BACKUP SCHEDULES ---
+router.get('/backups/schedules', requireAuth, async (req, res) => {
     try {
-        connection = await mysql.createConnection(dbConfig);
-
-        let domainLabel = '';
-        if (targetDomainId) {
-            const [dRows] = await connection.query('SELECT domain FROM websites WHERE id = ?', [targetDomainId]);
-            if (dRows.length > 0) domainLabel = `_${dRows[0].domain}`;
-        }
-
-        const fileName = `backup_u${userId}${domainLabel}_${backupId}_${Date.now()}.zip`;
-        const filePath = path.join(BACKUP_DIR, fileName);
-        const output = fs.createWriteStream(filePath);
-        const archive = archiver('zip', { zlib: { level: 9 } });
-
-        output.on('close', async () => {
-            const size = archive.pointer();
-            try {
-                const conn = await mysql.createConnection(dbConfig);
-                await conn.query('UPDATE backups SET status = ?, size = ?, filePath = ? WHERE id = ?',
-                    ['completed', size, filePath, backupId]);
-                await conn.end();
-            } catch (e) { }
-        });
-
-        archive.on('error', async (err) => {
-            try {
-                const conn = await mysql.createConnection(dbConfig);
-                await conn.query('UPDATE backups SET status = ?, size = 0 WHERE id = ?', ['failed', backupId]);
-                await conn.end();
-            } catch (e) { }
-        });
-
-        archive.pipe(output);
-
-        // 1. BACKUP FILES
-        if (target === 'full' || target === 'files') {
-            let websitesQuery = 'SELECT id, domain, rootPath FROM websites';
-            let websitesParams = [];
-            const conditions = [];
-
-            if (!isAdmin) {
-                conditions.push('userId = ?');
-                websitesParams.push(userId);
-            }
-
-            if (targetDomainId) {
-                conditions.push('id = ?');
-                websitesParams.push(targetDomainId);
-            }
-
-            if (conditions.length > 0) {
-                websitesQuery += ' WHERE ' + conditions.join(' AND ');
-            }
-
-            const [websites] = await connection.query(websitesQuery, websitesParams);
-
-            if (websites.length > 0) {
-                const processedPaths = new Set();
-                for (const site of websites) {
-                    // Normalize path
-                    const normalizedPath = path.resolve(site.rootPath).toLowerCase();
-
-                    if (processedPaths.has(normalizedPath)) {
-                        console.log(`[Backup] Skipping duplicate path for ${site.domain}: ${site.rootPath}`);
-                        continue;
-                    }
-
-                    console.log(`[Backup] Processing Site: ${site.domain} Path: ${site.rootPath}`);
-                    if (site.rootPath && fs.existsSync(site.rootPath)) {
-                        archive.directory(site.rootPath, `domains/${site.domain}`);
-                        processedPaths.add(normalizedPath);
-                    } else {
-                        archive.append(`Path not found: ${site.rootPath}`, { name: `domains/${site.domain}_error.txt` });
-                    }
-                }
-            } else {
-                archive.append(`No websites found.`, { name: 'domains/info.txt' });
-            }
-        }
-
-        // 2. BACKUP DATABASES
-        if (target === 'full' || target === 'database') {
-            let dbQuery = 'SELECT name FROM `databases`';
-            let dbParams = [];
-            const dbConditions = [];
-
-            if (!isAdmin) {
-                dbConditions.push('userId = ?');
-                dbParams.push(userId);
-            }
-
-            if (targetDomainId) {
-                const [dOwner] = await connection.query('SELECT userId FROM websites WHERE id = ?', [targetDomainId]);
-                if (dOwner.length > 0) {
-                    if (isAdmin) {
-                        dbConditions.push('userId = ?');
-                        dbParams.push(dOwner[0].userId);
-                    }
-                }
-            }
-
-            if (dbConditions.length > 0) {
-                dbQuery += ' WHERE ' + dbConditions.join(' AND ');
-            }
-
-            const [databases] = await connection.query(dbQuery, dbParams);
-
-            if (databases.length > 0) {
-                for (const db of databases) {
-                    try {
-                        const sqlContent = await generateSQLDump(connection, db.name);
-                        archive.append(sqlContent, { name: `databases/${db.name}.sql` });
-                    } catch (dbErr) {
-                        archive.append(dbErr.message, { name: `databases/${db.name}_error.log` });
-                    }
-                }
-            } else {
-                archive.append('No databases found.', { name: 'databases/info.txt' });
-            }
-        }
-
+        const connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query(
+            'SELECT s.*, r.name as storage_name FROM backup_schedules s LEFT JOIN remote_storage_configs r ON s.storageId = r.id WHERE s.userId = ?',
+            [req.userId]
+        );
         await connection.end();
-        await archive.finalize();
-
+        res.json(rows);
     } catch (err) {
-        if (connection) await connection.end();
+        res.status(500).json({ error: err.message });
     }
-}
+});
+
+router.post('/backups/schedules', requireAuth, auditLogger('CREATE_BACKUP_SCHEDULE'), async (req, res) => {
+    const { name, type, target, storageId, keepBackups } = req.body;
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const nextRun = BackupService.calculateNextRun(type, new Date());
+        const [result] = await connection.query(
+            'INSERT INTO backup_schedules (userId, name, type, target, storageId, keepBackups, nextRun) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [req.userId, name, type, target, storageId || null, keepBackups || 7, nextRun]
+        );
+        await connection.end();
+        res.json({ success: true, id: result.insertId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/backups/schedules/:id', requireAuth, async (req, res) => {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query('DELETE FROM backup_schedules WHERE id = ? AND userId = ?', [req.params.id, req.userId]);
+        await connection.end();
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// --- REMOTE STORAGE ---
+router.get('/backups/storage', requireAuth, async (req, res) => {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const [rows] = await connection.query(
+            'SELECT id, name, provider, isActive, createdAt FROM remote_storage_configs WHERE userId = ?',
+            [req.userId]
+        );
+        await connection.end();
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/backups/storage', requireAuth, auditLogger('CONFIGURE_REMOTE_STORAGE'), async (req, res) => {
+    const { name, provider, config } = req.body;
+    try {
+        const encryptedConfig = encrypt(JSON.stringify(config));
+        const connection = await mysql.createConnection(dbConfig);
+        const [result] = await connection.query(
+            'INSERT INTO remote_storage_configs (userId, name, provider, config) VALUES (?, ?, ?, ?)',
+            [req.userId, name, provider, encryptedConfig]
+        );
+        await connection.end();
+        res.json({ success: true, id: result.insertId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/backups/storage/test', requireAuth, async (req, res) => {
+    const { provider, config } = req.body;
+
+    if (provider === 'sftp') {
+        const sftp = new SftpClient();
+        try {
+            await sftp.connect({
+                host: config.host,
+                port: parseInt(config.port) || 22,
+                username: config.username,
+                password: config.password,
+                timeout: 10000
+            });
+            await sftp.end();
+            res.json({ success: true, message: 'SFTP connection successful!' });
+        } catch (err) {
+            res.status(400).json({ error: 'Connection failed: ' + err.message });
+        }
+    } else {
+        res.status(400).json({ error: 'Provider test not implemented yet' });
+    }
+});
+
+router.delete('/backups/storage/:id', requireAuth, async (req, res) => {
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query('DELETE FROM remote_storage_configs WHERE id = ? AND userId = ?', [req.params.id, req.userId]);
+        await connection.end();
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.get('/backups/:id/verify', requireAuth, async (req, res) => {
+    try {
+        const result = await BackupService.verifyBackup(req.params.id);
+        res.json(result);
+    } catch (err) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+router.post('/backups/:id/restore', requireAuth, auditLogger('RESTORE_BACKUP'), async (req, res) => {
+    try {
+        const result = await BackupService.restoreBackup(req.params.id);
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 module.exports = router;

@@ -2,7 +2,7 @@
 
 Modern, secure, and feature-rich Webserver & Hosting Management Panel built with React and Node.js.
 
-![Version](https://img.shields.io/badge/version-2.2.0-purple.svg)
+![Version](https://img.shields.io/badge/version-2.2.3-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## ✨ Core Features
@@ -22,6 +22,7 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 ### 🌐 Web Hosting Management (cPanel/Plesk Grade)
 - ✅ **Domain & Subdomain** - Complete management of virtual hosts, aliases, and redirects.
 - ✅ **SSL Hub** - Automatic issuance (Let's Encrypt / Win-ACME), force SSL, and HSTS.
+- ✅ **Web Server Stack Hub** - Switch between Nginx, Apache, or Hybrid (Nginx Proxy + Apache) in real-time.
 - ✅ **PHP Selector** - Support for multiple PHP versions per domain with FastCGI cache.
 - ✅ **Web Stats & Logs** - Real-time access/error logs and traffic monitoring.
 - ✅ **FTP Management** - Create and manage FTP accounts per domain.
@@ -98,6 +99,13 @@ See our [ROADMAP.md](ROADMAP.md) for planned features and development timeline.
 
 ## 📜 Changelog
 
+### [2.2.2] - 2026-01-10
+- **Git Integration**: New Git & Deploy module with webhook support.
+- **FTP Fixes**: Fixed database schema errors.
+
+### [2.2.1] - 2026-01-10
+- **Stability & Polish**: Fixed PWA connectivity, resolved avatar upload paths, and refined Sidebar UI (96px logo, simplified profile).
+
 ### [2.2.0] - 2026-01-09
 - **DNS Enhancements**: Added DNSSEC key generation and Cloudflare synchronization.
 - **FTP Manager**: Complete FTP account management system with quota enforcement.
@@ -162,5 +170,5 @@ This project is licensed under the MIT License.
 
 **Made with ❤️ by Yumna Panel Project Team**
 
-**Version**: 2.2.0
-**Last Updated**: 2026-01-09
+**Version**: 2.2.2
+**Last Updated**: 2026-01-10

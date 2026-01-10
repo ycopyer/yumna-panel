@@ -241,6 +241,174 @@ const queries = [
         nextRun DATETIME,
         createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS domains (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        domain VARCHAR(255) NOT NULL,
+        registrar VARCHAR(255),
+        registration_date DATE,
+        expiry_date DATE,
+        auto_renew TINYINT(1) DEFAULT 0,
+        whois_privacy TINYINT(1) DEFAULT 0,
+        nameservers TEXT,
+        status VARCHAR(50) DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS domain_forwarding (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        domain_id INT NOT NULL,
+        target_url TEXT NOT NULL,
+        type VARCHAR(10) DEFAULT '301',
+        preserve_path TINYINT(1) DEFAULT 0,
+        enabled TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (domain_id) REFERENCES domains(id) ON DELETE CASCADE,
+        UNIQUE KEY (domain_id)
+    )`,
+    `CREATE TABLE IF NOT EXISTS git_repos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId INT NOT NULL,
+        websiteId INT,
+        name VARCHAR(255) NOT NULL,
+        repoUrl VARCHAR(255) NOT NULL,
+        branch VARCHAR(100) DEFAULT 'main',
+        deployPath VARCHAR(500) NOT NULL,
+        status ENUM('active', 'deploying', 'error') DEFAULT 'active',
+        lastDeploy DATETIME,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS ip_access_rules (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        website_id INT NOT NULL,
+        ip_address VARCHAR(45) NOT NULL,
+        rule_type ENUM('whitelist', 'blacklist') NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        created_by INT,
+        FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+        INDEX idx_website (website_id),
+        INDEX idx_ip (ip_address)
+    )`,
+    `CREATE TABLE IF NOT EXISTS website_team_members (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        website_id INT NOT NULL,
+        user_id INT NOT NULL,
+        permissions TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS website_activities (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        website_id INT NOT NULL,
+        user_id INT,
+        action VARCHAR(100) NOT NULL,
+        description TEXT,
+        metadata TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS website_comments (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        website_id INT NOT NULL,
+        user_id INT NOT NULL,
+        target_type VARCHAR(50) NOT NULL,
+        target_id INT NOT NULL,
+        comment TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS website_tasks (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        website_id INT NOT NULL,
+        created_by INT NOT NULL,
+        assigned_to INT,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        priority ENUM('low', 'medium', 'high', 'critical') DEFAULT 'medium',
+        due_date DATETIME,
+        status ENUM('pending', 'in-progress', 'completed', 'cancelled') DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (website_id) REFERENCES websites(id) ON DELETE CASCADE,
+        FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_domains (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId INT NOT NULL,
+        domain VARCHAR(255) NOT NULL UNIQUE,
+        spam_enabled TINYINT DEFAULT 1,
+        spam_score DECIMAL(3,1) DEFAULT 5.0,
+        spam_marking_method VARCHAR(20) DEFAULT 'subject',
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_accounts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        domainId INT NOT NULL,
+        username VARCHAR(255) NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        quota_bytes BIGINT DEFAULT 1073741824,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(domainId, username),
+        FOREIGN KEY (domainId) REFERENCES email_domains(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_aliases (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        domainId INT NOT NULL,
+        source VARCHAR(255) NOT NULL,
+        destination TEXT NOT NULL,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(domainId, source),
+        FOREIGN KEY (domainId) REFERENCES email_domains(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_autoresponders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId INT NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        subject VARCHAR(255),
+        body TEXT,
+        active TINYINT DEFAULT 1,
+        startDate DATETIME,
+        endDate DATETIME,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(email),
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_mailing_lists (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        userId INT NOT NULL,
+        domainId INT NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        address VARCHAR(255) NOT NULL UNIQUE,
+        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (domainId) REFERENCES email_domains(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_mailing_list_subscribers (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        listId INT NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        subscribedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(listId, email),
+        FOREIGN KEY (listId) REFERENCES email_mailing_lists(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS email_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        sender VARCHAR(255),
+        recipient VARCHAR(255),
+        subject VARCHAR(255),
+        size INT,
+        status VARCHAR(50),
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )`
 ];
 

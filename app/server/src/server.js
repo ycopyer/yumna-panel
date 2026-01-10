@@ -6,11 +6,19 @@ const ComplianceService = require('./services/compliance');
 const LogSecurityService = require('./services/LogSecurityService');
 const FirewallService = require('./services/FirewallService');
 const WebServerService = require('./services/webserver');
+const SSLService = require('./services/ssl');
+const BackupService = require('./services/BackupService');
+const AppSchedulerService = require('./services/AppSchedulerService');
+const ResourceMonitoringService = require('./services/ResourceMonitoringService');
 
 // Background Tasks
-// Initialize Log Monitoring & Firewall Sync
+// Initialize Log Monitoring, Firewall Sync, SSL Checker, Backup Scheduler, App Scheduler & Resource Monitor
 LogSecurityService.start().catch(e => console.error('[SECURITY-LOG] Startup error:', e));
 FirewallService.sync().catch(e => console.error('[FIREWALL] Initial sync error:', e));
+SSLService.start();
+BackupService.start();
+AppSchedulerService.init();
+ResourceMonitoringService.start();
 
 // Periodic Firewall Sync (every 5 minutes)
 setInterval(() => {

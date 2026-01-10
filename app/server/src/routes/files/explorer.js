@@ -187,6 +187,8 @@ router.get('/view-pdf', getSession, async (req, res) => {
     }
 });
 
+const FileVersioningService = require('../../services/FileVersioningService');
+
 router.put('/save-content', getSession, async (req, res) => {
     const filePath = sanitizePath(req.body.path);
     const { content } = req.body;
@@ -195,6 +197,13 @@ router.put('/save-content', getSession, async (req, res) => {
     if (content === undefined) return res.status(400).json({ error: 'Content is required' });
 
     try {
+        // Create version before saving
+        try {
+            await FileVersioningService.createVersion(req.sessionData.userId, filePath, req.sftp, 'Auto-save');
+        } catch (vErr) {
+            console.warn('[Versioning] Auto-save skipped:', vErr.message);
+        }
+
         await req.sftp.put(content, filePath);
         logActivity(req.sessionData.userId, 'edit', `Edited file: ${filePath}`, req);
         res.json({ success: true });

@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const mysql = require('mysql2/promise');
-const bcrypt = require('bcrypt');
+const argon2 = require('argon2');
 const { requireAuth, requireAdmin } = require('../../middleware/auth');
 const { auditLogger } = require('../../middleware/audit');
 const path = require('path');
 const fs = require('fs').promises;
+const TwoFactorService = require('../../services/TwoFactorService');
+const { authenticator } = require('otplib');
 
 const dbConfig = {
     host: process.env.DB_HOST,
@@ -44,7 +46,7 @@ router.get('/ftp', requireAuth, async (req, res) => {
 
     try {
         const connection = await mysql.createConnection(dbConfig);
-        let query = 'SELECT id, userId, username, rootPath, status, createdAt, updatedAt FROM ftp_accounts';
+        let query = 'SELECT id, userId, username, rootPath, status, two_factor_enabled, createdAt, updatedAt FROM ftp_accounts';
         let params = [];
 
         if (!isAdmin) {
@@ -57,6 +59,7 @@ router.get('/ftp', requireAuth, async (req, res) => {
         await connection.end();
         res.json(rows);
     } catch (err) {
+        console.error('[FTP_GET_ERROR]', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -105,7 +108,7 @@ router.post('/ftp', requireAuth, auditLogger('CREATE_FTP_ACCOUNT'), async (req, 
         }
 
         // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await argon2.hash(password);
 
         // Determine root path - default to user's home directory if not specified
         let finalRootPath = rootPath;
@@ -170,7 +173,7 @@ router.put('/ftp/:id', requireAuth, checkFtpOwnership, auditLogger('UPDATE_FTP_A
                 await connection.end();
                 return res.status(400).json({ error: 'Password must be at least 8 characters long' });
             }
-            const hashedPassword = await bcrypt.hash(password, 10);
+            const hashedPassword = await argon2.hash(password);
             updates.push('password = ?');
             params.push(hashedPassword);
         }
@@ -295,5 +298,60 @@ function formatBytes(bytes, decimals = 2) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
+
+// 2FA: Generate secret
+router.post('/ftp/:id/2fa/setup', requireAuth, checkFtpOwnership, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        const [accounts] = await connection.query('SELECT username FROM ftp_accounts WHERE id = ?', [id]);
+
+        const { secret, qrContent } = await TwoFactorService.generateSecret(`${accounts[0].username}@YumnaFTP`);
+        await connection.end();
+        res.json({ secret, qrContent });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2FA: Enable
+router.post('/ftp/:id/2fa/enable', requireAuth, checkFtpOwnership, auditLogger('ENABLE_FTP_2FA'), async (req, res) => {
+    const { id } = req.params;
+    const { secret, token } = req.body;
+
+    if (!secret || !token) return res.status(400).json({ error: 'Secret and token required' });
+
+    try {
+        const isValid = authenticator.check(token, secret);
+        if (!isValid) return res.status(400).json({ error: 'Invalid verification code' });
+
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query(
+            'UPDATE ftp_accounts SET two_factor_secret = ?, two_factor_enabled = 1 WHERE id = ?',
+            [secret, id]
+        );
+        await connection.end();
+
+        res.json({ success: true, message: '2FA enabled for FTP account' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2FA: Disable
+router.post('/ftp/:id/2fa/disable', requireAuth, checkFtpOwnership, auditLogger('DISABLE_FTP_2FA'), async (req, res) => {
+    const { id } = req.params;
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query(
+            'UPDATE ftp_accounts SET two_factor_secret = NULL, two_factor_enabled = 0 WHERE id = ?',
+            [id]
+        );
+        await connection.end();
+        res.json({ success: true, message: '2FA disabled for FTP account' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 module.exports = router;
