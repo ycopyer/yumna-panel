@@ -142,17 +142,17 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             <span className="text-xl font-black text-white tracking-widest uppercase">{siteSettings?.site_title || 'YUMNA PANEL'}</span>
                         </div>
 
-                        <h2 className="text-4xl font-black text-white leading-tight mb-6 tracking-tight">
-                            The Next Generation <br />
-                            <span className="text-indigo-500">Cloud Infrastructure.</span>
+                        <h2 className="text-4xl font-black text-white leading-tight mb-8 tracking-tighter">
+                            Kuasai Web dengan <br />
+                            <span className="text-indigo-500">Performa Ultra-Hybrid.</span>
                         </h2>
 
                         <div className="space-y-6">
                             {[
-                                { icon: Globe, text: "High-Performance Webstack", color: "text-blue-400" },
-                                { icon: Cpu, text: "Advanced Resource Allocation", color: "text-indigo-400" },
-                                { icon: Database, text: "Secure Database Management", color: "text-emerald-400" },
-                                { icon: Mail, text: "Enterprise Email Solutions", color: "text-amber-400" }
+                                { icon: Globe, text: "Multi-Engine Hyper-Stack: Nginx & Apache", color: "text-blue-400" },
+                                { icon: Shield, text: "Keamanan Institusi & Live Threat Defense", color: "text-rose-400" },
+                                { icon: Cpu, text: "Automasi Git-to-Live & Webhook Terpadu", color: "text-amber-400" },
+                                { icon: Database, text: "Database Berkecepatan Tinggi & Skalabel", color: "text-emerald-400" }
                             ].map((item, i) => (
                                 <motion.div
                                     key={i}
@@ -196,8 +196,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 className="w-full max-w-[380px] mx-auto"
                             >
                                 <div className="mb-10 text-center md:text-left">
-                                    <h1 className="text-3xl font-black text-white mb-2 tracking-tight uppercase">Login Sequence</h1>
-                                    <p className="text-white/40 text-sm font-bold tracking-wide italic">Secure binary handshake requested...</p>
+                                    <h1 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase">ACCESS PROTOCOL</h1>
+                                    <p className="text-white/40 text-xs font-bold tracking-[0.1em] italic">Otentikasi aman ke gerbang infrastruktur Anda.</p>
                                 </div>
 
                                 {error && (
