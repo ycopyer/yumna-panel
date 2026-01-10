@@ -99,32 +99,7 @@ See our [ROADMAP.md](ROADMAP.md) for planned features and development timeline.
 
 ## 📜 Changelog
 
-### [2.2.3] - 2026-01-10
-- **Multi-Engine Web Stack**: Switchable Nginx, Apache, or Hybrid (Proxy) architectures.
-- **Standalone Core Architecture**: Migrated all engines (Nginx, Apache, PHP) to standalone local paths.
-- **Documentation Refactoring**: Reorganized all guides and roadmaps into a dedicated `docs/` folder.
-- **Version Alignment**: Synced internal and public versioning to v2.2.3.
-
-### [2.2.2] - 2026-01-10
-- **Git Integration**: New Git & Deploy module with webhook support.
-- **FTP Fixes**: Fixed database schema errors.
-
-### [2.2.1] - 2026-01-10
-- **Stability & Polish**: Fixed PWA connectivity, resolved avatar upload paths, and refined Sidebar UI (96px logo, simplified profile).
-
-### [2.2.0] - 2026-01-09
-- **DNS Enhancements**: Added DNSSEC key generation and Cloudflare synchronization.
-- **FTP Manager**: Complete FTP account management system with quota enforcement.
-- **Security**: Bcrypt password hashing for FTP accounts, ownership verification.
-- **Database**: Added `ftp_accounts` table and DNS security columns.
-
-### [2.1.0] - 2026-01-09
-- **Native EXE Architecture**: Converted the panel into a professional C# executable.
-- **System Tray PRO**: Added "Minimize to Tray" with right-click menu for Start/Stop services.
-- **Comprehensive Feature Set**: Added professional-grade modules for Email, DNS, Multi-Tenancy, and Advanced Backups.
-
-### [1.8.0] - 2026-01-07
-- **Editor Upgrade**: Full Monaco Editor integration.
+Detailed version history and changes can be found in the [CHANGELOG.md](docs/CHANGELOG.md).
 
 ---
 
