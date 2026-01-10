@@ -170,62 +170,209 @@ router.post('/websites', requireAuth, auditLogger('CREATE_WEBSITE'), async (req,
                     // Neither exists, create default index.html
                     const defaultHtml = `<!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Managed by Yumna Panel - Premium Infrastructure</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&display=swap"
+        rel="stylesheet">
     <style>
-        :root { --primary: #6366f1; --bg: #0f172a; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: #fff; overflow-x: hidden; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.05); }
-        .gradient-text { background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .feature-card:hover { transform: translateY(-5px); background: rgba(255, 255, 255, 0.06); border-color: rgba(99, 102, 241, 0.3); }
-        .animate-float { animation: float 6s ease-in-out infinite; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-20px); } }
-        .bg-grid { background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px); background-size: 40px 40px; }
+        :root {
+            --primary: #6366f1;
+            --bg: #0f172a;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: var(--bg);
+            color: #fff;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .gradient-text {
+            background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .glow {
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.2);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .animate-float {
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-20px);
+            }
+        }
+
+        .bg-grid {
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
     </style>
 </head>
+
 <body class="bg-grid">
-    <div class="fixed top-20 right-[10%] w-[500px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full -z-10 animate-float"></div>
+    <!-- Ambient Background -->
+    <div class="fixed top-0 left-0 w-full h-full -z-10 bg-grid opacity-20"></div>
+    <div
+        class="fixed top-20 right-[10%] w-[500px] h-[500px] bg-indigo-600/10 blur-[120px] rounded-full -z-10 animate-float">
+    </div>
+    <div class="fixed bottom-20 left-[10%] w-[400px] h-[400px] bg-blue-600/10 blur-[100px] rounded-full -z-10 animate-float"
+        style="animation-delay: -3s"></div>
+
     <div class="max-w-6xl mx-auto px-6 py-20 relative">
+        <!-- Header -->
         <header class="text-center mb-24">
             <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8 border border-white/10">
                 <span class="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span class="text-xs font-black uppercase tracking-[0.2em] text-emerald-400">Managed by Yumna Panel</span>
+                <span class="text-xs font-black uppercase tracking-[0.2em] text-emerald-400">Server Status:
+                    Optimized</span>
             </div>
-            <h1 class="text-6xl font-black mb-6 tracking-tighter leading-tight">Welcome to <span class="gradient-text">\${domain}</span></h1>
-            <p class="text-lg text-white/50 max-w-2xl mx-auto font-medium">Infrastruktur web ultra-modern dengan sinergi performa tinggi dan keamanan tingkat institusi.</p>
+            <h1 class="text-6xl md:text-7xl font-black mb-6 tracking-tighter leading-tight">
+                Welcome to<br />
+                <span class="gradient-text">\${domain}</span>
+            </h1>
+            <p class="text-lg text-white/50 max-w-2xl mx-auto font-medium">
+                Infrastruktur web ultra-modern dengan sinergi performa tinggi dan keamanan tingkat institusi. Siap
+                mendominasi ekosistem digital.
+            </p>
         </header>
 
+        <!-- Feature Grid -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-24">
-            <div class="feature-card p-8 rounded-[32px] glass transition-all duration-500">
+            <!-- Stack -->
+            <div class="feature-card p-8 rounded-[32px] glass hover:glow transition-all duration-500">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center mb-6 border border-blue-500/20">
+                    <svg class="text-blue-400 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                        </path>
+                    </svg>
+                </div>
                 <h3 class="text-xl font-bold mb-3">Hybrid Hyper-Stack</h3>
-                <p class="text-white/40 text-sm leading-relaxed">Sinergi sempurna Nginx (Reverse Proxy) & Apache (Backend) untuk performa maksimal.</p>
+                <p class="text-white/40 text-sm leading-relaxed">Sinergi sempurna Nginx (Reverse Proxy) & Apache
+                    (Backend) untuk kecepatan statis dan fleksibilitas dinamis.</p>
             </div>
-            <div class="feature-card p-8 rounded-[32px] glass transition-all duration-500">
+
+            <!-- Security -->
+            <div class="feature-card p-8 rounded-[32px] glass hover:glow transition-all duration-500">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-rose-500/10 flex items-center justify-center mb-6 border border-rose-500/20">
+                    <svg class="text-rose-400 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z">
+                        </path>
+                    </svg>
+                </div>
                 <h3 class="text-xl font-bold mb-3">Shield Defense 2.0</h3>
-                <p class="text-white/40 text-sm leading-relaxed">Proteksi real-time terhadap serangan dengan Web Application Firewall (WAF).</p>
+                <p class="text-white/40 text-sm leading-relaxed">Proteksi real-time terhadap serangan Brute-force, SQL
+                    Injection, dan Web Application Firewall (WAF).</p>
             </div>
-            <div class="feature-card p-8 rounded-[32px] glass transition-all duration-500">
+
+            <!-- Databases -->
+            <div class="feature-card p-8 rounded-[32px] glass hover:glow transition-all duration-500">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center mb-6 border border-emerald-500/20">
+                    <svg class="text-emerald-400 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4">
+                        </path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold mb-3">Core Data Cluster</h3>
+                <p class="text-white/40 text-sm leading-relaxed">Manajemen database MySQL/MariaDB dengan sistem isolasi
+                    tinggi dan optimasi query otomatis.</p>
+            </div>
+
+            <!-- Deployment -->
+            <div class="feature-card p-8 rounded-[32px] glass hover:glow transition-all duration-500">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center mb-6 border border-amber-500/20">
+                    <svg class="text-amber-400 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path>
+                    </svg>
+                </div>
                 <h3 class="text-xl font-bold mb-3">Git-to-Live Flow</h3>
-                <p class="text-white/40 text-sm leading-relaxed">Continuous Deployment terintegrasi untuk otomatisasi pembaruan kode.</p>
+                <p class="text-white/40 text-sm leading-relaxed">Continuous Deployment terintegrasi. Push kode Anda ke
+                    repository dan biarkan panel menangani sisanya.</p>
+            </div>
+
+            <!-- Terminal -->
+            <div class="feature-card p-8 rounded-[32px] glass hover:glow transition-all duration-500">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center mb-6 border border-cyan-500/20">
+                    <svg class="text-cyan-400 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold mb-3">Command Node Terminal</h3>
+                <p class="text-white/40 text-sm leading-relaxed">Akses terminal terkontrol langsung dari browser. Jailed
+                    environment untuk keamanan maksimal.</p>
+            </div>
+
+            <!-- Monitoring -->
+            <div class="feature-card p-8 rounded-[32px] glass hover:glow transition-all duration-500">
+                <div
+                    class="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center mb-6 border border-violet-500/20">
+                    <svg class="text-violet-400 w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                        </path>
+                    </svg>
+                </div>
+                <h3 class="text-xl font-bold mb-3">Live Power Grid</h3>
+                <p class="text-white/40 text-sm leading-relaxed">Monitoring resource secara real-time. Kontrol penuh
+                    atas penggunaan RAM, CPU, dan Storage.</p>
             </div>
         </div>
 
-        <footer class="text-center pt-20 border-t border-white/5 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-white">Y</div>
-                <div class="text-left">
-                    <p class="text-sm font-black tracking-widest uppercase">YUMNA PANEL</p>
-                    <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">v\${process.env.PANEL_VERSION || 'Version belum di set'}</p>
+        <!-- Footer -->
+        <footer class="text-center pt-20 border-t border-white/5">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center font-black">Y</div>
+                    <div class="text-left">
+                        <p class="text-sm font-black tracking-widest uppercase">YUMNA PANEL</p>
+                        <p class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">v\${process.env.PANEL_VERSION || 'Version belum di set'}</p>
+                    </div>
                 </div>
+                <p class="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">
+                    &copy; 2026 Crafted with Protocol Mastery. All system online.
+                </p>
             </div>
-            <p class="text-xs font-bold text-white/30 uppercase tracking-[0.2em]">&copy; 2026 Crafted with Protocol Mastery.</p>
         </footer>
     </div>
 </body>
+
 </html>`;
                     await fs.writeFile(indexPath, defaultHtml);
                 }

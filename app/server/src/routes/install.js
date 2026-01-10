@@ -218,7 +218,7 @@ DB_NAME=${dbName}
 PORT=5000
 ENCRYPTION_KEY=${require('crypto').randomBytes(32).toString('hex')}
 CORS_ORIGIN=http://localhost:3000
-APP_VERSION=1.5.3
+PANEL_VERSION=2.2.3
 
 # SMTP Settings for 2FA
 SMTP_HOST=smtp.gmail.com
