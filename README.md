@@ -151,5 +151,5 @@ This project is licensed under the MIT License.
 
 **Made with ❤️ by Yumna Panel Project Team**
 
-**Version**: 2.2.2
+**Version**: 2.2.3
 **Last Updated**: 2026-01-10
