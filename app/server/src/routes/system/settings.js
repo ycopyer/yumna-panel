@@ -9,7 +9,7 @@ router.get('/settings-site', (req, res) => {
         const settings = {};
         const publicKeys = ['logo_url', 'site_title', 'footer_text', 'primary_color'];
         results.forEach(row => { if (publicKeys.includes(row.key_name)) settings[row.key_name] = row.value_text; });
-        settings.app_version = process.env.APP_VERSION || '1.01';
+        settings.panel_version = process.env.PANEL_VERSION || '2.2.3';
         res.json(settings);
     });
 });

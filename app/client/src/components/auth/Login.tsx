@@ -141,7 +141,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             </div>
                             <div>
                                 <h1 className="text-2xl font-black text-white tracking-widest uppercase mb-1">{siteSettings?.site_title || 'YUMNA PANEL'}</h1>
-                                <span className="text-[10px] font-black text-indigo-500/60 uppercase tracking-[0.2em]">Version 2.2.3</span>
+                                <span className="text-[10px] font-black text-indigo-500/60 uppercase tracking-[0.2em]">Version {siteSettings?.panel_version || '2.2.3'}</span>
                             </div>
                         </div>
 
@@ -210,7 +210,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                         </div>
                                         <div>
                                             <h1 className="text-2xl font-black text-white tracking-widest uppercase mb-1">{siteSettings?.site_title || 'YUMNA PANEL'}</h1>
-                                            <span className="text-[10px] font-black text-indigo-500/60 uppercase tracking-[0.2em] block text-center">Version 2.2.3</span>
+                                            <span className="text-[10px] font-black text-indigo-500/60 uppercase tracking-[0.2em] block text-center">Version {siteSettings?.panel_version || '2.2.3'}</span>
                                         </div>
                                     </div>
 

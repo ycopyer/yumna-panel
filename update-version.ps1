@@ -44,7 +44,18 @@ if (Test-Path $readmePath) {
     Write-Host "✅ Updated README.md (Badge, Footer, and Date)" -ForegroundColor Green
 }
 
-# 4. Update websites.js (default template)
+# 4. Update .env.example files
+$envExamples = @("$root\.env.example", "$root\app\server\.env.example")
+foreach ($envPath in $envExamples) {
+    if (Test-Path $envPath) {
+        $envContent = Get-Content $envPath -Raw
+        $envContent = $envContent -replace 'PANEL_VERSION=[\d\.]+', "PANEL_VERSION=$NewVersion"
+        Set-Content $envPath -Value $envContent -NoNewline
+        Write-Host "✅ Updated $envPath" -ForegroundColor Green
+    }
+}
+
+# 5. Update websites.js (default template)
 $websiteJsPath = "$root\app\server\src\routes\hosting\websites.js"
 if (Test-Path $websiteJsPath) {
     $webJs = Get-Content $websiteJsPath -Raw

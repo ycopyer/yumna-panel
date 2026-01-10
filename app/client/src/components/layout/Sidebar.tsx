@@ -101,6 +101,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <span className="text-[10px] font-bold text-[var(--primary)] uppercase tracking-widest opacity-80">
                                     {isAdmin ? 'Enterprise Admin' : 'Cloud Hosting'}
                                 </span>
+                                <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] opacity-40 mt-1">
+                                    v{siteSettings?.panel_version || '2.2.3'}
+                                </span>
                             </div>
                         </div>
                         <button
