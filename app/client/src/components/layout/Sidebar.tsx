@@ -102,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     {isAdmin ? 'Enterprise Admin' : 'Cloud Hosting'}
                                 </span>
                                 <span className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-[0.2em] opacity-40 mt-1">
-                                    v{siteSettings?.panel_version || '2.2.3'}
+                                    v{siteSettings?.panel_version}
                                 </span>
                             </div>
                         </div>
