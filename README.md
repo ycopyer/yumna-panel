@@ -99,6 +99,12 @@ See our [ROADMAP.md](ROADMAP.md) for planned features and development timeline.
 
 ## 📜 Changelog
 
+### [2.2.3] - 2026-01-10
+- **Multi-Engine Web Stack**: Switchable Nginx, Apache, or Hybrid (Proxy) architectures.
+- **Standalone Core Architecture**: Migrated all engines (Nginx, Apache, PHP) to standalone local paths.
+- **Documentation Refactoring**: Reorganized all guides and roadmaps into a dedicated `docs/` folder.
+- **Version Alignment**: Synced internal and public versioning to v2.2.3.
+
 ### [2.2.2] - 2026-01-10
 - **Git Integration**: New Git & Deploy module with webhook support.
 - **FTP Fixes**: Fixed database schema errors.
