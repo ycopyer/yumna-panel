@@ -131,15 +131,18 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 {/* Left Side: Info / Branding (Hidden on small mobile) */}
                 <div className="hidden md:flex md:w-[45%] bg-[#1e293b]/40 p-12 flex-col justify-between border-r border-white/5 relative group">
                     <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-12">
-                            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-600/20 group-hover:scale-110 transition-transform duration-500">
+                        <div className="flex flex-col gap-4 mb-12">
+                            <div className="w-[148px] h-[148px] flex items-center justify-center transition-transform duration-500 hover:scale-105">
                                 {siteSettings?.logo_url ? (
-                                    <img src={siteSettings.logo_url} alt="Logo" className="max-h-8 object-contain" />
+                                    <img src={siteSettings.logo_url} alt="Logo" className="w-full h-full object-contain" />
                                 ) : (
-                                    <Shield className="text-white" size={24} />
+                                    <Shield className="text-indigo-500" size={148} />
                                 )}
                             </div>
-                            <span className="text-xl font-black text-white tracking-widest uppercase">{siteSettings?.site_title || 'YUMNA PANEL'}</span>
+                            <div>
+                                <h1 className="text-2xl font-black text-white tracking-widest uppercase mb-1">{siteSettings?.site_title || 'YUMNA PANEL'}</h1>
+                                <span className="text-[10px] font-black text-indigo-500/60 uppercase tracking-[0.2em]">Version 2.2.3</span>
+                            </div>
                         </div>
 
                         <h2 className="text-4xl font-black text-white leading-tight mb-8 tracking-tighter">
@@ -196,7 +199,22 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 className="w-full max-w-[380px] mx-auto"
                             >
                                 <div className="mb-10 text-center md:text-left">
-                                    <h1 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase">ACCESS PROTOCOL</h1>
+                                    {/* Mobile Logo Only */}
+                                    <div className="md:hidden flex flex-col items-center gap-4 mb-8">
+                                        <div className="w-[148px] h-[148px] flex items-center justify-center">
+                                            {siteSettings?.logo_url ? (
+                                                <img src={siteSettings.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                                            ) : (
+                                                <Shield className="text-indigo-500" size={148} />
+                                            )}
+                                        </div>
+                                        <div>
+                                            <h1 className="text-2xl font-black text-white tracking-widest uppercase mb-1">{siteSettings?.site_title || 'YUMNA PANEL'}</h1>
+                                            <span className="text-[10px] font-black text-indigo-500/60 uppercase tracking-[0.2em] block text-center">Version 2.2.3</span>
+                                        </div>
+                                    </div>
+
+                                    <h1 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase font-outline">ACCESS PROTOCOL</h1>
                                     <p className="text-white/40 text-xs font-bold tracking-[0.1em] italic">Otentikasi aman ke gerbang infrastruktur Anda.</p>
                                 </div>
 
