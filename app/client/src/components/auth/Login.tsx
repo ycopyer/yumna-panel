@@ -132,11 +132,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div className="hidden md:flex md:w-[45%] bg-[#1e293b]/40 p-12 flex-col justify-between border-r border-white/5 relative group">
                     <div className="relative z-10">
                         <div className="flex flex-col gap-4 mb-12">
-                            <div className="w-[148px] h-[148px] flex items-center justify-center transition-transform duration-500 hover:scale-105">
+                            <div className="w-[60px] h-[60px] flex items-center justify-center transition-transform duration-500 hover:scale-105">
                                 {siteSettings?.logo_url ? (
                                     <img src={siteSettings.logo_url} alt="Logo" className="w-full h-full object-contain" />
                                 ) : (
-                                    <Shield className="text-indigo-500" size={148} />
+                                    <Shield className="text-indigo-500" size={60} />
                                 )}
                             </div>
                             <div>
@@ -201,11 +201,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                 <div className="mb-10 text-center md:text-left">
                                     {/* Mobile Logo Only */}
                                     <div className="md:hidden flex flex-col items-center gap-4 mb-8">
-                                        <div className="w-[148px] h-[148px] flex items-center justify-center">
+                                        <div className="w-[60px] h-[60px] flex items-center justify-center">
                                             {siteSettings?.logo_url ? (
                                                 <img src={siteSettings.logo_url} alt="Logo" className="w-full h-full object-contain" />
                                             ) : (
-                                                <Shield className="text-indigo-500" size={148} />
+                                                <Shield className="text-indigo-500" size={60} />
                                             )}
                                         </div>
                                         <div>
