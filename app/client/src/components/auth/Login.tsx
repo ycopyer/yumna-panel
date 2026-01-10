@@ -115,7 +115,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     };
 
     return (
-        <div className="min-h-screen bg-[#020617] flex items-center justify-center p-0 md:p-6 overflow-hidden selection:bg-indigo-500/30">
+        <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4 md:p-6 overflow-hidden selection:bg-indigo-500/30">
             {/* Animated Background Elements */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full animate-pulse"></div>
@@ -126,7 +126,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="relative w-full max-w-5xl md:h-[700px] flex flex-col md:flex-row bg-[#0f172a]/80 backdrop-blur-3xl border border-white/5 rounded-none md:rounded-[40px] shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden"
+                className="relative w-full max-w-5xl md:min-h-[700px] flex flex-col md:flex-row bg-[#0f172a]/80 backdrop-blur-3xl border border-white/5 rounded-[32px] md:rounded-[40px] shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden"
             >
                 {/* Left Side: Info / Branding (Hidden on small mobile) */}
                 <div className="hidden md:flex md:w-[45%] bg-[#1e293b]/40 p-12 flex-col justify-between border-r border-white/5 relative group">
@@ -188,7 +188,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
 
                 {/* Right Side: Login Form */}
-                <div className="flex-1 p-8 md:p-16 flex flex-col justify-center relative overflow-y-auto custom-scrollbar">
+                <div className="flex-1 p-6 md:p-16 flex flex-col justify-center relative overflow-y-auto custom-scrollbar">
                     <AnimatePresence mode="wait">
                         {!twoFactorRequired ? (
                             <motion.div
@@ -214,8 +214,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                         </div>
                                     </div>
 
-                                    <h1 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase font-outline">ACCESS PROTOCOL</h1>
-                                    <p className="text-white/40 text-xs font-bold tracking-[0.1em] italic">Otentikasi aman ke gerbang infrastruktur Anda.</p>
+                                    <h1 className="text-3xl font-black text-white mb-2 tracking-tighter uppercase">ACCESS PROTOCOL</h1>
+                                    <p className="text-white/40 text-[10px] md:text-xs font-bold tracking-[0.1em] italic">Otentikasi aman ke gerbang infrastruktur Anda.</p>
                                 </div>
 
                                 {error && (
@@ -390,7 +390,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             {/* Floating Security Badge (Small Mobile) */}
             <div className="md:hidden fixed bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-md">
                 <CheckCircle2 size={12} className="text-emerald-500" />
-                <span className="text-[9px] font-black uppercase tracking-wider text-white/40">Secure Identity Layer v2.2.3</span>
+                <span className="text-[9px] font-black uppercase tracking-wider text-white/40">Secure Identity Layer v{siteSettings?.panel_version}</span>
             </div>
         </div>
     );
