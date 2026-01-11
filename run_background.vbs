@@ -1,32 +1,32 @@
 Set WshShell = CreateObject("WScript.Shell")
 
-' 1. Define Paths
-Dim panel_root, mariadb_exe, nginx_exe, nginx_dir, mysql_data
+' Yumna Panel v3.0 Background Launcher
+' Starts WHM and Agent processes silently
+
+Dim panel_root
 panel_root = "C:\YumnaPanel"
+
+' 1. Cleanup Old Processes (Optional, to ensure restart)
+WshShell.Run "cmd /c taskkill /F /IM node.exe /FI ""WINDOWTITLE eq yumna-whm""", 0, True
+WshShell.Run "cmd /c taskkill /F /IM node.exe /FI ""WINDOWTITLE eq yumna-agent""", 0, True
+
+' 2. Start WHM Service (Port 4000)
+' We run npm start but wrap it to give it a title for later killing
+WshShell.CurrentDirectory = panel_root & "\whm"
+WshShell.Run "cmd /c title yumna-whm && npm start", 0, False
+
+' 3. Start Agent Service (Port 3000)
+WshShell.CurrentDirectory = panel_root & "\agent"
+WshShell.Run "cmd /c title yumna-agent && npm start", 0, False
+
+' 4. Optional: Check for Portable Database (Legacy Support)
+Dim mariadb_exe, mysql_data
 mariadb_exe = panel_root & "\bin\database\mariadb\bin\mysqld.exe"
 mysql_data = panel_root & "\data\mysql"
-nginx_exe = panel_root & "\bin\web\nginx\nginx.exe"
-nginx_dir = panel_root & "\bin\web\nginx"
-pm2_cmd = "pm2.cmd"
 
-' 2. Silent Cleanup
-' We use cmd /c with 0 to hide it.
-WshShell.Run "cmd /c taskkill /F /IM mysqld.exe /T", 0, True
-WshShell.Run "cmd /c taskkill /F /IM nginx.exe /T", 0, True
-WshShell.Run "cmd /c taskkill /F /IM httpd.exe /T", 0, True
-
-' 3. Start MariaDB (0 = Hidden)
-WshShell.Run chr(34) & mariadb_exe & chr(34) & " --datadir=" & chr(34) & mysql_data & chr(34), 0, False
-
-' 4. Start Nginx (0 = Hidden)
-' Nginx needs to start in its directory
-WshShell.CurrentDirectory = nginx_dir
-WshShell.Run chr(34) & nginx_exe & chr(34), 0, False
-
-' 5. Start PM2 Panel (0 = Hidden)
-WshShell.CurrentDirectory = panel_root & "\app"
-WshShell.Run "cmd /c pm2 delete yumna-panel", 0, True
-WshShell.Run "cmd /c pm2 start ecosystem.config.js --env production", 0, True
-WshShell.Run "cmd /c pm2 save", 0, True
+Set fso = CreateObject("Scripting.FileSystemObject")
+If fso.FileExists(mariadb_exe) Then
+    WshShell.Run chr(34) & mariadb_exe & chr(34) & " --datadir=" & chr(34) & mysql_data & chr(34), 0, False
+End If
 
 Set WshShell = Nothing
