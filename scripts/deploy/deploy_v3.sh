@@ -1,7 +1,9 @@
 #!/bin/bash
 
-# Yumna Panel v3.0 - Unified Deployment Script
-# Supports: Ubuntu 20.04/22.04/24.04, Debian 11/12
+# Yumna Panel v3.0 - Universal Deployment Script
+# Supports: 
+# - Debian Family: Ubuntu 20.04+, Debian 11+
+# - RHEL Family: CentOS 9 Stream, AlmaLinux 9, Rocky Linux 9
 # Author: Yumna Panel Team
 
 set -e
@@ -21,7 +23,7 @@ echo "  ╚██╔╝  ██║   ██║██║╚██╔╝██║�
 echo "   ██║   ╚██████╔╝██║ ╚═╝ ██║██║ ╚████║██║  ██║"
 echo "   ╚═╝    ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝"
 echo -e "${NC}"
-echo -e "${GREEN}Yumna Panel v3.0 - Automated Installer${NC}"
+echo -e "${GREEN}Yumna Panel v3.0 - Universal Installer${NC}"
 echo "------------------------------------------------"
 
 # Check Root
@@ -30,45 +32,73 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-# Detect OS
+# --- OS DETECTION ---
+PM="unknown"
 if [ -f /etc/os-release ]; then
     . /etc/os-release
     OS=$NAME
     VER=$VERSION_ID
-elif type lsb_release >/dev/null 2>&1; then
-    OS=$(lsb_release -si)
-    VER=$(lsb_release -sr)
+    ID=$ID
+    ID_LIKE=$ID_LIKE
+fi
+
+echo -e "${YELLOW}Detected OS: $OS $VER ($ID)${NC}"
+
+if [[ "$ID" =~ (ubuntu|debian) ]] || [[ "$ID_LIKE" =~ (ubuntu|debian) ]]; then
+    PM="apt"
+    HTTPD_PKG="apache2"
+    HTTPD_SVC="apache2"
+    DB_PKG="mariadb-server"
+    NODE_SETUP="curl -fsSL https://deb.nodesource.com/setup_20.x | bash -"
+    BUILD_TOOLS="build-essential"
+elif [[ "$ID" =~ (centos|rhel|fedora|almalinux|rocky) ]] || [[ "$ID_LIKE" =~ (rhel|fedora) ]]; then
+    PM="dnf"
+    HTTPD_PKG="httpd"
+    HTTPD_SVC="httpd"
+    DB_PKG="mariadb-server"
+    NODE_SETUP="curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -"
+    BUILD_TOOLS="gcc-c++ make"
 else
-    echo -e "${RED}Unsupported OS${NC}"
+    echo -e "${RED}Unsupported OS Family. We support Debian/Ubuntu & RHEL/CentOS/Rocky.${NC}"
     exit 1
 fi
 
-echo -e "${YELLOW}Detected OS: $OS $VER${NC}"
+echo -e "${BLUE}Package Manager: $PM${NC}"
 
-# Update System
-echo -e "${BLUE}[1/X] Updating System Repositories...${NC}"
-apt-get update -y && apt-get upgrade -y
+# --- SYSTEM UPDATE ---
+echo -e "${BLUE}[1/X] Updating System...${NC}"
+if [ "$PM" == "apt" ]; then
+    apt-get update -y && apt-get upgrade -y
+    apt-get install -y curl wget git unzip zip htop software-properties-common ufw acl $BUILD_TOOLS python3-certbot-nginx
+else
+    dnf update -y
+    dnf install -y curl wget git unzip zip htop firewalld policycoreutils-python-utils $BUILD_TOOLS certbot python3-certbot-nginx
+fi
 
-# Install Dependencies
-echo -e "${BLUE}[2/X] Installing Core Dependencies...${NC}"
-apt-get install -y curl wget git unzip zip htop software-properties-common ufw acl build-essential python3-certbot-nginx
-
-# Install Node.js
-echo -e "${BLUE}[3/X] Installing Node.js LTS...${NC}"
+# --- NODE.JS ---
+echo -e "${BLUE}[2/X] Installing Node.js LTS...${NC}"
 if ! command -v node &> /dev/null; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    apt-get install -y nodejs
+    eval "$NODE_SETUP"
+    if [ "$PM" == "apt" ]; then
+        apt-get install -y nodejs
+    else
+        dnf install -y nodejs
+    fi
 else
     echo "Node.js $(node -v) is already installed."
 fi
 
-# Install MariaDB
-echo -e "${BLUE}[4/X] Installing MariaDB Database...${NC}"
-apt-get install -y mariadb-server
+# --- DATABASE ---
+echo -e "${BLUE}[3/X] Installing Database...${NC}"
+if [ "$PM" == "apt" ]; then
+    apt-get install -y $DB_PKG
+else
+    dnf install -y $DB_PKG
+fi
 systemctl start mariadb || systemctl start mysql
 systemctl enable mariadb || systemctl enable mysql
 
-# --- Mode Selection ---
+# --- MODE SELECTION ---
 echo -e "${YELLOW}------------------------------------------------${NC}"
 echo -e "${YELLOW} Installation Mode Selection ${NC}"
 echo -e "${YELLOW}------------------------------------------------${NC}"
@@ -78,8 +108,8 @@ echo "3) WHM Core Only (API Control Plane & Database)"
 read -p "Enter Choice [1-3]: " INSTALL_MODE
 INSTALL_MODE=${INSTALL_MODE:-1}
 
-# Web Server Selection
-# Only ask for Web Stack if we are installing an Agent (Mode 1 or 2)
+# --- WEB STACK SELECTION ---
+WEB_STACK_CHOICE=1
 if [ "$INSTALL_MODE" != "3" ]; then
     echo -e "${YELLOW}Select Web Server Stack for Hosting:${NC}"
     echo "1) Nginx Only (High Performance, Default)"
@@ -87,148 +117,127 @@ if [ "$INSTALL_MODE" != "3" ]; then
     echo "3) Hybrid (Nginx Frontend + Apache Backend)"
     read -p "Enter choice [1-3]: " WEB_STACK_CHOICE
     WEB_STACK_CHOICE=${WEB_STACK_CHOICE:-1}
-else
-    # For WHM Only, minimal Nginx as proxy
-    WEB_STACK_CHOICE=1
 fi
 
-# Web Server Installation Logic
-echo -e "${BLUE}[5/X] Installing Web Server...${NC}"
+# --- WEB SERVER INSTALLATION ---
+echo -e "${BLUE}[4/X] Installing Web Server...${NC}"
 
-if [ "$INSTALL_MODE" == "3" ]; then
-    # Minimal Nginx for WHM proxy
-    apt-get install -y nginx
+install_nginx() {
+    if [ "$PM" == "apt" ]; then apt-get install -y nginx; else dnf install -y nginx; fi
     systemctl start nginx
     systemctl enable nginx
-    # Ensure Apache is completely DEAD
-    systemctl stop apache2 2>/dev/null || true
-    systemctl disable apache2 2>/dev/null || true
-    # Remove apache2 startup links just in case
-    update-rc.d apache2 remove 2>/dev/null || true
+}
+
+install_apache() {
+    if [ "$PM" == "apt" ]; then apt-get install -y $HTTPD_PKG; else dnf install -y $HTTPD_PKG; fi
+    systemctl start $HTTPD_SVC
+    systemctl enable $HTTPD_SVC
+}
+
+disable_apache() {
+    systemctl stop $HTTPD_SVC 2>/dev/null || true
+    systemctl disable $HTTPD_SVC 2>/dev/null || true
+}
+
+disable_nginx() {
+    systemctl stop nginx 2>/dev/null || true
+    systemctl disable nginx 2>/dev/null || true
+}
+
+if [ "$INSTALL_MODE" == "3" ]; then
+    # WHM Only -> Nginx Proxy
+    install_nginx
+    disable_apache
 else
-    # Standard hosting stack
     case $WEB_STACK_CHOICE in
-        2)
-            # APCHE ONLY
-            echo -e "${YELLOW}Configuring Apache Only...${NC}"
-            apt-get install -y apache2
-            # Kill Nginx
-            systemctl stop nginx 2>/dev/null || true
-            systemctl disable nginx 2>/dev/null || true
-            
-            # Ensure Apache listens on 80
-            echo "Listen 80" > /etc/apache2/ports.conf
-            if [ -f /etc/apache2/sites-available/000-default.conf ]; then
-                sed -i 's/:8080/:80/g' /etc/apache2/sites-available/000-default.conf
+        2) # Apache Only
+            install_apache
+            disable_nginx
+            # Config Port 80
+            if [ "$PM" == "apt" ]; then
+                echo "Listen 80" > /etc/apache2/ports.conf
+                sed -i 's/:8080/:80/g' /etc/apache2/sites-available/000-default.conf 2>/dev/null || true
+                systemctl reload apache2
+            else
+                # RHEL httpd.conf check
+                sed -i 's/Listen 8080/Listen 80/g' /etc/httpd/conf/httpd.conf
+                systemctl restart httpd
             fi
-            
-            systemctl start apache2
-            systemctl enable apache2
             ;;
-        3)
-            # HYBRID (Nginx Front, Apache Back)
-            echo -e "${YELLOW}Configuring Hybrid Stack (Nginx TCP:80 -> Apache TCP:8080)...${NC}"
-            apt-get install -y nginx apache2
+        3) # Hybrid
+            install_nginx # Front
+            install_apache # Back
             
-            # 1. Configure Apache to move away from port 80 immediately
-            echo "Listen 8080" > /etc/apache2/ports.conf
-            
-            # Update default vhost to 8080 
-            if [ -f /etc/apache2/sites-available/000-default.conf ]; then
-                sed -i 's/<VirtualHost.*:80>/<VirtualHost *:8080>/g' /etc/apache2/sites-available/000-default.conf
-                sed -i 's/<VirtualHost.*:8080>/<VirtualHost *:8080>/g' /etc/apache2/sites-available/000-default.conf
-            fi
-            
-            # 2. Restart Apache on new port
-            systemctl restart apache2
-            
-            # 3. Start Nginx on Port 80
-            systemctl restart nginx
-            systemctl enable apache2 nginx
-            ;;
-        *)
-            # NGINX ONLY
-            echo -e "${YELLOW}Configuring Nginx Only...${NC}"
-            apt-get install -y nginx
-            # Kill Apache
-            systemctl stop apache2 2>/dev/null || true
-            systemctl disable apache2 2>/dev/null || true
-            # Prevent Apache from grabbing port 80 even if started accidentally
-            if [ -f /etc/apache2/ports.conf ]; then
+            # Move Apache to 8080
+            if [ "$PM" == "apt" ]; then
                 echo "Listen 8080" > /etc/apache2/ports.conf
+                sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf 2>/dev/null || true
+                systemctl restart apache2
+            else
+                sed -i 's/Listen 80/Listen 8080/g' /etc/httpd/conf/httpd.conf
+                systemctl restart httpd
             fi
             
-            systemctl start nginx
-            systemctl enable nginx
+            systemctl restart nginx
+            ;;
+        *) # Nginx Only
+            install_nginx
+            disable_apache
+            # Prevent conflict hooks
+            if [ "$PM" == "apt" ]; then
+                 echo "Listen 8080" > /etc/apache2/ports.conf
+            else
+                 sed -i 's/Listen 80/Listen 8080/g' /etc/httpd/conf/httpd.conf 2>/dev/null || true
+            fi
             ;;
     esac
 fi
 
-# Save selection for Agent
+# Save selection
 WEB_STACK_NAME="nginx"
 [ "$WEB_STACK_CHOICE" == "2" ] && WEB_STACK_NAME="apache"
 [ "$WEB_STACK_CHOICE" == "3" ] && WEB_STACK_NAME="hybrid"
 
-# Clone Yumna Panel
+# --- DEPLOY YUMNA PANEL ---
 INSTALL_DIR="/opt/yumna-panel"
-echo -e "${BLUE}[6/X] Deploying Yumna Panel to $INSTALL_DIR...${NC}"
+echo -e "${BLUE}[5/X] Deploying to $INSTALL_DIR...${NC}"
 
 if [ -d "$INSTALL_DIR" ]; then
     if [ -d "$INSTALL_DIR/.git" ]; then
-        echo -e "${YELLOW}Directory exists and is a git repo. Pulling latest updates...${NC}"
-        cd "$INSTALL_DIR"
-        git pull
+        cd "$INSTALL_DIR"; git pull
     else
-        echo -e "${YELLOW}Directory exists but is NOT a git repo. Backing up and cloning fresh...${NC}"
         mv "$INSTALL_DIR" "${INSTALL_DIR}_backup_$(date +%s)"
         git clone https://github.com/ycopyer/yumna-panel.git "$INSTALL_DIR"
-        cd "$INSTALL_DIR"
     fi
 else
     git clone https://github.com/ycopyer/yumna-panel.git "$INSTALL_DIR"
-    cd "$INSTALL_DIR"
 fi
 
-# --- MASTER MODE / WHM ONLY CONFIGURATION ---
+# --- MASTER CONFIG ---
 if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
-    echo -e "${BLUE}=== WHM CORE CONFIGURATION ===${NC}"
-    
-    # WHM Setup
+    echo -e "${BLUE}=== MASTER SETUP ===${NC}"
     cd "$INSTALL_DIR/whm"
+    
+    # Env Setup (Simplified)
     if [ ! -f .env ]; then
-        echo -e "${YELLOW}Creating WHM configuration...${NC}"
-        if [ -f .env.example ]; then
-            cp .env.example .env
-        else
-            echo "NODE_ENV=production" > .env
-            echo "PORT=4000" >> .env
-            echo "DB_HOST=localhost" >> .env
-            echo "DB_USER=yumna_whm" >> .env
-            echo "DB_PASSWORD=yumna_db_password" >> .env
-            echo "DB_NAME=yumna_whm" >> .env
-            echo "SECRET_KEY=yumna_secret_$(openssl rand -hex 16)" >> .env
-            echo "AGENT_SECRET=yumna_secret_agent_$(openssl rand -hex 16)" >> .env
-        fi
+        [ -f .env.example ] && cp .env.example .env
+        [ ! -f .env ] && echo "NODE_ENV=production" > .env
         
-        # Ensure new secrets
-        SECRET=$(openssl rand -hex 32)
-        AGENT_SECRET=$(openssl rand -hex 32)
-        sed -i "s/change_this_to_a_secure_random_string_v3/$SECRET/" .env
-        sed -i "s/change_this_shared_secret_for_nodes/$AGENT_SECRET/" .env
-        
+        # Secrets
+        S1=$(openssl rand -hex 32); S2=$(openssl rand -hex 32)
+        sed -i "s/change_this_to_a_secure_random_string_v3/$S1/" .env
+        sed -i "s/change_this_shared_secret_for_nodes/$S2/" .env
         CURRENT_AGENT_SECRET=$(grep AGENT_SECRET .env | cut -d '=' -f2)
     fi
     npm install --production
 
-    # Panel Setup (Build) - ONLY FOR MODE 1
     if [ "$INSTALL_MODE" == "1" ]; then
         cd "$INSTALL_DIR/panel"
-        echo -e "${YELLOW}Building Frontend Panel...${NC}"
-        npm install
-        npm run build
+        echo -e "${YELLOW}Building Panel...${NC}"
+        npm install && npm run build
     fi
 
-    # Database Setup Wizard - FOR MODE 1 AND 3
+    # --- Database Setup Wizard ---
     echo -e "${YELLOW}------------------------------------------------${NC}"
     echo -e "${YELLOW} Central Database Configuration Wizard ${NC}"
     echo -e "${YELLOW}------------------------------------------------${NC}"
@@ -238,6 +247,7 @@ if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
 
     if [[ "$SETUP_DB_CONFIRM" =~ ^[Yy]$ ]]; then
         echo -e "${BLUE}Please enter your Database ROOT password.${NC}"
+        echo "If fresh install (no password), press ENTER."
         read -s -p "MariaDB/MySQL Root Password: " DB_ROOT_PASS
         echo ""
 
@@ -247,9 +257,11 @@ if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
         DEFAULT_DB_PASS="yumna_db_password"
         
         # Use existing env values if present
-        if grep -q "DB_USER" "$INSTALL_DIR/whm/.env"; then
-             DEFAULT_DB_USER=$(grep "DB_USER" "$INSTALL_DIR/whm/.env" | cut -d '=' -f2)
-             DEFAULT_DB_PASS=$(grep "DB_PASSWORD" "$INSTALL_DIR/whm/.env" | cut -d '=' -f2)
+        if [ -f "$INSTALL_DIR/whm/.env" ]; then
+             if grep -q "DB_USER" "$INSTALL_DIR/whm/.env"; then
+                 DEFAULT_DB_USER=$(grep "DB_USER" "$INSTALL_DIR/whm/.env" | cut -d '=' -f2)
+                 DEFAULT_DB_PASS=$(grep "DB_PASSWORD" "$INSTALL_DIR/whm/.env" | cut -d '=' -f2)
+             fi
         fi
 
         SQL="CREATE DATABASE IF NOT EXISTS \`${DEFAULT_DB_NAME}\`;"
@@ -267,49 +279,46 @@ if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
         if [ $? -eq 0 ]; then
             echo -e "${GREEN}Database setup complete!${NC}"
         else
-            echo -e "${RED}Database setup failed. Please configure DB manually.${NC}"
+            echo -e "${RED}Database setup warning: Could not auto-create DB.${NC}"
+            echo "Please run manually: $SQL"
         fi
     fi
-
-    # Install WHM Service
+    
     cp "$INSTALL_DIR/scripts/systemd/yumna-whm.service" /etc/systemd/system/
 fi
 
-# --- AGENT SETUP ---
-# Only for Mode 1 and 2
+# --- AGENT CONFIG ---
 if [ "$INSTALL_MODE" != "3" ]; then
-    echo -e "${BLUE}=== AGENT CONFIGURATION ===${NC}"
+    echo -e "${BLUE}=== AGENT SETUP ===${NC}"
     cd "$INSTALL_DIR/agent"
-
-    # Need to know WHM URL if Worker Mode
-    WHM_URL_VAL="http://localhost:4000"
-    AGENT_SECRET_VAL="$CURRENT_AGENT_SECRET"
-
+    
+    WHM_URL="http://localhost:4000" 
     if [ "$INSTALL_MODE" == "2" ]; then
-        echo -e "${YELLOW}Worker Node Setup: We need to connect to your Master Node.${NC}"
-        read -p "Enter WHM Master URL (e.g., http://panel.example.com:4000): " INPUT_WHM_URL
-        WHM_URL_VAL=${INPUT_WHM_URL:-"http://localhost:4000"}
-        
-        read -p "Enter Agent Secret (from Master Node .env): " INPUT_AGENT_SECRET
-        AGENT_SECRET_VAL=${INPUT_AGENT_SECRET:-"change_me"}
+        echo -e "${YELLOW}Worker Node Setup: Connecting to Master...${NC}"
+        read -p "Enter Master WHM URL (e.g. http://panel.domain.com:4000): " INPUT_URL
+        WHM_URL=${INPUT_URL:-$WHM_URL}
     fi
 
     if [ ! -f .env ]; then
         echo -e "${YELLOW}Creating Agent configuration...${NC}"
-        if [ -f .env.example ]; then
-            cp .env.example .env
-        else
-            echo "NODE_ENV=production" > .env
-            echo "PORT=3000" >> .env
-        fi
+        [ -f .env.example ] && cp .env.example .env
+        [ ! -f .env ] && echo "NODE_ENV=production" > .env && echo "PORT=3000" >> .env
         
-        # Update config
+        # Determine Secret
+        AGENT_SECRET_VAL=${CURRENT_AGENT_SECRET:-"change_me"}
+        if [ "$INSTALL_MODE" == "2" ]; then
+             read -p "Enter Agent Secret (from Master): " INPUT_S
+             AGENT_SECRET_VAL=${INPUT_S:-$AGENT_SECRET_VAL}
+        fi
+
+        # Update WHM URL
         if grep -q "WHM_URL" .env; then
-             sed -i "s|WHM_URL=.*|WHM_URL=$WHM_URL_VAL|g" .env
+             sed -i "s|WHM_URL=.*|WHM_URL=$WHM_URL|g" .env
         else
-             echo "WHM_URL=$WHM_URL_VAL" >> .env
+             echo "WHM_URL=$WHM_URL" >> .env
         fi
         
+        # Update Secret
         if grep -q "AGENT_SECRET" .env; then
               sed -i "s/change_this_shared_secret_for_nodes/$AGENT_SECRET_VAL/" .env
               sed -i "s/^AGENT_SECRET=.*/AGENT_SECRET=$AGENT_SECRET_VAL/" .env
@@ -324,63 +333,33 @@ if [ "$INSTALL_MODE" != "3" ]; then
              echo "WEB_SERVER_STACK=$WEB_STACK_NAME" >> .env
         fi
     fi
+    
     npm install --production
-
-    # Install Agent Service
     cp "$INSTALL_DIR/scripts/systemd/yumna-agent.service" /etc/systemd/system/
-    systemctl enable yumna-agent
-    systemctl start yumna-agent
 fi
 
-# --- FINISHING ---
-# Service enable
-systemctl daemon-reload
-
-if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
-    systemctl enable yumna-whm
-    systemctl start yumna-whm
-fi
-
-# Firewall
-if [ "$INSTALL_MODE" == "3" ]; then
-    ufw allow 4000/tcp # WHM API
-    ufw allow 80/tcp
-    ufw allow 443/tcp
-    ufw --force enable
-elif [ "$INSTALL_MODE" != "3" ]; then
+# --- FIREWALL ---
+echo -e "${BLUE}Configuring Firewall ($PM)...${NC}"
+if [ "$PM" == "apt" ]; then
     ufw allow 22/tcp
-    ufw allow 3000/tcp # Agent
     ufw allow 80/tcp
     ufw allow 443/tcp
-    if [ "$INSTALL_MODE" == "1" ]; then
-        ufw allow 4000/tcp # WHM in Master mode
-    fi
+    ufw allow 3000/tcp
+    [ "$INSTALL_MODE" != "2" ] && ufw allow 4000/tcp
     ufw --force enable
-fi
-
-# Summary
-echo -e "${GREEN}=====================================${NC}"
-echo -e "${GREEN}    INSTALLATION COMPLETE! 🎊       ${NC}"
-echo -e "${GREEN}=====================================${NC}"
-
-if [ "$INSTALL_MODE" == "1" ]; then
-    PUBLIC_IP=$(curl -s ifconfig.me)
-    echo -e "Mode:      MASTER NODE (Full Panel)"
-    echo -e "WHM URL:   http://$PUBLIC_IP:4000"
-    echo -e "Panel URL: http://$PUBLIC_IP"
-    echo -e "Agent:     Running locally on port 3000"
-    echo -e "Secret:    $(grep AGENT_SECRET $INSTALL_DIR/whm/.env | cut -d '=' -f2)"
-elif [ "$INSTALL_MODE" == "2" ]; then
-    echo -e "Mode:      WORKER NODE (Agent Only)"
-    echo -e "Agent:     Running on port 3000"
-    echo -e "Connected: $WHM_URL_VAL"
 else
-    PUBLIC_IP=$(curl -s ifconfig.me)
-    echo -e "Mode:      WHM CORE ONLY"
-    echo -e "WHM API:   http://$PUBLIC_IP:4000"
-    echo -e "Agent:     DISABLED"
-    echo -e "Secret:    $(grep AGENT_SECRET $INSTALL_DIR/whm/.env | cut -d '=' -f2)"
+    # Firewalld for RHEL
+    systemctl start firewalld
+    systemctl enable firewalld
+    firewall-cmd --permanent --add-service=http
+    firewall-cmd --permanent --add-service=https
+    firewall-cmd --permanent --add-port=3000/tcp
+    [ "$INSTALL_MODE" != "2" ] && firewall-cmd --permanent --add-port=4000/tcp
+    firewall-cmd --reload
 fi
 
-echo ""
-echo -e "${YELLOW}Please restart your session if needed.${NC}"
+systemctl daemon-reload
+[ "$INSTALL_MODE" != "2" ] && systemctl start yumna-whm
+[ "$INSTALL_MODE" != "3" ] && systemctl start yumna-agent
+
+echo -e "${GREEN}Installation Complete!${NC}"
