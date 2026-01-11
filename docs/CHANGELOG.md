@@ -145,5 +145,5 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
-**Current Version**: 2.2.2
-**Last Updated**: 2026-01-10
+**Current Version**: 2.2.4
+**Last Updated**: 2026-01-11

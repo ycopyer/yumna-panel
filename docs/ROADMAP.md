@@ -571,8 +571,8 @@ We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for 
 
 ---
 
-**Last Updated**: January 10, 2026  
-**Version**: 2.2.1  
+**Last Updated**: January 11, 2026  
+**Version**: 2.2.4  
 **Maintainer**: YumnaPanel Team
 
 ---
