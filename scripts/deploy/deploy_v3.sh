@@ -79,9 +79,16 @@ INSTALL_DIR="/opt/yumna-panel"
 echo -e "${BLUE}[6/6] Deploying Yumna Panel to $INSTALL_DIR...${NC}"
 
 if [ -d "$INSTALL_DIR" ]; then
-    echo -e "${YELLOW}Directory exists. Pulling latest updates...${NC}"
-    cd "$INSTALL_DIR"
-    git pull
+    if [ -d "$INSTALL_DIR/.git" ]; then
+        echo -e "${YELLOW}Directory exists and is a git repo. Pulling latest updates...${NC}"
+        cd "$INSTALL_DIR"
+        git pull
+    else
+        echo -e "${YELLOW}Directory exists but is NOT a git repo. Backing up and cloning fresh...${NC}"
+        mv "$INSTALL_DIR" "${INSTALL_DIR}_backup_$(date +%s)"
+        git clone https://github.com/ycopyer/yumna-panel.git "$INSTALL_DIR"
+        cd "$INSTALL_DIR"
+    fi
 else
     git clone https://github.com/ycopyer/yumna-panel.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
