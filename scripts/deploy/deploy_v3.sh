@@ -68,11 +68,52 @@ apt-get install -y mariadb-server
 systemctl start mariadb
 systemctl enable mariadb
 
-# Install Nginx
-echo -e "${BLUE}[5/6] Installing Nginx Web Server...${NC}"
-apt-get install -y nginx
-systemctl start nginx
-systemctl enable nginx
+# Web Server Selection
+echo -e "${YELLOW}Select Web Server Stack:${NC}"
+echo "1) Nginx Only (High Performance, Default)"
+echo "2) Apache Only (Classic, .htaccess support)"
+echo "3) Hybrid (Nginx Frontend + Apache Backend)"
+read -p "Enter choice [1-3]: " WEB_STACK_CHOICE
+WEB_STACK_CHOICE=${WEB_STACK_CHOICE:-1}
+
+# Web Server Installation Logic
+case $WEB_STACK_CHOICE in
+    2)
+        echo -e "${BLUE}[5/6] Installing Apache Web Server...${NC}"
+        apt-get install -y apache2
+        systemctl start apache2
+        systemctl enable apache2
+        # Disable default site to avoid conflicts
+        a2dissite 000-default.conf || true
+        systemctl reload apache2
+        ;;
+    3)
+        echo -e "${BLUE}[5/6] Installing Hybrid Stack (Nginx + Apache)...${NC}"
+        apt-get install -y nginx apache2
+        
+        # Configure Apache ports for backend
+        echo "Listen 8080" > /etc/apache2/ports.conf
+        # Need to configure default vhost to 8080 or disable it
+        sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf
+        
+        systemctl start apache2 nginx
+        systemctl enable apache2 nginx
+        ;;
+    *)
+        echo -e "${BLUE}[5/6] Installing Nginx Web Server...${NC}"
+        apt-get install -y nginx
+        systemctl start nginx
+        systemctl enable nginx
+        # If apache is installed, stop/disable it to prevent conflict on port 80
+        systemctl stop apache2 2>/dev/null || true
+        systemctl disable apache2 2>/dev/null || true
+        ;;
+esac
+
+# Save selection to Agent .env for future reference
+WEB_STACK_NAME="nginx"
+[ "$WEB_STACK_CHOICE" == "2" ] && WEB_STACK_NAME="apache"
+[ "$WEB_STACK_CHOICE" == "3" ] && WEB_STACK_NAME="hybrid"
 
 # Clone Yumna Panel
 INSTALL_DIR="/opt/yumna-panel"
@@ -138,6 +179,7 @@ if [ ! -f .env ]; then
         echo "NODE_ENV=production" > .env
         echo "PORT=3000" >> .env
         echo "WHM_URL=http://localhost:4000" >> .env
+        echo "WEB_SERVER_STACK=$WEB_STACK_NAME" >> .env
     fi
 
     # Retrieve secret from WHM config if available
@@ -149,6 +191,11 @@ if [ ! -f .env ]; then
         else
              echo "AGENT_SECRET=$CURRENT_AGENT_SECRET" >> .env
         fi
+    fi
+    
+    # Ensure Web Stack is set if using existing .env
+    if ! grep -q "WEB_SERVER_STACK" .env; then
+        echo "WEB_SERVER_STACK=$WEB_STACK_NAME" >> .env
     fi
 fi
 npm install --production
