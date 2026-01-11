@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Database, User, Shield, Key, RefreshCw, Trash2, Copy, Check, Loader2, Plus, Users } from 'lucide-react';
+import { X, Database, User, Shield, Key, RefreshCw, Trash2, Copy, Check, Loader2, Plus, Users, Scale } from 'lucide-react';
 import axios from 'axios';
 
 interface DatabaseManagementModalProps {
@@ -12,7 +12,13 @@ const DatabaseManagementModal: React.FC<DatabaseManagementModalProps> = ({ datab
     const [activeTab, setActiveTab] = useState<'users' | 'tools'>('users');
     const [loading, setLoading] = useState(false);
     const [dbUsers, setDbUsers] = useState<any[]>([]);
-    const [allUsers, setAllUsers] = useState<any[]>([]);
+    const [allUsers, setAllUsers] = useState<any[]>([]); // MySQL Users
+    const [panelUsers, setPanelUsers] = useState<any[]>([]); // Panel Users (Admins only)
+    const [targetOwner, setTargetOwner] = useState<number | ''>('');
+    const [showTransfer, setShowTransfer] = useState(false);
+
+    const userRole = JSON.parse(localStorage.getItem('user') || '{}').role;
+    const isAdmin = String(userRole).toLowerCase() === 'admin';
 
     // Create User State
     const [newUser, setNewUser] = useState({ username: '', password: '' });
@@ -26,7 +32,17 @@ const DatabaseManagementModal: React.FC<DatabaseManagementModalProps> = ({ datab
     useEffect(() => {
         fetchDbUsers();
         fetchAllUsers();
+        if (isAdmin) fetchPanelUsers();
     }, [database]);
+
+    const fetchPanelUsers = async () => {
+        try {
+            const res = await axios.get('/api/users');
+            setPanelUsers(res.data);
+        } catch (err) {
+            console.error(err);
+        }
+    };
 
     const fetchDbUsers = async () => {
         try {
@@ -125,6 +141,22 @@ const DatabaseManagementModal: React.FC<DatabaseManagementModalProps> = ({ datab
             setCloneName('');
         } catch (err: any) {
             alert(err.response?.data?.error || 'Clone failed');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleTransferOwnership = async () => {
+        if (!targetOwner) return;
+        if (!confirm('Transfer this database to another user?')) return;
+        setLoading(true);
+        try {
+            await axios.put(`/api/databases/${database.id}/owner`, { targetUserId: targetOwner });
+            alert('Ownership transferred successfully');
+            onRefresh();
+            onClose();
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Transfer failed');
         } finally {
             setLoading(false);
         }
@@ -263,6 +295,47 @@ const DatabaseManagementModal: React.FC<DatabaseManagementModalProps> = ({ datab
                                     </button>
                                 </div>
                             </div>
+
+                            {/* Transfer Ownership (Admin Only) */}
+                            {isAdmin && (
+                                <div className={`p-6 bg-white/[0.03] rounded-[24px] border transition-all ${showTransfer ? 'border-amber-500/50' : 'border-white/5'}`}>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                            <Scale size={14} /> Authority Transfer
+                                        </h4>
+                                        <button onClick={() => setShowTransfer(!showTransfer)} className="text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white">
+                                            {showTransfer ? 'Cancel' : 'Initiate Move'}
+                                        </button>
+                                    </div>
+
+                                    {showTransfer && (
+                                        <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                                            <p className="text-[10px] text-white/40 uppercase tracking-widest leading-loose">
+                                                Reassign this database to a different user identity. This will change who can view and manage this database.
+                                            </p>
+                                            <div className="flex gap-4">
+                                                <select
+                                                    value={targetOwner}
+                                                    onChange={e => setTargetOwner(Number(e.target.value))}
+                                                    className="flex-1 bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-sm font-bold text-white outline-none"
+                                                >
+                                                    <option value="">Select New Owner...</option>
+                                                    {panelUsers.map(u => (
+                                                        <option key={u.id} value={u.id}>{u.username} ({u.role})</option>
+                                                    ))}
+                                                </select>
+                                                <button
+                                                    onClick={handleTransferOwnership}
+                                                    disabled={loading || !targetOwner}
+                                                    className="px-6 bg-amber-600 hover:bg-amber-500 text-white font-black text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-amber-900/40"
+                                                >
+                                                    Transfer
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Drop DB */}
                             <div className="p-6 bg-rose-500/10 rounded-[24px] border border-rose-500/20">

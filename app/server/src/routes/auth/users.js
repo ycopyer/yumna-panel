@@ -7,23 +7,33 @@ const { uploadAvatar } = require('../../middleware/upload');
 const argon2 = require('argon2');
 
 // GET all users
-router.get('/users', requireAdmin, (req, res) => {
-    db.query(`
-        SELECT u.id, u.username, u.role, u.status, u.email, u.shell, u.storage_quota, u.used_storage, 
-               u.cpu_quota, u.ram_quota, u.two_factor_enabled, u.createdAt,
-               s.host, s.port, s.username as sftp_username, s.name as sftp_name, s.rootPath as sftp_rootPath,
-               COALESCE(w.web_count, 0) as website_count
-        FROM users u
-        LEFT JOIN sftp_configs s ON u.id = s.userId
-        LEFT JOIN (
-            SELECT userId, COUNT(*) as web_count 
-            FROM websites 
-            GROUP BY userId
-        ) w ON u.id = w.userId
-    `, (err, results) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(results);
-    });
+router.get('/users', requireAdmin, async (req, res) => {
+    try {
+        const connection = db.promise();
+        const [users] = await connection.query(`
+            SELECT u.*, 
+                   s.host, s.port, s.username as sftp_username, s.name as sftp_name, s.rootPath as sftp_rootPath,
+                   COALESCE(w.web_count, 0) as website_count
+            FROM users u
+            LEFT JOIN sftp_configs s ON u.id = s.userId
+            LEFT JOIN (
+                SELECT userId, COUNT(*) as web_count 
+                FROM websites 
+                GROUP BY userId
+            ) w ON u.id = w.userId
+        `);
+
+        // Calculate REAL storage usage for each user
+        const { LOCAL_STORAGE_BASE } = require('../../services/storage');
+        for (let user of users) {
+            const userDir = path.resolve(LOCAL_STORAGE_BASE, user.username);
+            user.used_storage = await getFolderSize(userDir);
+        }
+
+        res.json(users);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 
@@ -178,11 +188,27 @@ router.delete('/users/:id', requireAdmin, (req, res) => {
     });
 });
 
+// Helper to get folder size
+const getFolderSize = async (dirPath) => {
+    let size = 0;
+    try {
+        const files = await fs.promises.readdir(dirPath, { withFileTypes: true });
+        for (const file of files) {
+            const filePath = path.join(dirPath, file.name);
+            if (file.isDirectory()) {
+                size += await getFolderSize(filePath);
+            } else {
+                const stats = await fs.promises.stat(filePath);
+                size += stats.size;
+            }
+        }
+    } catch (e) { }
+    return size;
+};
+
 // GET User Resource Usage (Stats)
 router.get('/users/me/usage', requireAuth, async (req, res) => {
-    // Determine userId:
-    // requireAuth middleware sets req.sessionData = { userId, username, role, ... }
-    const userId = req.sessionData?.userId;
+    const userId = req.userId;
 
     // Safety fallback
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
@@ -190,10 +216,10 @@ router.get('/users/me/usage', requireAuth, async (req, res) => {
     try {
         const connection = await db.promise();
 
-        // 1. Get User Quotas & Current Storage
+        // 1. Get User Quotas
         const [userRes] = await connection.query(`
             SELECT 
-                storage_quota, used_storage, 
+                username, storage_quota, used_storage, 
                 max_websites, max_databases, max_subdomains, 
                 max_email_accounts, max_dns_zones, max_ssh_accounts, max_cron_jobs
             FROM users WHERE id = ?`, [userId]);
@@ -204,7 +230,7 @@ router.get('/users/me/usage', requireAuth, async (req, res) => {
         // 2. Count Websites
         const [webRes] = await connection.query('SELECT COUNT(*) as count FROM websites WHERE userId = ?', [userId]);
 
-        // 3. Count Subdomains (owned via websites)
+        // 3. Count Subdomains
         const [subRes] = await connection.query(`
             SELECT COUNT(s.id) as count 
             FROM subdomains s 
@@ -214,7 +240,7 @@ router.get('/users/me/usage', requireAuth, async (req, res) => {
         // 4. Count Databases
         const [dbRes] = await connection.query('SELECT COUNT(*) as count FROM `databases` WHERE userId = ?', [userId]);
 
-        // 5. Count Email Accounts (across all domains owned by user)
+        // 5. Count Email Accounts
         const [mailRes] = await connection.query(`
             SELECT COUNT(a.id) as count 
             FROM email_accounts a 
@@ -230,10 +256,15 @@ router.get('/users/me/usage', requireAuth, async (req, res) => {
         // 8. Count Cron Jobs
         const [cronRes] = await connection.query('SELECT COUNT(*) as count FROM cron_jobs WHERE userId = ?', [userId]);
 
+        // Calculate REAL storage usage
+        const { LOCAL_STORAGE_BASE } = require('../../services/storage');
+        const userDir = path.resolve(LOCAL_STORAGE_BASE, user.username);
+        const realStorageUsed = await getFolderSize(userDir);
+
         const stats = {
             storage: {
-                used: parseInt(user.used_storage || 0),
-                limit: parseInt(user.storage_quota || 0)
+                used: realStorageUsed,
+                limit: parseInt(user.storage_quota || 1073741824)
             },
             websites: {
                 used: webRes[0].count,

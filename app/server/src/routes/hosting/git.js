@@ -6,6 +6,7 @@ const { auditLogger } = require('../../middleware/audit');
 const { exec } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
+const { getKeyPath, getPublicKey, generateKey } = require('../../utils/sshKeys');
 
 const dbConfig = {
     host: process.env.DB_HOST,
@@ -13,6 +14,29 @@ const dbConfig = {
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
     database: process.env.DB_NAME
+};
+
+const crypto = require('crypto');
+const { v4: uuidv4 } = require('uuid');
+
+const verifySignature = (req, secret) => {
+    // GitHub
+    const ghSig = req.headers['x-hub-signature-256'];
+    if (ghSig) {
+        const hmac = crypto.createHmac('sha256', secret);
+        const digest = 'sha256=' + hmac.update(JSON.stringify(req.body)).digest('hex');
+        return crypto.timingSafeEqual(Buffer.from(ghSig), Buffer.from(digest));
+    }
+
+    // GitLab
+    const glToken = req.headers['x-gitlab-token'];
+    if (glToken) {
+        return glToken === secret;
+    }
+
+    // If no signature/token header found, return false
+    // (Or true if you want to allow insecure webhooks, but we are upgrading for security)
+    return false;
 };
 
 // Middleware to check Git Repo ownership
@@ -61,6 +85,26 @@ router.get('/git', requireAuth, async (req, res) => {
     }
 });
 
+// Get or Generate SSH Public Key
+router.get('/git/key', requireAuth, async (req, res) => {
+    try {
+        const pubKey = await getPublicKey(req.userId);
+        res.json({ publicKey: pubKey });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Regenerate SSH Key
+router.post('/git/key/regenerate', requireAuth, auditLogger('REGENERATE_SSH_KEY'), async (req, res) => {
+    try {
+        const { publicKey } = await generateKey(req.userId);
+        res.json({ publicKey });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Add new git repository
 router.post('/git', requireAuth, auditLogger('CREATE_GIT_REPO'), async (req, res) => {
     const { name, repoUrl, branch, deployPath, websiteId } = req.body;
@@ -86,9 +130,11 @@ router.post('/git', requireAuth, auditLogger('CREATE_GIT_REPO'), async (req, res
             }
         }
 
+        const webhookSecret = uuidv4().replace(/-/g, '');
+
         const [result] = await connection.query(
-            'INSERT INTO git_repos (userId, websiteId, name, repoUrl, branch, deployPath, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [userId, websiteId || null, name, repoUrl, branch || 'main', deployPath, 'active']
+            'INSERT INTO git_repos (userId, websiteId, name, repoUrl, branch, deployPath, status, webhookSecret) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [userId, websiteId || null, name, repoUrl, branch || 'main', deployPath, 'active', webhookSecret]
         );
 
         await connection.end();
@@ -132,10 +178,31 @@ router.post('/git/:id/deploy', requireAuth, checkGitOwnership, auditLogger('DEPL
         await connection.query('UPDATE git_repos SET status = "deploying" WHERE id = ?', [repoId]);
         await connection.end();
 
-        // Perform git operations
-        const deployCmd = `cd "${repo.deployPath}" && git pull origin ${repo.branch}`;
+        // Perform git operations using user's specific SSH key
+        // We use GIT_SSH_COMMAND env var to specify the key file
+        // StrictHostKeyChecking=no is used to avoid interactive prompt, but has security implications
+        // In a stricter env, we should scan keys first.
+        const keyPath = getKeyPath(repo.userId);
+        // Note: Git 2.3+ supports this env var.
+        // On Windows with Git Bash, paths might need conversion, but node exec often handles it.
+        // We ensure keyPath is properly escaped or handled.
+        // Crucially, on Windows, file paths in GIT_SSH_COMMAND can be tricky if they have spaces.
+        // We wrap the ssh command.
 
-        exec(deployCmd, async (err, stdout, stderr) => {
+        let sshCommand;
+        if (process.platform === 'win32') {
+            // Windows specific handling if needed. OpenSSH on Windows supports paths.
+            // Forward slashes are safer for git bash.
+            const safeKeyPath = keyPath.replace(/\\/g, '/');
+            sshCommand = `ssh -i "${safeKeyPath}" -o StrictHostKeyChecking=no`;
+        } else {
+            sshCommand = `ssh -i "${keyPath}" -o StrictHostKeyChecking=no`;
+        }
+
+        const deployCmd = `cd "${repo.deployPath}" && git pull origin ${repo.branch}`;
+        const env = { ...process.env, GIT_SSH_COMMAND: sshCommand };
+
+        exec(deployCmd, { env }, async (err, stdout, stderr) => {
             const conn = await mysql.createConnection(dbConfig);
             if (err) {
                 await conn.query(
@@ -169,7 +236,6 @@ router.post('/git/:id/deploy', requireAuth, checkGitOwnership, auditLogger('DEPL
 // Webhook endpoint (Public)
 router.post('/webhook/:id', async (req, res) => {
     const repoId = req.params.id;
-    // Note: In a production environment, you should verify the webhook secret
 
     try {
         const connection = await mysql.createConnection(dbConfig);
@@ -182,18 +248,38 @@ router.post('/webhook/:id', async (req, res) => {
 
         const repo = repos[0];
 
+        // Verify Secret if exists
+        if (repo.webhookSecret) {
+            if (!verifySignature(req, repo.webhookSecret)) {
+                await connection.end();
+                return res.status(401).json({ error: 'Invalid webhook signature' });
+            }
+        }
+
         // Update status to deploying
         await connection.query('UPDATE git_repos SET status = "deploying" WHERE id = ?', [repoId]);
         await connection.end();
 
-        // Perform git operations
-        const deployCmd = `cd "${repo.deployPath}" && git pull origin ${repo.branch}`;
+        // Perform git operations using user's specific SSH key
+        const keyPath = getKeyPath(repo.userId);
+        let sshCommand;
 
-        exec(deployCmd, async (err) => {
+        if (process.platform === 'win32') {
+            const safeKeyPath = keyPath.replace(/\\/g, '/');
+            sshCommand = `ssh -i "${safeKeyPath}" -o StrictHostKeyChecking=no`;
+        } else {
+            sshCommand = `ssh -i "${keyPath}" -o StrictHostKeyChecking=no`;
+        }
+
+        const deployCmd = `cd "${repo.deployPath}" && git pull origin ${repo.branch}`;
+        const env = { ...process.env, GIT_SSH_COMMAND: sshCommand };
+
+        exec(deployCmd, { env }, async (err, stdout) => {
             const conn = await mysql.createConnection(dbConfig);
             if (err) {
                 await conn.query('UPDATE git_repos SET status = "error", updatedAt = CURRENT_TIMESTAMP WHERE id = ?', [repoId]);
                 await conn.end();
+                console.error(`[GIT] Webhook Deploy Error for Repo ${repoId}:`, err);
                 return;
             }
 
@@ -202,9 +288,10 @@ router.post('/webhook/:id', async (req, res) => {
                 [repoId]
             );
             await conn.end();
+            console.log(`[GIT] Webhook Deploy Success for Repo ${repoId}`);
         });
 
-        res.json({ message: 'Webhook received, deployment started' });
+        res.json({ message: 'Webhook verified, deployment started' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

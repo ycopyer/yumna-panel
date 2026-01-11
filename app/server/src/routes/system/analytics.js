@@ -351,34 +351,24 @@ router.get('/analytics/detail/file', requireAdmin, (req, res) => {
 // Server Pulse: Real-time System Metrics
 router.get('/analytics/server-pulse', requireAdmin, async (req, res) => {
     try {
-        const endUsage = getCPUUsage();
-        const idleDiff = endUsage.idle - startUsage.idle;
-        const totalDiff = endUsage.total - startUsage.total;
-        const cpuPercentage = totalDiff > 0 ? (100 - (100 * idleDiff / totalDiff)) : 0;
-
-        // Reset for next call
-        startUsage = endUsage;
-
-        const totalMem = os.totalmem();
-        const freeMem = os.freemem();
-        const usedMem = totalMem - freeMem;
-        const memPercentage = (usedMem / totalMem) * 100;
-
-        const uptime = os.uptime(); // in seconds
+        const si = require('systeminformation');
+        const cpuLoad = await si.currentLoad();
+        const mem = await si.mem();
+        const uptime = os.uptime();
         const loadAvg = os.loadavg();
 
         res.json({
             cpu: {
-                percentage: Math.round(cpuPercentage * 100) / 100,
+                percentage: Math.round(cpuLoad.currentLoad * 100) / 100,
                 loadAvg: loadAvg,
                 cores: os.cpus().length,
                 model: os.cpus()[0].model
             },
             memory: {
-                total: totalMem,
-                free: freeMem,
-                used: usedMem,
-                percentage: Math.round(memPercentage * 100) / 100
+                total: mem.total,
+                free: mem.available, // Use available as free for better realism
+                used: mem.total - mem.available,
+                percentage: Math.round(((mem.total - mem.available) / mem.total) * 10000) / 100
             },
             uptime: uptime,
             platform: os.platform(),

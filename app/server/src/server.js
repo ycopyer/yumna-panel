@@ -10,6 +10,7 @@ const SSLService = require('./services/ssl');
 const BackupService = require('./services/BackupService');
 const AppSchedulerService = require('./services/AppSchedulerService');
 const ResourceMonitoringService = require('./services/ResourceMonitoringService');
+const ServerNodeService = require('./services/ServerNodeService');
 
 // Background Tasks
 // Initialize Log Monitoring, Firewall Sync, SSL Checker, Backup Scheduler, App Scheduler & Resource Monitor
@@ -19,6 +20,7 @@ SSLService.start();
 BackupService.start();
 AppSchedulerService.init();
 ResourceMonitoringService.start();
+ServerNodeService.start();
 
 // Periodic Firewall Sync (every 5 minutes)
 setInterval(() => {

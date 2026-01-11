@@ -4,6 +4,22 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
+## [2.2.4] - 2026-01-11
+### Added
+- **Docker Container Management**: 
+    - Full Docker integration with `dockerode` for managing containers, images, networks, and volumes.
+    - Container operations: List, Create, Start, Stop, Restart, Remove with real-time status updates.
+    - Auto-pull Docker images if not available locally during container creation.
+    - Live container logs viewer with 200-line tail support.
+    - Port mapping and environment variable configuration in creation modal.
+    - Docker daemon status monitoring with graceful offline handling.
+    - Modern UI with glassmorphism effects, animated status badges, and "blade" style cards.
+    - Admin-only access with `requireAdmin` middleware protection.
+
+### Fixed
+- **Docker Error Handling**: Improved error handling to return empty arrays instead of 500 errors when Docker daemon is unavailable.
+- **UI/UX**: Added informative "Engine Offline" message with retry button when Docker is not running.
+
 ## [2.2.3] - 2026-01-10
 ### Added
 - **Multi-Engine Web Stack**: Switchable arsitektur untuk Nginx Only, Apache Only, atau Hybrid Stack (Nginx Proxy + Apache Backend).

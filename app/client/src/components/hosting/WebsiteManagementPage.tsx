@@ -687,7 +687,7 @@ const WebsiteManagementPage: React.FC<WebsiteManagementPageProps> = ({
                                     />
                                     {showAddDb && (
                                         <AddDatabaseModal
-                                            userId={userId}
+                                            userId={website.userId}
                                             onClose={() => setShowAddDb(false)}
                                             onSuccess={() => {
                                                 setShowAddDb(false);

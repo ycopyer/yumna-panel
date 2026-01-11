@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { GitBranch, Plus, Trash2, RefreshCw, CheckCircle, XCircle, Loader2, Link2, ExternalLink, GitCommit, Settings, ChevronRight, X, Terminal, Workflow } from 'lucide-react';
+import { GitBranch, Plus, Trash2, RefreshCw, CheckCircle, XCircle, Loader2, Link2, ExternalLink, GitCommit, Settings, ChevronRight, X, Terminal, Workflow, ShieldCheck, Copy } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface GitRepo {
@@ -11,6 +11,7 @@ interface GitRepo {
     deployPath: string;
     status: 'active' | 'deploying' | 'error';
     lastDeploy: string | null;
+    webhookSecret?: string;
 }
 
 interface GitManagerProps {
@@ -110,6 +111,9 @@ const GitManager: React.FC<GitManagerProps> = ({ websiteId, userId, defaultDeplo
                 </button>
             </div>
 
+            {/* SSH Key Section */}
+            <DeployKeySection userId={userId} />
+
             {/* Pipeline Matrix */}
             <AnimatePresence mode="wait">
                 {loading && repos.length === 0 ? (
@@ -156,8 +160,8 @@ const GitManager: React.FC<GitManagerProps> = ({ websiteId, userId, defaultDeplo
                                             <div className="flex items-center gap-4 flex-wrap">
                                                 <h4 className="text-2xl font-black text-white tracking-tight">{repo.name}</h4>
                                                 <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border ${repo.status === 'active' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                        repo.status === 'deploying' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
-                                                            'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                    repo.status === 'deploying' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                        'bg-rose-500/10 text-rose-400 border-rose-500/20'
                                                     }`}>
                                                     {repo.status}
                                                 </span>
@@ -172,6 +176,31 @@ const GitManager: React.FC<GitManagerProps> = ({ websiteId, userId, defaultDeplo
                                                     <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">{repo.branch}</span>
                                                 </div>
                                             </div>
+
+                                            {/* Webhook Info */}
+                                            {repo.webhookSecret && (
+                                                <div className="mt-4 p-4 bg-black/20 rounded-2xl border border-white/5 space-y-3">
+                                                    <div className="flex items-center gap-2 text-white/40">
+                                                        <ExternalLink size={12} />
+                                                        <span className="text-[10px] font-black uppercase tracking-widest">Webhook Config</span>
+                                                    </div>
+                                                    <div className="grid gap-2">
+                                                        <div className="flex items-center gap-2 bg-white/5 p-2 rounded-lg group/url hover:bg-white/10 transition-colors cursor-pointer" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/api/hosting/webhook/${repo.id}`); alert('Webhook URL Copied'); }}>
+                                                            <code className="text-[10px] text-white/60 font-mono truncate flex-1">
+                                                                {window.location.origin}/api/hosting/webhook/{repo.id}
+                                                            </code>
+                                                            <Copy size={10} className="text-white/20 group-hover/url:text-white transition-colors" />
+                                                        </div>
+                                                        <div className="flex items-center gap-2 bg-white/5 p-2 rounded-lg group/secret hover:bg-white/10 transition-colors cursor-pointer" onClick={() => { navigator.clipboard.writeText(repo.webhookSecret!); alert('Secret Copied'); }}>
+                                                            <code className="text-[10px] text-white/60 font-mono truncate flex-1 filter blur-[3px] group-hover/secret:blur-0 transition-all">
+                                                                {repo.webhookSecret}
+                                                            </code>
+                                                            <ShieldCheck size={10} className="text-white/20 group-hover/secret:text-emerald-400 transition-colors" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.2em] flex items-center gap-2">
                                                 <RefreshCw size={10} /> Last Push: {repo.lastDeploy ? new Date(repo.lastDeploy).toLocaleString() : 'VOID'}
                                             </p>
@@ -289,6 +318,88 @@ const GitManager: React.FC<GitManagerProps> = ({ websiteId, userId, defaultDeplo
                     </div>
                 )}
             </AnimatePresence>
+        </div>
+    );
+};
+
+const DeployKeySection: React.FC<{ userId: number }> = ({ userId }) => {
+    const [key, setKey] = useState<string | null>(null);
+    const [revealed, setRevealed] = useState(false);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        // Pre-fetch key on load
+        fetchKey();
+    }, [userId]);
+
+    const fetchKey = async () => {
+        try {
+            const res = await axios.get('/api/hosting/git/key');
+            setKey(res.data.publicKey);
+        } catch (e) { console.error(e); }
+    };
+
+    const handleRegen = async () => {
+        if (!confirm('Regenerating this key will break access for all existing connected repositories. Continue?')) return;
+        setLoading(true);
+        try {
+            const res = await axios.post('/api/hosting/git/key/regenerate');
+            setKey(res.data.publicKey);
+        } catch (e) {
+            alert('Failed to regenerate key');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const copyToClipboard = () => {
+        if (key) {
+            navigator.clipboard.writeText(key);
+            alert('Public Key copied to clipboard!');
+        }
+    };
+
+    return (
+        <div className="bg-white/[0.02] border border-white/5 rounded-[32px] p-8 relative overflow-hidden group">
+            <div className="absolute -left-10 -top-10 w-40 h-40 bg-indigo-500/5 rounded-full blur-3xl" />
+
+            <div className="relative z-10 flex flex-col md:flex-row gap-8 items-start justify-between">
+                <div className="space-y-4 max-w-xl">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-indigo-500/10 rounded-lg text-indigo-400">
+                            <ShieldCheck size={20} />
+                        </div>
+                        <h4 className="text-lg font-black text-white">Deployment Identity</h4>
+                    </div>
+                    <p className="text-white/40 text-sm leading-relaxed">
+                        This is your unique <strong>deployment signature</strong>. Add this Public Key to your GitHub/GitLab repository's "Deploy Keys" section to authorize access without using your personal credentials.
+                    </p>
+                </div>
+
+                <div className="w-full md:w-auto flex-1 max-w-2xl space-y-3">
+                    <div className="relative group/key">
+                        <div className={`w-full bg-black/30 border border-white/10 rounded-xl p-4 font-mono text-[10px] text-white/60 break-all transition-all ${revealed ? '' : 'blur-sm select-none'}`}>
+                            {key || 'Loading Identity...'}
+                        </div>
+                        {!revealed && (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <button onClick={() => setRevealed(true)} className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-bold transition-all backdrop-blur-md">
+                                    Reveal Key
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex items-center gap-3 justify-end">
+                        <button onClick={copyToClipboard} className="text-xs font-bold text-white/40 hover:text-white flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-lg transition-all">
+                            <Copy size={14} /> Copy to Clipboard
+                        </button>
+                        <button onClick={handleRegen} disabled={loading} className="text-xs font-bold text-rose-500/60 hover:text-rose-400 flex items-center gap-2 px-3 py-2 hover:bg-rose-500/10 rounded-lg transition-all">
+                            {loading ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} Regenerate Identity
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 };

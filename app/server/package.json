@@ -1,52 +1,54 @@
 {
-    "name":  "filemanager-sftp-server",
-    "version":  "2.2.3",
-    "description":  "Yumna Panel - Advanced Hosting \u0026 Server Control Panel",
-    "main":  "index.js",
-    "scripts":  {
-                    "start":  "node index.js",
-                    "dev":  "nodemon index.js",
-                    "init-db":  "node init-db.js"
-                },
-    "keywords":  [
-                     "sftp",
-                     "file-manager",
-                     "express"
-                 ],
-    "author":  "",
-    "license":  "ISC",
-    "dependencies":  {
-                         "acme-client":  "^5.4.0",
-                         "adm-zip":  "^0.5.16",
-                         "archiver":  "^6.0.1",
-                         "argon2":  "^0.44.0",
-                         "axios":  "^1.13.2",
-                         "clamscan":  "^2.4.0",
-                         "cloudcmd":  "^19.1.0",
-                         "cors":  "^2.8.5",
-                         "dotenv":  "^16.3.1",
-                         "express":  "^4.18.2",
-                         "express-rate-limit":  "^8.2.1",
-                         "helmet":  "^7.1.0",
-                         "http-proxy-middleware":  "^3.0.5",
-                         "morgan":  "^1.10.0",
-                         "multer":  "^1.4.5-lts.1",
-                         "mysql2":  "^3.6.5",
-                         "node-cron":  "^4.2.1",
-                         "nodemailer":  "^7.0.12",
-                         "otplib":  "^12.0.1",
-                         "pdf-parse":  "^1.1.1",
-                         "qrcode":  "^1.5.4",
-                         "sharp":  "^0.34.5",
-                         "socket.io":  "^4.8.3",
-                         "ssh2-sftp-client":  "^10.0.3",
-                         "svg-captcha":  "^1.4.0",
-                         "systeminformation":  "^5.30.2",
-                         "uuid":  "^13.0.0",
-                         "web-push":  "^3.6.7",
-                         "whois":  "^2.16.1"
-                     },
-    "devDependencies":  {
-                            "nodemon":  "^3.0.2"
-                        }
+    "name": "filemanager-sftp-server",
+    "version": "2.2.4",
+    "description": "Yumna Panel - Advanced Hosting & Server Control Panel",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "nodemon index.js",
+        "init-db": "node init-db.js"
+    },
+    "keywords": [
+        "sftp",
+        "file-manager",
+        "express"
+    ],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "acme-client": "^5.4.0",
+        "adm-zip": "^0.5.16",
+        "archiver": "^6.0.1",
+        "argon2": "^0.44.0",
+        "axios": "^1.13.2",
+        "clamscan": "^2.4.0",
+        "cloudcmd": "^19.1.0",
+        "cors": "^2.8.5",
+        "dockerode": "^4.0.9",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "express-rate-limit": "^8.2.1",
+        "helmet": "^7.1.0",
+        "http-proxy-middleware": "^3.0.5",
+        "morgan": "^1.10.0",
+        "multer": "^1.4.5-lts.1",
+        "mysql2": "^3.6.5",
+        "node-cron": "^4.2.1",
+        "node-ssh": "^13.2.1",
+        "nodemailer": "^7.0.12",
+        "otplib": "^12.0.1",
+        "pdf-parse": "^1.1.1",
+        "qrcode": "^1.5.4",
+        "sharp": "^0.34.5",
+        "socket.io": "^4.8.3",
+        "ssh2-sftp-client": "^10.0.3",
+        "svg-captcha": "^1.4.0",
+        "systeminformation": "^5.30.2",
+        "uuid": "^13.0.0",
+        "web-push": "^3.6.7",
+        "whois": "^2.16.1"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    }
 }

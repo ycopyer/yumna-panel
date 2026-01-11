@@ -25,7 +25,7 @@ class ResourceMonitoringService {
 
             await pool.promise().query(
                 'INSERT INTO system_monitoring (cpu_usage, ram_usage, disk_usage) VALUES (?, ?, ?)',
-                [cpu.currentLoad, (mem.active / mem.total) * 100, disk.use]
+                [cpu.currentLoad, ((mem.total - mem.available) / mem.total) * 100, disk.use]
             );
 
             // 2. Website-specific stats (simulated for now based on global stats)
@@ -74,7 +74,8 @@ class ResourceMonitoringService {
             memory: {
                 total: mem.total,
                 active: mem.active,
-                usedPercent: (mem.active / mem.total) * 100
+                available: mem.available,
+                usedPercent: ((mem.total - mem.available) / mem.total) * 100
             },
             disk: {
                 total: disk.size,

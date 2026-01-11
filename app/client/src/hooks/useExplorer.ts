@@ -45,6 +45,10 @@ export const useExplorer = (user: any, onLogout: () => void) => {
         else if (activeView === 'mail') fetchMail();
         else if (activeView === 'backups') fetchBackups();
         else if (activeView === 'ssh') fetchSSH();
+        else if (['nodes', 'collaboration', 'security-center', 'security-dashboard', 'fail2ban', 'waf', 'malware', 'integrity', 'vulnerability', '2fa', 'monitor', 'audit', 'cron', 'ssl', 'ftp', 'apps', 'domains', 'docker'].includes(activeView as string)) {
+            // These views manage their own data fetching or are handled by specific components
+            // Preventing fallback to fetchFiles('/') which resets activeView to 'drive'
+        }
         else fetchFiles('/');
 
         // Fetch global data

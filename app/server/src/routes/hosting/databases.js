@@ -447,4 +447,21 @@ router.post('/databases/:name/revoke', requireAuth, checkDatabaseNameOwnership, 
     }
 });
 
+// Update Database Owner (Admin Only)
+router.put('/databases/:id/owner', requireAdmin, async (req, res) => {
+    const { targetUserId } = req.body;
+    const dbId = req.params.id;
+
+    if (!targetUserId) return res.status(400).json({ error: 'Target User ID required' });
+
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        await connection.query('UPDATE `databases` SET userId = ? WHERE id = ?', [targetUserId, dbId]);
+        await connection.end();
+        res.json({ message: 'Database ownership transferred successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

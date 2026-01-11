@@ -2,7 +2,7 @@ import React from 'react';
 import {
     LayoutGrid, History, Trash2, Heart, Globe, Database, Server as ServerIcon, Lock, Users, Share2, BarChart2, Shield, Settings,
     Activity as ActivityIcon, ShieldAlert, Cpu, LogOut, Search, ChevronRight, Upload, Folder, FolderPlus, ShieldCheck, Scale, Star, User, Menu, X,
-    LayoutDashboard, HardDrive, Fingerprint, Plus, Link2, Power, Package, ExternalLink, RefreshCw, Puzzle, FileEdit, Mail, Archive, Wrench, Terminal, Key, Clock, Camera, Zap
+    LayoutDashboard, HardDrive, Fingerprint, Plus, Link2, Power, Package, ExternalLink, RefreshCw, Puzzle, FileEdit, Mail, Archive, Wrench, Terminal, Key, Clock, Camera, Zap, Box
 } from 'lucide-react';
 import ResourceUsageWidget from '../common/ResourceUsageWidget';
 
@@ -420,6 +420,16 @@ const Sidebar: React.FC<SidebarProps> = ({
                             </div>
 
 
+                            {/* Docker Management Item */}
+                            <div>
+                                <div
+                                    className={`${navItemBase} ${activeView === 'docker' ? navItemActive : navItemInactive}`}
+                                    onClick={() => { onNavigate('docker'); onClose?.(); }}
+                                >
+                                    <Box size={19} className={activeView === 'docker' ? 'text-[var(--primary)]' : 'opacity-70 group-hover:opacity-100'} />
+                                    <span className="font-bold text-sm">Container Manager</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -498,6 +508,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('terminal'); onClose?.(); }}>
                                     <Terminal size={19} className="opacity-70 group-hover:text-emerald-400" />
                                     <span className="font-bold text-sm">System Terminal</span>
+                                </div>
+                                <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('manageNodes'); onClose?.(); }}>
+                                    <ServerIcon size={19} className="opacity-70 group-hover:text-amber-400" />
+                                    <span className="font-bold text-sm">Node Management</span>
                                 </div>
                                 <div className={navItemBase + " " + navItemInactive} onClick={() => { onAction('manageUsers'); onClose?.(); }}>
                                     <Users size={19} className="opacity-70 group-hover:text-sky-400" />

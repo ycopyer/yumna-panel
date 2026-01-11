@@ -19,5 +19,7 @@ router.use(require('./monitor'));
 router.use('/hosting/domains', require('./domains'));
 router.use('/hosting/git', require('./git'));
 router.use('/hosting/collaboration', require('./collaboration'));
+router.use(require('./servers'));
+router.use('/hosting/docker', require('./docker'));
 
 module.exports = router;

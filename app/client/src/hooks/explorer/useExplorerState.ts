@@ -28,7 +28,7 @@ export const useExplorerState = (user: any) => {
     const [showActivityHistory, setShowActivityHistory] = useState(false);
     const [showTrash, setShowTrash] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins' | 'mail' | 'backups' | 'ssh' | 'cron' | 'ssl' | 'ftp' | 'apps' | 'monitor' | 'fail2ban' | 'audit' | 'waf' | 'malware' | 'integrity' | 'vulnerability' | '2fa' | 'security-dashboard' | 'domains' | 'collaboration' | 'security-center'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
+    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins' | 'mail' | 'backups' | 'ssh' | 'cron' | 'ssl' | 'ftp' | 'apps' | 'monitor' | 'fail2ban' | 'audit' | 'waf' | 'malware' | 'integrity' | 'vulnerability' | '2fa' | 'security-dashboard' | 'domains' | 'collaboration' | 'security-center' | 'nodes' | 'docker'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
     const [propertiesItem, setPropertiesItem] = useState<FileItem | null>(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
@@ -67,6 +67,7 @@ export const useExplorerState = (user: any) => {
     const [showAddRemoteStorage, setShowAddRemoteStorage] = useState(false);
     const [showTerminal, setShowTerminal] = useState(false);
     const [showAddSSHAccount, setShowAddSSHAccount] = useState(false);
+    const [showServerManager, setShowServerManager] = useState(false);
     const [serverPulse, setServerPulse] = useState<any>(null);
     const [phpOperations, setPhpOperations] = useState<Record<string, any>>({});
     const [showAddSSL, setShowAddSSL] = useState(false);
@@ -156,6 +157,7 @@ export const useExplorerState = (user: any) => {
         showAddRemoteStorage, setShowAddRemoteStorage,
         showTerminal, setShowTerminal,
         showAddSSHAccount, setShowAddSSHAccount,
+        showServerManager, setShowServerManager,
         showAddSSL, setShowAddSSL,
         serverPulse, setServerPulse,
         phpOperations, setPhpOperations,

@@ -16,6 +16,7 @@ import MailManager from '../hosting/MailManager';
 import BackupManager from '../hosting/BackupManager';
 import PluginManager from '../admin/PluginManager';
 import Terminal from '../system/Terminal';
+import ServerManager from '../admin/ServerManager';
 import SSHManager from '../system/SSHManager';
 import CronManager from '../system/CronManager';
 import SSLManager from '../hosting/SSLManager';
@@ -34,6 +35,7 @@ import SecurityCenter from '../security/SecurityCenter';
 import DomainManager from '../hosting/DomainManager';
 import CollaborationManager from '../hosting/CollaborationManager';
 import WebsiteManager from '../hosting/WebsiteManager';
+import DockerManager from '../hosting/DockerManager';
 
 interface ExplorerProps {
     user: { userId?: number, id?: number, username: string, role: string };
@@ -93,6 +95,7 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         showAddRemoteStorage, setShowAddRemoteStorage,
         showTerminal, setShowTerminal,
         showAddSSHAccount, setShowAddSSHAccount,
+        showServerManager, setShowServerManager,
         showServiceManager, setShowServiceManager,
         showAddSSL, setShowAddSSL,
         fetchWebsites, fetchDatabases, fetchDNS, fetchPHP, fetchMail, fetchBackups, fetchSSH, fetchSSL, fetchFTP, phpOperations,
@@ -138,6 +141,8 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         else if (view === 'vulnerability') setActiveView('vulnerability');
         else if (view === '2fa') setActiveView('2fa');
         else if (view === 'security-center') setActiveView('security-center');
+        else if (view === 'nodes') setActiveView('nodes');
+        else if (view === 'docker') setActiveView('docker');
         setIsSidebarOpen(false);
     };
 
@@ -200,7 +205,8 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                         'add-email-account': setShowAddEmailAccount,
                         'maintenance': setShowMaintenance,
                         'terminal': setShowTerminal,
-                        'add-ssh-account': setShowAddSSHAccount
+                        'add-ssh-account': setShowAddSSHAccount,
+                        'manageNodes': () => handleNavigate('nodes')
                     };
                     if (simpleActions[a]) {
                         simpleActions[a](true);
@@ -361,6 +367,10 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                             websiteDomain={manageWebsite?.domain || (files.length > 0 ? (files[0] as any).domain || files[0].name : '')}
                             isOwner={user.role === 'admin' || user.userId === 1 || user.id === 1}
                         />
+                    ) : activeView === 'nodes' ? (
+                        <ServerManager userId={userId} onClose={() => handleNavigate('drive')} />
+                    ) : activeView === 'docker' ? (
+                        <DockerManager />
                     ) : (
                         <ExplorerFileList
                             loading={loading} filteredFiles={filteredFiles} searchQuery={searchQuery} isSearchActive={isSearchActive} activeView={activeView} viewMode={viewMode}

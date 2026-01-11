@@ -2,7 +2,7 @@
 
 Modern, secure, and feature-rich Webserver & Hosting Management Panel built with React and Node.js.
 
-![Version](https://img.shields.io/badge/version-2.2.3-purple.svg)
+![Version](https://img.shields.io/badge/version-2.2.4-purple.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 
 ## ✨ Core Features
@@ -70,6 +70,15 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 - ✅ **Cron Job Manager** - Schedule and manage automated tasks.
 - ✅ **SSH Account Manager** - Manage SSH access with key-based authentication.
 
+### 🐳 Docker Container Management
+- ✅ **Container Operations** - Create, start, stop, restart, and remove Docker containers.
+- ✅ **Image Management** - Auto-pull images from Docker Hub if not available locally.
+- ✅ **Live Monitoring** - Real-time container status with animated indicators.
+- ✅ **Log Viewer** - Stream and view container logs with 200-line tail support.
+- ✅ **Port Mapping** - Configure host-to-container port mappings during creation.
+- ✅ **Environment Variables** - Set custom environment variables for containers.
+- ✅ **Daemon Status** - Monitor Docker engine availability with graceful offline handling.
+
 ### 🧩 Integrasi & Otomasi
 - ✅ **Migration Suite** - Import accounts from cPanel and DirectAdmin.
 - ✅ **Quick Install** - Rapid application deployment and per-user Composer support.
@@ -93,6 +102,7 @@ See our [ROADMAP.md](ROADMAP.md) for planned features and development timeline.
 - 🔄 WordPress Auto-Installer
 
 **Recently Completed**:
+- ✅ Docker Container Management (January 2026)
 - ✅ DNS DNSSEC & Cloudflare Sync (January 2026)
 - ✅ FTP Account Manager (January 2026)
 - ✅ Cron Job Manager (January 2026)
