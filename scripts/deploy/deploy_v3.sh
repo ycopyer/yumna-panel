@@ -74,42 +74,61 @@ echo -e "${YELLOW} Installation Mode Selection ${NC}"
 echo -e "${YELLOW}------------------------------------------------${NC}"
 echo "1) Full Control Panel (Master Node: WHM + Panel + Local Agent)"
 echo "2) Worker Node Only (Hosting Server: Agent Only)"
-read -p "Enter Choice [1-2]: " INSTALL_MODE
+echo "3) WHM Core Only (API Control Plane & Database)"
+read -p "Enter Choice [1-3]: " INSTALL_MODE
 INSTALL_MODE=${INSTALL_MODE:-1}
 
 # Web Server Selection
-echo -e "${YELLOW}Select Web Server Stack:${NC}"
-echo "1) Nginx Only (High Performance, Default)"
-echo "2) Apache Only (Classic, .htaccess support)"
-echo "3) Hybrid (Nginx Frontend + Apache Backend)"
-read -p "Enter choice [1-3]: " WEB_STACK_CHOICE
-WEB_STACK_CHOICE=${WEB_STACK_CHOICE:-1}
+# Only ask for Web Stack if we are installing an Agent (Mode 1 or 2)
+if [ "$INSTALL_MODE" != "3" ]; then
+    echo -e "${YELLOW}Select Web Server Stack for Hosting:${NC}"
+    echo "1) Nginx Only (High Performance, Default)"
+    echo "2) Apache Only (Classic, .htaccess support)"
+    echo "3) Hybrid (Nginx Frontend + Apache Backend)"
+    read -p "Enter choice [1-3]: " WEB_STACK_CHOICE
+    WEB_STACK_CHOICE=${WEB_STACK_CHOICE:-1}
+else
+    # For WHM Only, minimal Nginx as proxy
+    WEB_STACK_CHOICE=1
+fi
 
 # Web Server Installation Logic
 echo -e "${BLUE}[5/X] Installing Web Server...${NC}"
-case $WEB_STACK_CHOICE in
-    2)
-        apt-get install -y apache2
-        systemctl start apache2
-        systemctl enable apache2
-        a2dissite 000-default.conf || true
-        systemctl reload apache2
-        ;;
-    3)
-        apt-get install -y nginx apache2
-        echo "Listen 8080" > /etc/apache2/ports.conf
-        sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf
-        systemctl start apache2 nginx
-        systemctl enable apache2 nginx
-        ;;
-    *)
-        apt-get install -y nginx
-        systemctl start nginx
-        systemctl enable nginx
-        systemctl stop apache2 2>/dev/null || true
-        systemctl disable apache2 2>/dev/null || true
-        ;;
-esac
+
+if [ "$INSTALL_MODE" == "3" ]; then
+    # Minimal Nginx for WHM proxy
+    apt-get install -y nginx
+    systemctl start nginx
+    systemctl enable nginx
+    # Ensure Apache is off
+    systemctl stop apache2 2>/dev/null || true
+    systemctl disable apache2 2>/dev/null || true
+else
+    # Standard hosting stack
+    case $WEB_STACK_CHOICE in
+        2)
+            apt-get install -y apache2
+            systemctl start apache2
+            systemctl enable apache2
+            a2dissite 000-default.conf || true
+            systemctl reload apache2
+            ;;
+        3)
+            apt-get install -y nginx apache2
+            echo "Listen 8080" > /etc/apache2/ports.conf
+            sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf
+            systemctl start apache2 nginx
+            systemctl enable apache2 nginx
+            ;;
+        *)
+            apt-get install -y nginx
+            systemctl start nginx
+            systemctl enable nginx
+            systemctl stop apache2 2>/dev/null || true
+            systemctl disable apache2 2>/dev/null || true
+            ;;
+    esac
+fi
 
 # Save selection for Agent
 WEB_STACK_NAME="nginx"
@@ -136,9 +155,9 @@ else
     cd "$INSTALL_DIR"
 fi
 
-# --- MASTER MODE INSTALLATION ---
-if [ "$INSTALL_MODE" == "1" ]; then
-    echo -e "${BLUE}=== MASTER NODE CONFIGURATION ===${NC}"
+# --- MASTER MODE / WHM ONLY CONFIGURATION ---
+if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
+    echo -e "${BLUE}=== WHM CORE CONFIGURATION ===${NC}"
     
     # WHM Setup
     cd "$INSTALL_DIR/whm"
@@ -167,13 +186,15 @@ if [ "$INSTALL_MODE" == "1" ]; then
     fi
     npm install --production
 
-    # Panel Setup (Build)
-    cd "$INSTALL_DIR/panel"
-    echo -e "${YELLOW}Building Frontend Panel...${NC}"
-    npm install
-    npm run build
+    # Panel Setup (Build) - ONLY FOR MODE 1
+    if [ "$INSTALL_MODE" == "1" ]; then
+        cd "$INSTALL_DIR/panel"
+        echo -e "${YELLOW}Building Frontend Panel...${NC}"
+        npm install
+        npm run build
+    fi
 
-    # Database Setup Wizard (Only for Master)
+    # Database Setup Wizard - FOR MODE 1 AND 3
     echo -e "${YELLOW}------------------------------------------------${NC}"
     echo -e "${YELLOW} Central Database Configuration Wizard ${NC}"
     echo -e "${YELLOW}------------------------------------------------${NC}"
@@ -216,85 +237,94 @@ if [ "$INSTALL_MODE" == "1" ]; then
         fi
     fi
 
-    # Install Services
+    # Install WHM Service
     cp "$INSTALL_DIR/scripts/systemd/yumna-whm.service" /etc/systemd/system/
-    
-    # Firewall for Master
-    ufw allow 4000/tcp # WHM
-    ufw allow 80/tcp
-    ufw allow 443/tcp
 fi
 
-# --- AGENT SETUP (Both Master and Worker need this) ---
-echo -e "${BLUE}=== AGENT CONFIGURATION ===${NC}"
-cd "$INSTALL_DIR/agent"
+# --- AGENT SETUP ---
+# Only for Mode 1 and 2
+if [ "$INSTALL_MODE" != "3" ]; then
+    echo -e "${BLUE}=== AGENT CONFIGURATION ===${NC}"
+    cd "$INSTALL_DIR/agent"
 
-# Need to know WHM URL if Worker Mode
-WHM_URL_VAL="http://localhost:4000"
-AGENT_SECRET_VAL="$CURRENT_AGENT_SECRET"
+    # Need to know WHM URL if Worker Mode
+    WHM_URL_VAL="http://localhost:4000"
+    AGENT_SECRET_VAL="$CURRENT_AGENT_SECRET"
 
-if [ "$INSTALL_MODE" == "2" ]; then
-    echo -e "${YELLOW}Worker Node Setup: We need to connect to your Master Node.${NC}"
-    read -p "Enter WHM Master URL (e.g., http://panel.example.com:4000): " INPUT_WHM_URL
-    WHM_URL_VAL=${INPUT_WHM_URL:-"http://localhost:4000"}
-    
-    read -p "Enter Agent Secret (from Master Node .env): " INPUT_AGENT_SECRET
-    AGENT_SECRET_VAL=${INPUT_AGENT_SECRET:-"change_me"}
+    if [ "$INSTALL_MODE" == "2" ]; then
+        echo -e "${YELLOW}Worker Node Setup: We need to connect to your Master Node.${NC}"
+        read -p "Enter WHM Master URL (e.g., http://panel.example.com:4000): " INPUT_WHM_URL
+        WHM_URL_VAL=${INPUT_WHM_URL:-"http://localhost:4000"}
+        
+        read -p "Enter Agent Secret (from Master Node .env): " INPUT_AGENT_SECRET
+        AGENT_SECRET_VAL=${INPUT_AGENT_SECRET:-"change_me"}
+    fi
+
+    if [ ! -f .env ]; then
+        echo -e "${YELLOW}Creating Agent configuration...${NC}"
+        if [ -f .env.example ]; then
+            cp .env.example .env
+        else
+            echo "NODE_ENV=production" > .env
+            echo "PORT=3000" >> .env
+        fi
+        
+        # Update config
+        if grep -q "WHM_URL" .env; then
+             sed -i "s|WHM_URL=.*|WHM_URL=$WHM_URL_VAL|g" .env
+        else
+             echo "WHM_URL=$WHM_URL_VAL" >> .env
+        fi
+        
+        if grep -q "AGENT_SECRET" .env; then
+              sed -i "s/change_this_shared_secret_for_nodes/$AGENT_SECRET_VAL/" .env
+              sed -i "s/^AGENT_SECRET=.*/AGENT_SECRET=$AGENT_SECRET_VAL/" .env
+        else
+              echo "AGENT_SECRET=$AGENT_SECRET_VAL" >> .env
+        fi
+        
+        # Web Stack
+        if grep -q "WEB_SERVER_STACK" .env; then
+             sed -i "s/WEB_SERVER_STACK=.*/WEB_SERVER_STACK=$WEB_STACK_NAME/" .env
+        else
+             echo "WEB_SERVER_STACK=$WEB_STACK_NAME" >> .env
+        fi
+    fi
+    npm install --production
+
+    # Install Agent Service
+    cp "$INSTALL_DIR/scripts/systemd/yumna-agent.service" /etc/systemd/system/
+    systemctl enable yumna-agent
+    systemctl start yumna-agent
 fi
 
-if [ ! -f .env ]; then
-    echo -e "${YELLOW}Creating Agent configuration...${NC}"
-    if [ -f .env.example ]; then
-        cp .env.example .env
-    else
-        echo "NODE_ENV=production" > .env
-        echo "PORT=3000" >> .env
-    fi
-    
-    # Update config
-    if grep -q "WHM_URL" .env; then
-         sed -i "s|WHM_URL=.*|WHM_URL=$WHM_URL_VAL|g" .env
-    else
-         echo "WHM_URL=$WHM_URL_VAL" >> .env
-    fi
-    
-    if grep -q "AGENT_SECRET" .env; then
-          sed -i "s/change_this_shared_secret_for_nodes/$AGENT_SECRET_VAL/" .env
-          sed -i "s/^AGENT_SECRET=.*/AGENT_SECRET=$AGENT_SECRET_VAL/" .env
-    else
-          echo "AGENT_SECRET=$AGENT_SECRET_VAL" >> .env
-    fi
-    
-    # Web Stack
-    if grep -q "WEB_SERVER_STACK" .env; then
-         sed -i "s/WEB_SERVER_STACK=.*/WEB_SERVER_STACK=$WEB_STACK_NAME/" .env
-    else
-         echo "WEB_SERVER_STACK=$WEB_STACK_NAME" >> .env
-    fi
-fi
-npm install --production
-
-# Install Agent Service
-cp "$INSTALL_DIR/scripts/systemd/yumna-agent.service" /etc/systemd/system/
-
-# Firewall common
-ufw allow 22/tcp
-ufw allow 3000/tcp # Agent Port
-ufw allow 80/tcp
-ufw allow 443/tcp
-ufw --force enable
-
-# Reload & Start Services
+# --- FINISHING ---
+# Service enable
 systemctl daemon-reload
 
-if [ "$INSTALL_MODE" == "1" ]; then
+if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
     systemctl enable yumna-whm
     systemctl start yumna-whm
 fi
 
-systemctl enable yumna-agent
-systemctl start yumna-agent
+# Firewall
+if [ "$INSTALL_MODE" == "3" ]; then
+    ufw allow 4000/tcp # WHM API
+    ufw allow 80/tcp
+    ufw allow 443/tcp
+    ufw --force enable
+elif [ "$INSTALL_MODE" != "3" ]; then
+    ufw allow 22/tcp
+    ufw allow 3000/tcp # Agent
+    ufw allow 80/tcp
+    ufw allow 443/tcp
+    if [ "$INSTALL_MODE" == "1" ]; then
+        ufw allow 4000/tcp # WHM in Master mode
+    fi
+    ufw --force enable
+fi
 
+# Summary
 echo -e "${GREEN}=====================================${NC}"
 echo -e "${GREEN}    INSTALLATION COMPLETE! 🎊       ${NC}"
 echo -e "${GREEN}=====================================${NC}"
@@ -306,10 +336,16 @@ if [ "$INSTALL_MODE" == "1" ]; then
     echo -e "Panel URL: http://$PUBLIC_IP"
     echo -e "Agent:     Running locally on port 3000"
     echo -e "Secret:    $(grep AGENT_SECRET $INSTALL_DIR/whm/.env | cut -d '=' -f2)"
-else
+elif [ "$INSTALL_MODE" == "2" ]; then
     echo -e "Mode:      WORKER NODE (Agent Only)"
     echo -e "Agent:     Running on port 3000"
-    echo -e "Connected to: $WHM_URL_VAL"
+    echo -e "Connected: $WHM_URL_VAL"
+else
+    PUBLIC_IP=$(curl -s ifconfig.me)
+    echo -e "Mode:      WHM CORE ONLY"
+    echo -e "WHM API:   http://$PUBLIC_IP:4000"
+    echo -e "Agent:     DISABLED"
+    echo -e "Secret:    $(grep AGENT_SECRET $INSTALL_DIR/whm/.env | cut -d '=' -f2)"
 fi
 
 echo ""
