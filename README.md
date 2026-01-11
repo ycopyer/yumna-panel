@@ -214,6 +214,30 @@ cd C:\YumnaPanel\scripts\deploy
 ### 2. Manual Installation
 See [docs/INSTALL.md](docs/INSTALL.md) for detailed manual setup instructions.
 
+## 👨‍💻 Development
+To run Yumna Panel in development mode (Hot Reload):
+
+**1. Backend (WHM)**
+```bash
+cd whm
+npm install && npm run dev
+# Runs on Port 4000
+```
+
+**2. Frontend (Panel)**
+```bash
+cd panel
+npm install && npm run dev
+# Accessible at http://localhost:5173
+```
+
+**3. Agent (Worker)**
+```bash
+cd agent
+npm install && npm run dev
+# Runs on Port 3000
+```
+
 ## 🛡️ Architecture
 - **WHM**: Centralized Control Plane (API & Database).
 - **Agent**: Lightweight micro-service running on target servers.
