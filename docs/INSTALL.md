@@ -1,107 +1,142 @@
-# Yumna Panel v3.0 - Installation Guide
+# 🛠️ Yumna Panel v3.0 - Installation Guide
 
-Welcome to the Yumna Panel v3.0 installation guide. This document provides instructions for deploying the Control Plane (WHM), Agent nodes, and the Frontend Panel.
+## 📋 System Requirements
 
-## 🚀 System Requirements
+### Hardware (Minimum)
+- **CPU**: 2 Cores
+- **RAM**: 4 GB
+- **Storage**: 20 GB SSD
+- **Network**: Public IP Address
 
-- **OS**: Ubuntu 22.04 LTS or Debian 11/12 (Recommended)
-- **CPU**: 2 Cores (Minimum), 4 Cores+ (Recommended)
-- **RAM**: 4GB (Minimum), 8GB+ (Recommended)
-- **Disk**: 20GB Free Space
-- **Network**: Public IPv4, Ports 80, 443, 4000, 4001, 3306 open.
+### OS Support
+- **Linux**: Ubuntu 22.04 / 24.04 (Recommended), Debian 11/12
+- **Windows**: Server 2019 / 2022 / Windows 10/11 (Development/Single Node)
 
 ---
 
-## ⚡ Option 1: One-Click Installation (Recommended)
+## 🚀 Quick Start (Automated)
 
-Our unified deployment script automates the installation of Node.js, MariaDB, Nginx, and system services.
+The easiest way to install Yumna Panel is using our automated script which sets up WHM, Agent, Panel, Database, and Web Server properly.
 
+### Linux (Ubuntu/Debian)
 ```bash
-# Download the script
-curl -o deploy.sh https://raw.githubusercontent.com/ycopyer/yumna-panel/main/scripts/deploy/deploy_v3.sh
-
-# Make it executable
-chmod +x deploy.sh
-
-# Run as root
-sudo ./deploy.sh
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/ycopyer/yumna-panel/main/scripts/deploy/deploy_v3.sh)"
 ```
 
-The script will:
-1. Install system dependencies.
-2. Setup the `/opt/yumnapanel` directory.
-3. Configure `yumna-whm` and `yumna-agent` as Systemd services.
-4. Setup Nginx as a reverse proxy for the Panel and API.
-5. Initialize the database schema.
+### Windows
+1. Clone repository:
+   ```powershell
+   git clone https://github.com/ycopyer/yumna-panel c:\YumnaPanel
+   ```
+2. Run setup:
+   ```powershell
+   c:\YumnaPanel\scripts\run\online.bat
+   ```
 
 ---
 
-## 🐳 Option 2: Docker Orchestration
-
-If you prefer containerized environments, use our optimized Docker stack.
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/ycopyer/yumna-panel.git
-   cd yumna-panel
-   ```
-
-2. **Configure Environment**:
-   Create a `.env` file in the root directory:
-   ```env
-   DB_ROOT_PASSWORD=your_secure_password
-   AGENT_SECRET=your_agent_secret_token
-   JWT_SECRET=your_jwt_secret
-   ```
-
-3. **Deploy with Docker Compose**:
-   ```bash
-   docker-compose up -d --build
-   ```
-
-4. **Access the Panel**:
-   Open `http://your-server-ip` in your browser.
-
----
-
-## 🛠️ Option 3: Manual Installation
+## 🔧 Manual Installation (Advanced)
 
 ### 1. Database Setup
-Install MariaDB/MySQL and create the database:
+Create the central database and user:
 ```sql
-CREATE DATABASE yumna_v3;
+CREATE DATABASE yumna_whm;
+CREATE USER 'yumna_whm'@'localhost' IDENTIFIED BY 'your_secure_password';
+GRANT ALL PRIVILEGES ON yumna_whm.* TO 'yumna_whm'@'localhost';
+FLUSH PRIVILEGES;
 ```
 
-### 2. Control Plane (WHM)
-```bash
-cd whm
-npm install
-cp .env.example .env # Configure your DB credentials
-npm start
-```
+### 2. Configure WHM
+1. Navigate to WHM directory:
+   ```bash
+   cd whm
+   cp .env.example .env
+   ```
+2. Edit `.env` configuration:
+   - **Database**: Update `DB_PASSWORD`
+   - **Agent Secret**: Set a unique `AGENT_SECRET` (must match Agent nodes)
+   - **Payment Gateways**: Add Stripe/PayPal keys if needed
+   - **HA/CDN**: Configure if using advanced features
 
-### 3. Server Agent
-```bash
-cd agent
-npm install
-cp .env.example .env # Configure AGENT_SECRET matching WHM
-npm start
-```
+   *(See `.env.example` for full configuration options)*
 
-### 4. Frontend Panel
-```bash
-cd panel
-npm install
-npm run build
-# Serve the 'dist' folder using Nginx/Apache
-```
+3. Install & Start:
+   ```bash
+   npm install
+   npm start
+   ```
+
+### 3. Configure Panel (Frontend)
+1. Navigate to Panel directory:
+   ```bash
+   cd panel
+   ```
+2. Build frontend:
+   ```bash
+   npm install
+   npm run build
+   ```
+3. Serve the `dist` folder via Nginx or Apache.
+
+### 4. Configure Agent (On Target Nodes)
+1. Navigate to Agent directory:
+   ```bash
+   cd agent
+   cp .env.example .env
+   ```
+2. Edit `.env`:
+   - Set `WHM_URL` to your WHM endpoint (e.g., `http://whm.your-domain.com`)
+   - Set `AGENT_SECRET` to match WHM configuration
+   - Set `AGENT_IP` to the node's public IP
+3. Install & Start:
+   ```bash
+   npm install
+   npm start
+   ```
 
 ---
 
-## 🛡️ Security Post-Install
-1. **Change Default Password**: Login as `admin` and update your password immediately.
-2. **Enable 2FA**: Visit Security Settings to activate Two-Factor Authentication.
-3. **Firewall**: Ensure UFW/Firewalld is active and only allows necessary ports.
+## 🔄 Post-Installation
 
-## 🆘 Support
-For issues or feedback, please open an issue in the [GitHub Repository](https://github.com/ycopyer/yumna-panel).
+### 1. Database Migration
+WHM will automatically run migrations on first start. You can verify tables in `yumna_whm`.
+
+### 2. Admin User
+A default admin user is created on first run (check logs) OR you can create one manually:
+```bash
+# Inside WHM directory
+node scripts/create_admin.js email=admin@example.com password=secure123
+```
+
+### 3. Setup Payment Gateways (Optional)
+If you plan to accept payments:
+1. Go to **Panel > Admin > Billing > Settings**.
+2. Enable Stripe/PayPal and enter credentials.
+3. Configure Webhooks in your Stripe/PayPal dashboard to point to:
+   - `http://your-whm-url/api/payments/webhook/stripe`
+   - `http://your-whm-url/api/payments/webhook/paypal`
+
+### 4. Setup High Availability (Optional)
+For multi-node WHM setup:
+1. Set `HA_ENABLED=true` in `.env` on all WHM nodes.
+2. Configure `DB_MASTER_HOST` and `DB_SLAVE_CONFIG`.
+3. Start Load Balancer service.
+*(See `docs/HIGH_AVAILABILITY.md` for details)*
+
+### 5. Setup CDN (Optional)
+To use Cloudflare/BunnyCDN:
+1. Add API keys in `.env`.
+2. Configure settings in **Panel > Admin > CDN**.
+*(See `docs/CDN_INTEGRATION.md` for details)*
+
+---
+
+## 🆘 Troubleshooting
+
+- **Logs**: Check `whm/logs/`, `agent/logs/`, or use `journalctl -u yumna-whm` (Linux).
+- **Database**: Ensure MySQL/MariaDB is running and accessible.
+- **Firewall**: Ensure ports `4000` (WHM), `3000` (Agent), `80/443` (Web) are open.
+
+---
+
+**Version**: 3.0.0 (Production)

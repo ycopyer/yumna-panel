@@ -184,32 +184,24 @@ Detailed version history and changes can be found in the [CHANGELOG.md](docs/CHA
 
 ## 🛠️ Installation
 
-### 1. Clone the repository
+### 1. Unified Deployment (Recommended)
 
-```bash
-git clone https://github.com/ycopyer/yumna-panel
-cd yumna-panel
-```
+Run the automated deployment script for a complete setup (WHM + Agent + Panel):
 
-### 2. Native Setup (Recommended)
-
-#### 🪟 Windows
-Run the provided setup script to automatically provision Nginx, MariaDB, and PHP:
-```powershell
-scripts\run\online.bat
-```
-
-#### 🐧 Linux (Ubuntu/Debian)
-Run the automated deployment script which installs Nginx/Apache, Multi-PHP Bundle, MariaDB, and configures the firewall:
-## 🚀 Quick Setup
-
-Deploy the panel in under 2 minutes on Ubuntu/Debian:
-
+**🐧 Linux (Ubuntu/Debian)**:
 ```bash
 sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/ycopyer/yumna-panel/main/scripts/deploy/deploy_v3.sh)"
 ```
 
-For detailed instructions, see [INSTALL.md](docs/INSTALL.md).
+**🪟 Windows**:
+Run the provided setup script:
+```powershell
+scripts\run\online.bat
+```
+
+### 2. Manual Installation
+
+For detailed manual installation instructions, including multi-node setup and configuration, please refer to the complete [Installation Guide](docs/INSTALL.md).
 
 ## 🛡️ Architecture
 - **WHM**: Centralized Control Plane (API & Database).
@@ -224,7 +216,7 @@ This project is licensed under the MIT License.
 
 **Made with ❤️ by Yumna Panel Project Team**
 
-**Version**: 3.0.0-final  
+**Version**: 3.0.0 (Production)  
 **Last Updated**: 2026-01-11
 
 ## 📚 Documentation
