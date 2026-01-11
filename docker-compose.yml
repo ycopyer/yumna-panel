@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: yumna-db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-yumna_secret}
+      MYSQL_DATABASE: yumna_v3
+    ports:
+      - "3306:3306"
+    volumes:
+      - yumna-db-data:/var/lib/mysql
+
+  whm:
+    build: ./whm
+    container_name: yumna-whm
+    restart: always
+    ports:
+      - "4000:4000"
+    environment:
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASS=${DB_ROOT_PASSWORD:-yumna_secret}
+      - DB_NAME=yumna_v3
+      - AGENT_URL=http://agent:4001
+      - AGENT_SECRET=${AGENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - db
+
+  agent:
+    build: ./agent
+    container_name: yumna-agent
+    restart: always
+    privileged: true
+    ports:
+      - "4001:4001"
+    environment:
+      - AGENT_SECRET=${AGENT_SECRET}
+      - AGENT_PORT=4001
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /:/host:ro
+
+  panel:
+    build: ./panel
+    container_name: yumna-panel
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - whm
+
+volumes:
+  yumna-db-data:

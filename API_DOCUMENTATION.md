@@ -66,19 +66,48 @@ Mengubah izin akses file/folder (mode oktal).
 ## 3. Hosting & Website
 
 ### Manajemen Website
-- **GET /hosting/websites**: Daftar website yang terdaftar.
-- **POST /hosting/websites**: Membuat website baru.
-  - **Body**: `{ "domain": "domain.com", "rootPath": "/www/domain" }`
-- **DELETE /hosting/websites/:domain**: Menghapus website.
+- **GET /api/websites**: Daftar website yang terdaftar.
+- **POST /api/websites**: Membuat website baru.
+- **POST /api/websites/:id/install**: Menginstal One-Click App (WordPress/Laravel).
+- **GET /api/websites/:id/install/logs?jobId=xxx**: Polling real-time installation logs.
+- **POST /api/websites/:id/maintenance**: Toggle Maintenance Mode.
 
-### Manajemen Database
-- **GET /hosting/databases**: Daftar database.
-- **POST /hosting/databases**: Membuat database baru.
-  - **Body**: `{ "name": "db_name", "user": "db_user", "password": "pass" }`
+### Manajemen Billing (v3)
+- **GET /api/billing/products**: Daftar paket layanan hosting.
+- **GET /api/billing/invoices**: Daftar tagihan (Invoices).
+- **POST /api/billing/invoices/:id/pay**: Konfirmasi pembayaran (Admin) & provisioning otomatis.
 
-### Manajemen DNS
-- **GET /hosting/dns**: Daftar zona DNS.
-- **POST /hosting/dns/records**: Menambah record DNS (A, CNAME, MX, dll).
+### Manajemen DNS (v3)
+- **GET /api/dns**: Daftar DNS Zones.
+- **GET /api/dns/:zoneId/records**: Detail record DNS.
+- **POST /api/dns**: Membuat zona baru.
+
+### Manajemen Server Nodes (System)
+- **GET /api/servers**: Daftar node server dalam cluster.
+- **POST /api/servers/:id/restart**: Restart layanan node (Nginx/MySQL/PHP).
+- **GET /api/servers/:id/logs**: Mengambil log sistem dari node.
+
+### Manajemen Docker
+- **GET /hosting/docker/status**: Cek status daemon Docker.
+- **GET /hosting/docker/containers**: Daftar container.
+  - **Query**: `?all=true` untuk melihat semua container (termasuk yang mati).
+- **POST /hosting/docker/containers**: Membuat container baru.
+  - **Body**: 
+    ```json
+    {
+      "name": "my-container",
+      "image": "nginx:latest",
+      "ports": { "80/tcp": "8080" },
+      "env": ["KEY=VALUE"]
+    }
+    ```
+- **GET /hosting/docker/containers/:id**: Detail container.
+- **POST /hosting/docker/containers/:id/start**: Menyalakan container.
+- **POST /hosting/docker/containers/:id/stop**: Mematikan container.
+- **POST /hosting/docker/containers/:id/restart**: Restart container.
+- **DELETE /hosting/docker/containers/:id**: Menghapus container.
+- **GET /hosting/docker/containers/:id/logs**: Melihat log container.
+  - **Query**: `?tail=100` jumlah baris terakhir.
 
 ---
 

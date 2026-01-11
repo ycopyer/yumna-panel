@@ -1,0 +1,24 @@
+{
+    "name": "yumna-agent",
+    "version": "3.0.0",
+    "description": "Yumna Server Agent - System Executor & Monitor",
+    "main": "src/index.js",
+    "scripts": {
+        "start": "node src/index.js",
+        "dev": "nodemon src/index.js"
+    },
+    "dependencies": {
+        "adm-zip": "^0.5.12",
+        "axios": "^1.13.2",
+        "dockerode": "^4.0.9",
+        "dotenv": "^16.3.1",
+        "express": "^4.18.2",
+        "mysql2": "^3.9.1",
+        "node-ssh": "^13.1.0",
+        "socket.io-client": "^4.7.2",
+        "systeminformation": "^5.30.2"
+    },
+    "devDependencies": {
+        "nodemon": "^3.0.2"
+    }
+}

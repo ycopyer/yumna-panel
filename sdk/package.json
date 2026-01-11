@@ -1,0 +1,36 @@
+{
+    "name": "@yumnapanel/sdk",
+    "version": "3.0.0",
+    "description": "Official SDK for developing Yumna Panel plugins",
+    "main": "index.js",
+    "bin": {
+        "yumna-plugin": "./cli.js"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "keywords": [
+        "yumna-panel",
+        "plugin",
+        "sdk",
+        "hosting",
+        "control-panel"
+    ],
+    "author": "Yumna Panel Team",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/ycopyer/yumna-panel-sdk"
+    },
+    "homepage": "https://docs.yumnapanel.com/sdk",
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "files": [
+        "index.js",
+        "YumnaPlugin.js",
+        "cli.js",
+        "README.md",
+        "LICENSE"
+    ]
+}

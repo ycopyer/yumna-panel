@@ -1,9 +1,12 @@
-# 🚀 Yumna Panel - Advanced Hosting & Server Control Panel
+# 🚀 Yumna Panel v3.0 - Distributed Server Control Plane
 
-Modern, secure, and feature-rich Webserver & Hosting Management Panel built with React and Node.js.
+Modern, distributed, and highly scalable Hosting & Infrastructure Management Panel built for the modern cloud.
 
-![Version](https://img.shields.io/badge/version-2.2.4-purple.svg)
+![Version](https://img.shields.io/badge/version-3.0.0-success.svg)
+![Completion](https://img.shields.io/badge/roadmap-100%25%20complete-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Architecture](https://img.shields.io/badge/architecture-WHM%2FAgent-blue.svg)
+![Status](https://img.shields.io/badge/status-production%20ready-success.svg)
 
 ## ✨ Core Features
 
@@ -51,6 +54,16 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 - ✅ **Cloudflare Sync** - One-click synchronization with Cloudflare CDN.
 - ✅ **TTL & Clustering** - Customizable TTL/SOA settings and DNS Cluster support.
 
+### 🌐 Live DNS Server Clusters (v3.0)
+- ✅ **PowerDNS Integration** - Real DNS server with MySQL backend.
+- ✅ **Multi-Node Clustering** - Distribute DNS across multiple servers for high availability.
+- ✅ **Automatic Zone Sync** - Zones automatically replicate to all cluster nodes.
+- ✅ **DNSSEC Support** - Enable DNSSEC for enhanced security and data integrity.
+- ✅ **Health Monitoring** - Real-time cluster health checks and node status.
+- ✅ **Zone Transfer (AXFR)** - Automatic zone replication between nodes.
+- ✅ **Cluster Management API** - Add/remove nodes, sync zones, monitor health.
+- ✅ **PowerDNS Control** - Full PowerDNS daemon management and statistics.
+
 ### 🔐 FTP Account Manager
 - ✅ **Restricted FTP Accounts** - Create isolated FTP accounts for developers.
 - ✅ **Quota Management** - Per-user FTP account limits.
@@ -79,33 +92,81 @@ Modern, secure, and feature-rich Webserver & Hosting Management Panel built with
 - ✅ **Environment Variables** - Set custom environment variables for containers.
 - ✅ **Daemon Status** - Monitor Docker engine availability with graceful offline handling.
 
-### 🧩 Integrasi & Otomasi
-- ✅ **Migration Suite** - Import accounts from cPanel and DirectAdmin.
-- ✅ **Quick Install** - Rapid application deployment and per-user Composer support.
-- ✅ **API Automation** - Full REST API for seamless external integration.
+### ⛓️ Distributed Architecture (v3.0.0)
+- ✅ **Distributed Control Plane (WHM)** - Centralized management for unlimited server nodes.
+- ✅ **Lightweight Agents** - High-performance Node.js agents for target server orchestration.
+- ✅ **Unified Dashboard** - Manage multiple servers from a single glassmorphism interface.
 
-### 🔁 Maintenance & Repair
-- ✅ **Advanced Repair** - Automatic configuration rebuilding for User, Domain, DNS, and Mail.
-- ✅ **Performance Sync** - Update templates across clusters and flush caches.
-- ✅ **Sync Cluster** - Maintain consistency across multi-server environments.
+### 💼 Enterprise & Reseller Features (v3.0)
+- ✅ **Reseller Hierarchy** - Multi-tier reseller system with parent-child relationships.
+- ✅ **Custom Product Pricing** - Resellers can create and price their own hosting plans.
+- ✅ **Indonesia Tax Compliance** - Automatic PPN 11% calculation with NPWP support.
+- ✅ **Granular RBAC** - Role-based access control with custom permissions.
+- ✅ **SLA Monitoring** - Automated uptime tracking and violation alerts.
+- ✅ **Commercial Licensing** - Enterprise key verification system.
+
+### 💳 Payment Gateway Integration (v3.0)
+- ✅ **Stripe Integration** - Full credit/debit card payment support with Checkout Sessions.
+- ✅ **PayPal Integration** - PayPal account payments with REST API v2.
+- ✅ **Manual Payments** - Bank transfer and custom payment method support.
+- ✅ **Transaction Management** - Complete transaction history and status tracking.
+- ✅ **Webhook Handling** - Automated payment verification and provisioning.
+- ✅ **Refund System** - Admin-controlled refund processing for all gateways.
+- ✅ **Multi-Currency Support** - USD, EUR, GBP, IDR, SGD, MYR support.
+- ✅ **Sandbox Mode** - Test mode for development and testing.
+
+### 🔌 Developer SDK (v3.0)
+- ✅ **Plugin Framework** - Comprehensive SDK for building Yumna Panel plugins.
+- ✅ **Hook System** - 30+ hooks for extending core functionality.
+- ✅ **CLI Tools** - Command-line tools for creating, validating, and building plugins.
+- ✅ **API Integration** - Register custom API routes within plugins.
+- ✅ **Settings Management** - Built-in settings system for plugin configuration.
+- ✅ **Event System** - Plugin-to-plugin communication via events.
+- ✅ **Utilities** - Validation, versioning, logging, and API helpers.
+- ✅ **Example Plugins** - Ready-to-use examples (Slack notifications, analytics, etc.).
+
+### 🛡️ Fraud Detection & Security (v3.0)
+- ✅ **FraudGuard Engine** - Real-time velocity checks and IP reputation scoring.
+- ✅ **Automated IP Blacklisting** - Auto-ban suspicious IPs based on behavior patterns.
+- ✅ **Admin Fraud Monitor** - Dashboard for viewing detection logs and managing blacklists.
+- ✅ **Transaction Protection** - Pre-order fraud analysis for billing operations.
+
+### 🤖 AI-Powered Operations (v3.0)
+- ✅ **Gemini AI Assistant** - Interactive chat bot for server troubleshooting.
+- ✅ **Smart Code Review** - Automated security scanning for Git deployments.
+- ✅ **Heuristic Scaling** - AI-driven resource allocation predictions.
+- ✅ **Threat Prediction** - AI-enhanced firewall with FraudGuard integration.
+
+### ☁️ Cloud Virtualization (v3.0)
+- ✅ **Proxmox/KVM Integration** - Full VPS lifecycle management (create, start, stop, reboot).
+- ✅ **Cloud Dashboard** - Visual interface for container and VM monitoring.
+- ✅ **SDN Foundation** - Software-defined networking for private VPC setup.
+- ✅ **Unified Management** - Manage VPS alongside traditional shared hosting.
+
+### 🔌 Plugin Marketplace (v3.0)
+- ✅ **Hook System** - Event-driven architecture for 3rd party developers.
+- ✅ **Plugin Manager UI** - Install/uninstall plugins from the admin panel.
+- ✅ **Curated Catalog** - phpMyAdmin, Roundcube, Docker UI, and more.
+- ✅ **Developer SDK** - Foundation for building custom extensions.
 
 ---
 
 ## 🗺️ Development Roadmap
 
-See our [ROADMAP.md](ROADMAP.md) for planned features and development timeline.
+See our [ROADMAP.md](docs/ROADMAP.md) for the complete development journey.
 
-**Current Focus (January 2026)**:
-- 🔄 SSL/TLS Certificate Manager with Let's Encrypt
-- 🔄 Advanced Backup System with encryption
-- 🔄 File Manager enhancements with code editor
-- 🔄 WordPress Auto-Installer
+**Current Status**: v3.0.0-final (Enterprise Edition)
 
-**Recently Completed**:
-- ✅ Docker Container Management (January 2026)
-- ✅ DNS DNSSEC & Cloudflare Sync (January 2026)
-- ✅ FTP Account Manager (January 2026)
-- ✅ Cron Job Manager (January 2026)
+**Recently Completed** (January 2026):
+- ✅ Cloud Virtualization & VPS Management (KVM/Proxmox)
+- ✅ AI-Ops & Gemini-powered Support Assistant
+- ✅ Plugin Hook Infrastructure & Theme System
+- ✅ Granular RBAC & Permissions
+- ✅ SLA Monitoring & Uptime Reliability
+- ✅ Commercial Licensing & Support Engine
+- ✅ FraudGuard Service & IP Reputation Monitoring
+- ✅ Indonesia Tax Compliance (PPN 11%, NPWP)
+- ✅ Reseller Hierarchy & Sub-user Management
 
 ## 📜 Changelog
 
@@ -140,18 +201,20 @@ scripts\run\online.bat
 
 #### 🐧 Linux (Ubuntu/Debian)
 Run the automated deployment script which installs Nginx/Apache, Multi-PHP Bundle, MariaDB, and configures the firewall:
-```bash
-chmod +x scripts/deploy/deploy.sh
-sudo ./scripts/deploy/deploy.sh
-```
-*The script will prompt you to choose between Nginx or Apache.*
+## 🚀 Quick Setup
 
-## 🚀 Running the Application
+Deploy the panel in under 2 minutes on Ubuntu/Debian:
 
-### Production Mode (PM2)
 ```bash
-pm2 start ecosystem.config.js
+sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/ycopyer/yumna-panel/main/scripts/deploy/deploy_v3.sh)"
 ```
+
+For detailed instructions, see [INSTALL.md](docs/INSTALL.md).
+
+## 🛡️ Architecture
+- **WHM**: Centralized Control Plane (API & Database).
+- **Agent**: Lightweight micro-service running on target servers.
+- **Panel**: React-based administrative interface.
 
 ## 📄 License
 
@@ -161,5 +224,27 @@ This project is licensed under the MIT License.
 
 **Made with ❤️ by Yumna Panel Project Team**
 
-**Version**: 2.2.4
+**Version**: 3.0.0-final  
 **Last Updated**: 2026-01-11
+
+## 📚 Documentation
+
+- [API Documentation](docs/API.md)
+- [Deployment Guide](docs/DEPLOYMENT.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Roadmap](docs/ROADMAP.md)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+## 💬 Community & Support
+
+- **Discord**: https://discord.gg/yumnapanel
+- **Forum**: https://forum.yumnapanel.com
+- **Email**: support@yumnapanel.com
+- **Documentation**: https://docs.yumnapanel.com
+
+## 🌟 Star History
+
+If you find Yumna Panel useful, please consider giving it a star on GitHub!

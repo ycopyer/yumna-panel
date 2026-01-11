@@ -4,6 +4,86 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
+## [3.0.0] - 2026-01-11
+### Added
+- **Production Release**: Reached 100% Roadmap Completion! 🎊
+- **High Availability (HA)**:
+    - **WHM Clustering**: Multi-node control plane with automatic primary election.
+    - **Failover System**: Automated and manual failover capabilities for zero-downtime operations.
+    - **Load Balancing**: Built-in HTTP load balancer with Round-Robin, Least-Connections, and Weighted algorithms.
+    - **Database Replication**: Master-Slave MySQL replication with read/write splitting.
+    - **Session Sharing**: Distributed session management across cluster nodes.
+- **CDN Integration**:
+    - **Cloudflare**: Zone management, cache purging, SSL settings, and analytics.
+    - **BunnyCDN**: Pull zone creation, storage management, and cache control.
+- **Enterprise Tools**:
+    - **Database Toolkit**: Advanced Query Builder, Table Maintenance (Optimize/Repair), and Redis Manager.
+    - **WordPress Suite**: One-click Staging environments, Plugin updates, AI-Optimization, and Integrity scanning.
+- **Unified v3 Architecture**: Full migration to microservice pattern (WHM + Agent).
+    - MySQL provisioning and maintenance API.
+    - Real-time system metrics (CPU, RAM, Uptime) with `systeminformation`.
+    - **SSL Service**: Support for Let's Encrypt (win-acme/certbot) and custom certificate uploads.
+    - **Maintenance Mode**: One-click maintenance toggle with custom placeholder page.
+    - **Streaming Installation Logs**: Real-time log feedback for One-Click App Installers (Laravel/WordPress) using `child_process.spawn`.
+- **WHM (Control Plane)**:
+    - **Multi-node Server Management** with heartbeat monitoring.
+    - **Centralized Website/Database orchestration** across multiple Agent nodes.
+    - **DNS Manager Migration**: Complete migration of domain zones and records to WHM, including **automated reset to defaults**, **Cloudflare Synchronization**, and **DNSSEC Support**.
+    - **Billing Core (Stage 5)**: Implementation of Products, Orders, Invoices, and **Automated Provisioning** (Quota updates on payment).
+    - **Usage-Based Billing (Stage 6)**:
+        - **Metering Agents**: Real-time CPU, Bandwidth, and Storage tracking on Agent nodes.
+        - **Usage-to-Invoice**: Automated engine for generating invoices based on consumption metrics (CPU Load, RAM-hour, GB-storage, and Bandwidth).
+        - **Usage Rates API**: Dynamic management of pricing for metered resources.
+    - **Server Node Control**: Remote service restarts (Nginx, PHP, MySQL) and system log viewing via Agent API.
+    - **Analytics Dashboard**: Enhanced with historical node usage charts, storage stats, top downloads, and active user tracking across nodes.
+    - **Git Integration**: Full CI/CD pipeline integrated with SSH keys, manual deploys, real-time logs, and webhooks.
+    - **Task Orchestration**: Centralized background job monitoring and log streaming.
+- **Tooling & Infrastructure**:
+    - Centralized migration system (`init_v3.js`).
+    - Robust Auth middleware shared between WHM and Panel with **SFTP storage session persistence**.
+    - Token-based (Agent Secret) internal API security between nodes.
+    - **Dockerized Stack**: Optimized Dockerfiles and `docker-compose.yml` for WHM, Agent, and Panel services.
+    - **Systemd Integration**: Native Linux service unit files for automated daemon management.
+    - **Unified Deployment Script**: Robust `deploy_v3.sh` for one-click installation on Ubuntu/Debian.
+    - **Billing & Products UI**: New frontend modules for invoice management and product catalogs.
+    - **Payment Gateway Integration (Stage 5.5)**:
+        - **Stripe Integration**: Full credit/debit card payment support with Payment Intents and Checkout Sessions.
+        - **PayPal Integration**: PayPal account payments using REST API v2 with order creation and capture.
+        - **Manual Payment Support**: Bank transfer and custom payment method configuration.
+        - **Transaction Management**: Complete transaction history, status tracking, and payment statistics.
+        - **Webhook Handling**: Automated payment verification and feature provisioning via webhooks.
+        - **Refund System**: Admin-controlled refund processing for all payment gateways.
+        - **Multi-Currency Support**: USD, EUR, GBP, IDR, SGD, MYR currency support.
+        - **Sandbox Mode**: Test mode for development and testing with sandbox credentials.
+        - **Payment Gateway Settings UI**: Admin interface for configuring gateway credentials and settings.
+        - **Payment Checkout UI**: User-facing payment interface with gateway selection and invoice summary.
+    - **Live DNS Server Clusters (Stage 6.5)**:
+        - **PowerDNS Service**: Agent-side PowerDNS integration with MySQL backend and automatic schema creation.
+        - **DNS Cluster Service**: WHM-side cluster orchestration for managing multiple DNS nodes.
+        - **Automatic Zone Synchronization**: Zones automatically replicate to all cluster nodes on creation/update.
+        - **DNSSEC Support**: Enable DNSSEC for zones with key generation and DS record management.
+        - **Health Monitoring**: Real-time cluster health checks with node status and response time tracking.
+        - **Cluster Management API**: Add/remove nodes, sync zones, monitor health, and manage cluster membership.
+        - **PowerDNS Control**: Full daemon management including status, statistics, and zone notifications.
+        - **Multi-Node Support**: Distribute DNS across multiple servers for high availability and load balancing.
+        - **Agent DNS Routes**: PowerDNS management endpoints on agent nodes for zone sync and DNSSEC.
+        - **WHM DNS Orchestration**: Centralized DNS management with automatic cluster-wide operations.
+    - **Developer SDK (Stage 7.0)**:
+        - **YumnaPlugin Base Class**: Core plugin framework with lifecycle management and hook system.
+        - **Hook System**: 30+ hooks for extending user, website, database, DNS, payment, billing, and system operations.
+        - **Route Registration**: Register custom API routes within plugins with authentication support.
+        - **Settings Management**: Built-in settings system for plugin configuration and persistence.
+        - **Event System**: Plugin-to-plugin communication via event emission.
+        - **Plugin CLI**: Command-line tools for creating, validating, building, installing, and listing plugins.
+        - **Plugin Utilities**: Validation, version comparison, compatibility checking, and manifest validation.
+        - **API Helpers**: Standardized response creation, request validation, and error handling.
+        - **Plugin Logger**: Context-aware logging with multiple log levels (info, warn, error, debug).
+        - **Example Plugins**: Slack notifications, custom analytics, and backup notifications examples.
+        - **Comprehensive Documentation**: Full SDK documentation with API reference, examples, and best practices.
+    - **Installation Documentation**: Detailed setup and configuration guides (`INSTALL.md`, `PAYMENT_GATEWAY.md`, `DNS_CLUSTERS.md`, SDK `README.md`).
+
+---
+
 ## [2.2.4] - 2026-01-11
 ### Added
 - **Docker Container Management**: 
@@ -145,5 +225,5 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
-**Current Version**: 2.2.4
+**Current Version**: 3.0.0
 **Last Updated**: 2026-01-11

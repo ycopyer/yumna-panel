@@ -1,0 +1,27 @@
+{
+    "id": "slack-notifications",
+    "name": "Slack Notifications",
+    "version": "1.0.0",
+    "author": "Yumna Panel Team",
+    "description": "Send notifications to Slack for various events in Yumna Panel",
+    "homepage": "https://github.com/ycopyer/yumna-panel-plugins/tree/main/slack-notifications",
+    "repository": "https://github.com/ycopyer/yumna-panel-plugins",
+    "license": "MIT",
+    "main": "index.js",
+    "yumnaPanelVersion": "^3.0.0",
+    "dependencies": [],
+    "settings": {
+        "webhookUrl": "",
+        "channel": "#general",
+        "username": "Yumna Panel",
+        "iconEmoji": ":robot_face:",
+        "notifyUserCreate": true,
+        "notifyWebsiteCreate": true,
+        "notifyBackup": true,
+        "notifyPayment": true
+    },
+    "permissions": [
+        "system:read",
+        "webhooks:send"
+    ]
+}
