@@ -188,7 +188,9 @@ Detailed version history and changes can be found in the [CHANGELOG.md](docs/CHA
 
 Run the automated deployment script for a complete setup (WHM + Agent + Panel):
 
-**🐧 Linux (Ubuntu/Debian)**:
+**🐧 Linux (Universal)**:
+Supports Ubuntu, Debian, CentOS, AlmaLinux, Rocky Linux.
+
 ```bash
 git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
 sudo bash /opt/yumna-panel/scripts/deploy/deploy_v3.sh
