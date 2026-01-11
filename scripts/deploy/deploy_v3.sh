@@ -136,10 +136,39 @@ systemctl start yumna-whm yumna-agent
 
 # Setup Database
 echo -e "${BLUE}Configuring Database...${NC}"
-mysql -e "CREATE DATABASE IF NOT EXISTS yumna_whm;"
-mysql -e "CREATE USER IF NOT EXISTS 'yumna_whm'@'localhost' IDENTIFIED BY 'yumna_db_password';"
-mysql -e "GRANT ALL PRIVILEGES ON yumna_whm.* TO 'yumna_whm'@'localhost';"
-mysql -e "FLUSH PRIVILEGES;"
+
+# Function to run mysql command (try multiple methods)
+run_sql() {
+    if mysql -e "$1" 2>/dev/null; then
+        return 0
+    elif sudo mysql -e "$1" 2>/dev/null; then
+        return 0
+    else
+        echo -e "${YELLOW}MySQL root access failed. Trying without password...${NC}"
+        # Some systems allow passwordless root login via socket
+        return 1
+    fi
+}
+
+# Ensure MariaDB is running
+systemctl start mariadb || systemctl start mysql
+
+# Try to secure installation first (optional/automated)
+# Creating DB and User
+SQL_CMDS="
+CREATE DATABASE IF NOT EXISTS yumna_whm;
+CREATE USER IF NOT EXISTS 'yumna_whm'@'localhost' IDENTIFIED BY 'yumna_db_password';
+GRANT ALL PRIVILEGES ON yumna_whm.* TO 'yumna_whm'@'localhost';
+FLUSH PRIVILEGES;
+"
+
+if ! run_sql "$SQL_CMDS"; then
+    echo -e "${RED}Failed to configure database automatically.${NC}"
+    echo -e "${YELLOW}Please run the following SQL manually:${NC}"
+    echo "$SQL_CMDS"
+else
+    echo -e "${GREEN}Database configured successfully.${NC}"
+fi
 
 # Firewall
 echo -e "${BLUE}Configuring Firewall...${NC}"
