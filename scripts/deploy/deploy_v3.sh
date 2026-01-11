@@ -100,20 +100,56 @@ echo -e "${BLUE}Configuring Environment...${NC}"
 # WHM Setup
 cd "$INSTALL_DIR/whm"
 if [ ! -f .env ]; then
-    cp .env.example .env
-    # Generate random secrets
+    echo -e "${YELLOW}Creating WHM configuration...${NC}"
+    if [ -f .env.example ]; then
+        cp .env.example .env
+    else
+        # Fallback default content
+        echo "NODE_ENV=production" > .env
+        echo "PORT=4000" >> .env
+        echo "DB_HOST=localhost" >> .env
+        echo "DB_USER=yumna_whm" >> .env
+        echo "DB_PASSWORD=yumna_db_password" >> .env
+        echo "DB_NAME=yumna_whm" >> .env
+        echo "SECRET_KEY=yumna_secret_$(openssl rand -hex 16)" >> .env
+        echo "AGENT_SECRET=yumna_agent_$(openssl rand -hex 16)" >> .env
+    fi
+    
+    # Update secrets if they are still placeholders
     SECRET=$(openssl rand -hex 32)
     AGENT_SECRET=$(openssl rand -hex 32)
     sed -i "s/change_this_to_a_secure_random_string_v3/$SECRET/" .env
     sed -i "s/change_this_shared_secret_for_nodes/$AGENT_SECRET/" .env
+    
+    # Ensure AGENT_SECRET is captured for Agent setup
+    CURRENT_AGENT_SECRET=$(grep AGENT_SECRET .env | cut -d '=' -f2)
 fi
+
 npm install --production
 
 # Agent Setup
 cd "$INSTALL_DIR/agent"
 if [ ! -f .env ]; then
-    cp .env.example .env || echo "AGENT_SECRET=$AGENT_SECRET" > .env
-    # sed -i "s/YOUR_AGENT_SECRET/$AGENT_SECRET/" .env
+    echo -e "${YELLOW}Creating Agent configuration...${NC}"
+    if [ -f .env.example ]; then
+        cp .env.example .env
+    else
+        # Fallback default content
+        echo "NODE_ENV=production" > .env
+        echo "PORT=3000" >> .env
+        echo "WHM_URL=http://localhost:4000" >> .env
+    fi
+
+    # Retrieve secret from WHM config if available
+    if [ -n "$CURRENT_AGENT_SECRET" ]; then
+        # Replace or Append
+        if grep -q "AGENT_SECRET" .env; then
+             sed -i "s/change_this_shared_secret_for_nodes/$CURRENT_AGENT_SECRET/" .env
+             sed -i "s/^AGENT_SECRET=.*/AGENT_SECRET=$CURRENT_AGENT_SECRET/" .env
+        else
+             echo "AGENT_SECRET=$CURRENT_AGENT_SECRET" >> .env
+        fi
+    fi
 fi
 npm install --production
 
