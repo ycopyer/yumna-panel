@@ -100,32 +100,66 @@ if [ "$INSTALL_MODE" == "3" ]; then
     apt-get install -y nginx
     systemctl start nginx
     systemctl enable nginx
-    # Ensure Apache is off
+    # Ensure Apache is completely DEAD
     systemctl stop apache2 2>/dev/null || true
     systemctl disable apache2 2>/dev/null || true
+    # Remove apache2 startup links just in case
+    update-rc.d apache2 remove 2>/dev/null || true
 else
     # Standard hosting stack
     case $WEB_STACK_CHOICE in
         2)
+            # APCHE ONLY
+            echo -e "${YELLOW}Configuring Apache Only...${NC}"
             apt-get install -y apache2
+            # Kill Nginx
+            systemctl stop nginx 2>/dev/null || true
+            systemctl disable nginx 2>/dev/null || true
+            
+            # Ensure Apache listens on 80
+            echo "Listen 80" > /etc/apache2/ports.conf
+            if [ -f /etc/apache2/sites-available/000-default.conf ]; then
+                sed -i 's/:8080/:80/g' /etc/apache2/sites-available/000-default.conf
+            fi
+            
             systemctl start apache2
             systemctl enable apache2
-            a2dissite 000-default.conf || true
-            systemctl reload apache2
             ;;
         3)
+            # HYBRID (Nginx Front, Apache Back)
+            echo -e "${YELLOW}Configuring Hybrid Stack (Nginx TCP:80 -> Apache TCP:8080)...${NC}"
             apt-get install -y nginx apache2
+            
+            # 1. Configure Apache to move away from port 80 immediately
             echo "Listen 8080" > /etc/apache2/ports.conf
-            sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf
-            systemctl start apache2 nginx
+            
+            # Update default vhost to 8080 
+            if [ -f /etc/apache2/sites-available/000-default.conf ]; then
+                sed -i 's/<VirtualHost.*:80>/<VirtualHost *:8080>/g' /etc/apache2/sites-available/000-default.conf
+                sed -i 's/<VirtualHost.*:8080>/<VirtualHost *:8080>/g' /etc/apache2/sites-available/000-default.conf
+            fi
+            
+            # 2. Restart Apache on new port
+            systemctl restart apache2
+            
+            # 3. Start Nginx on Port 80
+            systemctl restart nginx
             systemctl enable apache2 nginx
             ;;
         *)
+            # NGINX ONLY
+            echo -e "${YELLOW}Configuring Nginx Only...${NC}"
             apt-get install -y nginx
-            systemctl start nginx
-            systemctl enable nginx
+            # Kill Apache
             systemctl stop apache2 2>/dev/null || true
             systemctl disable apache2 2>/dev/null || true
+            # Prevent Apache from grabbing port 80 even if started accidentally
+            if [ -f /etc/apache2/ports.conf ]; then
+                echo "Listen 8080" > /etc/apache2/ports.conf
+            fi
+            
+            systemctl start nginx
+            systemctl enable nginx
             ;;
     esac
 fi
