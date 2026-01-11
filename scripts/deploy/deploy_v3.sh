@@ -220,37 +220,79 @@ systemctl start yumna-whm yumna-agent
 # Setup Database
 echo -e "${BLUE}Configuring Database...${NC}"
 
-# Function to run mysql command (try multiple methods)
-run_sql() {
-    if mysql -e "$1" 2>/dev/null; then
-        return 0
-    elif sudo mysql -e "$1" 2>/dev/null; then
-        return 0
-    else
-        echo -e "${YELLOW}MySQL root access failed. Trying without password...${NC}"
-        # Some systems allow passwordless root login via socket
-        return 1
-    fi
-}
+# --- Database Setup Wizard ---
+echo -e "${YELLOW}------------------------------------------------${NC}"
+echo -e "${YELLOW} Database Configuration Wizard ${NC}"
+echo -e "${YELLOW}------------------------------------------------${NC}"
 
 # Ensure MariaDB is running
 systemctl start mariadb || systemctl start mysql
 
-# Try to secure installation first (optional/automated)
-# Creating DB and User
-SQL_CMDS="
-CREATE DATABASE IF NOT EXISTS yumna_whm;
-CREATE USER IF NOT EXISTS 'yumna_whm'@'localhost' IDENTIFIED BY 'yumna_db_password';
-GRANT ALL PRIVILEGES ON yumna_whm.* TO 'yumna_whm'@'localhost';
-FLUSH PRIVILEGES;
-"
+# Default Values
+DEFAULT_DB_NAME="yumna_whm"
+DEFAULT_DB_USER="yumna_whm"
+DEFAULT_DB_PASS="yumna_db_password"
 
-if ! run_sql "$SQL_CMDS"; then
-    echo -e "${RED}Failed to configure database automatically.${NC}"
-    echo -e "${YELLOW}Please run the following SQL manually:${NC}"
-    echo "$SQL_CMDS"
+echo "We need to create the main database for Yumna WHM."
+read -p "Do you want to setup the database automatically now? [Y/n]: " SETUP_DB_CONFIRM
+SETUP_DB_CONFIRM=${SETUP_DB_CONFIRM:-Y}
+
+if [[ "$SETUP_DB_CONFIRM" =~ ^[Yy]$ ]]; then
+    
+    # 1. Ask for Root Credentials
+    echo -e "${BLUE}Please enter your Database ROOT password.${NC}"
+    echo "If you have a fresh installation (no password), just press ENTER."
+    read -s -p "MariaDB/MySQL Root Password: " DB_ROOT_PASS
+    echo ""
+
+    # 2. Ask for New User Credentials
+    echo -e "${BLUE}Configure Yumna Database User:${NC}"
+    read -p "Database Name [$DEFAULT_DB_NAME]: " DB_NAME
+    DB_NAME=${DB_NAME:-$DEFAULT_DB_NAME}
+    
+    read -p "Database User [$DEFAULT_DB_USER]: " DB_USER
+    DB_USER=${DB_USER:-$DEFAULT_DB_USER}
+    
+    read -s -p "Database Password [$DEFAULT_DB_PASS]: " DB_PASS
+    echo ""
+    DB_PASS=${DB_PASS:-$DEFAULT_DB_PASS}
+
+    # 3. Construct SQL Command
+    SQL="CREATE DATABASE IF NOT EXISTS \`${DB_NAME}\`;"
+    SQL="${SQL} CREATE USER IF NOT EXISTS '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASS}';"
+    SQL="${SQL} GRANT ALL PRIVILEGES ON \`${DB_NAME}\`.* TO '${DB_USER}'@'localhost';"
+    SQL="${SQL} FLUSH PRIVILEGES;"
+
+    echo -e "${BLUE}Executing...${NC}"
+
+    # 4. Execute with handling for password/no-password
+    if [ -z "$DB_ROOT_PASS" ]; then
+        # Try passwordless (socket or empty pass)
+        mysql -e "$SQL" 2>/tmp/db_err || sudo mysql -e "$SQL" 2>/tmp/db_err
+    else
+        # Try with provided password
+        mysql -u root -p"$DB_ROOT_PASS" -e "$SQL" 2>/tmp/db_err
+    fi
+
+    # 5. Check Result
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}Database setup complete!${NC}"
+        
+        # Save to WHM .env
+        echo -e "${BLUE}Updating WHM .env configuration...${NC}"
+        cd "$INSTALL_DIR/whm"
+        sed -i "s/DB_USER=.*/DB_USER=$DB_USER/" .env
+        sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" .env
+        sed -i "s/DB_NAME=.*/DB_NAME=$DB_NAME/" .env
+        
+    else
+         echo -e "${RED}Database setup failed! Error details:${NC}"
+         cat /tmp/db_err
+         echo -e "${YELLOW}Please create the database manually:${NC}"
+         echo "$SQL"
+    fi
 else
-    echo -e "${GREEN}Database configured successfully.${NC}"
+    echo -e "${YELLOW}Skipping database setup.${NC}"
 fi
 
 # Firewall
