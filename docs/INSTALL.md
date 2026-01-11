@@ -26,14 +26,20 @@ Yumna Panel v3.0 features a universal installer that automatically detects your 
 - **Requirement**: `pkg` package manager.
 - **Note**: Uses `rc.d` instead of `systemd`. Manual IPFW configuration recommended.
 
+**🪟 Windows**
+- **Versions**: Windows 10, 11, Server 2019/2022
+- **Requirement**: PowerShell 5.1+ (Default installed)
+
 ---
 
 ## 🚀 Installation Steps
 
-We provide a **Universal Installer** that detects your OS and guides you through the process.
+We provide **Universal Installers** for both UNIX-like systems and Windows.
 
 ### 1. Clone & Run Installer
-Run the following commands on your server:
+
+#### Option A: Linux / macOS / FreeBSD
+Run the following commands on your terminal:
 
 ```bash
 # Clone Repository to /opt/yumna-panel
@@ -41,6 +47,18 @@ git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
 
 # Run Installer
 sudo bash /opt/yumna-panel/scripts/deploy/deploy_v3.sh
+```
+
+#### Option B: Windows (PowerShell)
+Open PowerShell as **Administrator** and run:
+
+```powershell
+# Clone Repository
+git clone https://github.com/ycopyer/yumna-panel.git C:\YumnaPanel
+
+# Run Installer
+cd C:\YumnaPanel\scripts\deploy
+.\deploy_v3.ps1
 ```
 
 ### 2. Choose Installation Mode
