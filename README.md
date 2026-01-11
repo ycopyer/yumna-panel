@@ -197,10 +197,14 @@ One script to rule them all. Supports:
 - **FreeBSD**: 13.x, 14.x (Experimental)
 
 ```bash
+# Linux / macOS / FreeBSD
 git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
 sudo bash /opt/yumna-panel/scripts/deploy/deploy_v3.sh
 ```
 
+**🪟 Windows (Universal)**:
+Run via PowerShell as Administrator:
+```powershell
 **🪟 Windows**:
 Run the provided setup script:
 ```powershell
@@ -208,8 +212,7 @@ scripts\run\online.bat
 ```
 
 ### 2. Manual Installation
-
-For detailed manual installation instructions, including multi-node setup and configuration, please refer to the complete [Installation Guide](docs/INSTALL.md).
+See [docs/INSTALL.md](docs/INSTALL.md) for detailed manual setup instructions.
 
 ## 🛡️ Architecture
 - **WHM**: Centralized Control Plane (API & Database).
