@@ -190,7 +190,8 @@ Run the automated deployment script for a complete setup (WHM + Agent + Panel):
 
 **🐧 Linux (Ubuntu/Debian)**:
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/ycopyer/yumna-panel/main/scripts/deploy/deploy_v3.sh)"
+git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
+sudo bash /opt/yumna-panel/scripts/deploy/deploy_v3.sh
 ```
 
 **🪟 Windows**:

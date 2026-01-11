@@ -19,8 +19,14 @@
 The easiest way to install Yumna Panel is using our automated script which sets up WHM, Agent, Panel, Database, and Web Server properly.
 
 ### Linux (Ubuntu/Debian)
+1. Clone the repository to `/opt`:
 ```bash
-sudo bash -c "$(curl -fsSL https://raw.githubusercontent.com/ycopyer/yumna-panel/main/scripts/deploy/deploy_v3.sh)"
+git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
+```
+
+2. Run the deployment script:
+```bash
+sudo bash /opt/yumna-panel/scripts/deploy/deploy_v3.sh
 ```
 
 ### Windows
