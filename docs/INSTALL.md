@@ -49,17 +49,20 @@ git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
 sudo bash /opt/yumna-panel/scripts/deploy/deploy_v3.sh
 ```
 
-#### Option B: Windows (PowerShell)
+#### Option B: Windows (PowerShell - Recommended)
 Open PowerShell as **Administrator** and run:
 
 ```powershell
-# Clone Repository
 git clone https://github.com/ycopyer/yumna-panel.git C:\YumnaPanel
-
-# Run Installer
 cd C:\YumnaPanel\scripts\deploy
 .\deploy_v3.ps1
 ```
+
+#### Option C: Windows (Double Click)
+1. Clone the repository to `C:\YumnaPanel`.
+2. Navigate to `C:\YumnaPanel\scripts\run`.
+3. Right-click `online.bat` and select **Run as Administrator**.
+   *(This determines your environment and launches the PowerShell installer automatically)*
 
 ### 2. Choose Installation Mode
 The installer will ask you to select a mode:
