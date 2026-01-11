@@ -9,10 +9,22 @@
 - **Network**: Public IP Address
 
 ### OS Support (Universal)
-Yumna Panel v3.0 supports both Debian and RHEL families:
-- **Ubuntu**: 20.04, 22.04, 24.04 (LTS)
-- **Debian**: 11, 12
-- **RHEL / CentOS**: 9 Stream, AlmaLinux 9, Rocky Linux 9
+Yumna Panel v3.0 features a universal installer that automatically detects your OS:
+
+**🐧 Linux**
+- **Debian Family**: Ubuntu 20.04+, Debian 11+ (Uses `apt`)
+- **RHEL Family**: CentOS 9 Stream, AlmaLinux 9, Rocky Linux 9 (Uses `dnf`)
+- **Arch Linux**: Arch, Manjaro (Uses `pacman`)
+
+**🍎 macOS**
+- **Versions**: Monterey, Ventura, Sonoma
+- **Architecture**: Apple Silicon (M1/M2/M3) & Intel
+- **Requirement**: Homebrew must be installed (`brew`).
+
+**😈 FreeBSD (Experimental)**
+- **Versions**: 13.x, 14.x
+- **Requirement**: `pkg` package manager.
+- **Note**: Uses `rc.d` instead of `systemd`. Manual IPFW configuration recommended.
 
 ---
 

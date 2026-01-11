@@ -188,8 +188,13 @@ Detailed version history and changes can be found in the [CHANGELOG.md](docs/CHA
 
 Run the automated deployment script for a complete setup (WHM + Agent + Panel):
 
-**🐧 Linux (Universal)**:
-Supports Ubuntu, Debian, CentOS, AlmaLinux, Rocky Linux.
+**🌍 Universal Installer**:
+One script to rule them all. Supports:
+- **Debian Family**: Ubuntu 20.04+, Debian 11+
+- **RHEL Family**: CentOS 9, AlmaLinux 9, Rocky Linux 9
+- **Arch Linux**: Arch, Manjaro
+- **macOS**: Monterey, Ventura, Sonoma (Apple Silicon/Intel)
+- **FreeBSD**: 13.x, 14.x (Experimental)
 
 ```bash
 git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
