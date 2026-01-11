@@ -1,29 +1,55 @@
 @echo off
-title Yumna Panel v3.0 Installer
-color 0A
+title Yumna Panel v3.0 - Installer Launcher
+color 1F
+mode con: cols=80 lines=25
 
-echo ===================================================
-echo      Yumna Panel v3.0 - Windows Installer
-echo ===================================================
+:HEADER
+cls
 echo.
-echo Launching Universal PowerShell Installer...
+echo  ==============================================================================
+echo.
+echo           __   __                                 _____                 _ 
+echo           \ \ / /                                ^|  __ \               ^| ^|
+echo            \ V / _   _ _ __ ___  _ __   __ _     ^| ^|__) ^|__ _ _ __   ___^| ^|
+echo             ^> ^< ^| ^| ^| ^| '_ ` _ \^| '_ \ / _` ^|    ^|  ___/ _` ^| '_ \ / _ \ ^|
+echo            / . \ ^| ^|_^| ^| ^| ^| ^| ^| ^| ^| ^| ^| (_^| ^|    ^| ^|  ^| (_^| ^| ^| ^| ^|  __/ ^|
+echo           /_/ \_\ \__,_^|_^| ^|_^| ^|_^|_^| ^|_^|\__,_^|    ^|_^|   \__,_^|_^| ^|_^|\___^|_^|
+echo.
+echo  ==============================================================================
+echo                Yumna Panel v3.0 - Universal Windows Installer
+echo  ==============================================================================
 echo.
 
-:: Check Admin
+:CHECK_ADMIN
+echo  [*] Checking Administrator Privileges...
 net session >nul 2>&1
 if %errorLevel% == 0 (
-    echo [Admin Access Confirmed]
+    echo  [+] Admin Access Confirmed.
 ) else (
-    echo [Error] Please Run as Administrator!
+    color 4F
+    echo.
+    echo  [!] ERROR: Administrator privileges required!
+    echo      Please right-click and select "Run as Administrator".
+    echo.
     pause
     exit
 )
 
-:: Execute PowerShell Script
-:: Assumes the ps1 script is located at ../deploy/deploy_v3.ps1 relative to this bat
+echo.
+echo  [*] preparing Installation Environment...
+timeout /t 2 >nul
+
+:LAUNCH
+echo  [*] Launching PowerShell Installer Engine...
+echo.
 pushd "%~dp0"
 cd ..\deploy
-powershell -ExecutionPolicy Bypass -File .\deploy_v3.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& '.\deploy_v3.ps1'"
 popd
 
-pause
+echo.
+echo  ==============================================================================
+echo   Installer has finished. Press any key to exit.
+echo  ==============================================================================
+pause >nul
+
