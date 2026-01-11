@@ -1,0 +1,15 @@
+[Unit]
+Description=Yumna Panel Agent (Node Executor)
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/yumna-panel/agent
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

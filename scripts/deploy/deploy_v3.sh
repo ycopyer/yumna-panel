@@ -1,102 +1,154 @@
 #!/bin/bash
 
-# ====================================================
-#   YUMNA PANEL V3 - UNIFIED DEPLOYMENT SCRIPT
-# ====================================================
+# Yumna Panel v3.0 - Unified Deployment Script
+# Supports: Ubuntu 20.04/22.04/24.04, Debian 11/12
+# Author: Yumna Panel Team
 
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
+set -e
+
+# Colors
 RED='\033[0;31m'
+GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' 
+BLUE='\033[0;34m'
+NC='\033[0m'
 
-echo -e "${BLUE}====================================================${NC}"
-echo -e "${GREEN}🚀 Memulai Deployment Yumna Panel v3.0...${NC}"
-echo -e "${BLUE}====================================================${NC}"
+echo -e "${BLUE}"
+echo "██╗   ██╗██╗   ██╗███╗   ███╗███╗   ██╗ █████╗ "
+echo "╚██╗ ██╔╝██║   ██║████╗ ████║████╗  ██║██╔══██╗"
+echo " ╚████╔╝ ██║   ██║██╔████╔██║██╔██╗ ██║███████║"
+echo "  ╚██╔╝  ██║   ██║██║╚██╔╝██║██║╚██╗██║██╔══██║"
+echo "   ██║   ╚██████╔╝██║ ╚═╝ ██║██║ ╚████║██║  ██║"
+echo "   ╚═╝    ╚═════╝ ╚═╝     ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝"
+echo -e "${NC}"
+echo -e "${GREEN}Yumna Panel v3.0 - Automated Installer${NC}"
+echo "------------------------------------------------"
 
-# Check for root
+# Check Root
 if [ "$EUID" -ne 0 ]; then 
-  echo -e "${RED}Harap jalankan sebagai root (sudo).${NC}"
+  echo -e "${RED}Please run as root (sudo)${NC}"
   exit 1
 fi
 
-# 1. Update and Install Core Dependencies
-echo -e "${YELLOW}[1/6] Memasang dependensi sistem...${NC}"
-apt-get update && apt-get install -y \
-    curl git unzip build-essential \
-    mariadb-server nginx \
-    openssh-server ufw
+# Detect OS
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    OS=$NAME
+    VER=$VERSION_ID
+elif type lsb_release >/dev/null 2>&1; then
+    OS=$(lsb_release -si)
+    VER=$(lsb_release -sr)
+else
+    echo -e "${RED}Unsupported OS${NC}"
+    exit 1
+fi
 
-# Install Node.js 20
+echo -e "${YELLOW}Detected OS: $OS $VER${NC}"
+
+# Update System
+echo -e "${BLUE}[1/6] Updating System Repositories...${NC}"
+apt-get update -y && apt-get upgrade -y
+
+# Install Dependencies
+echo -e "${BLUE}[2/6] Installing Core Dependencies...${NC}"
+apt-get install -y curl wget git unzip zip htop software-properties-common ufw acl build-essential python3-certbot-nginx
+
+# Install Node.js
+echo -e "${BLUE}[3/6] Installing Node.js LTS...${NC}"
 if ! command -v node &> /dev/null; then
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt-get install -y nodejs
+else
+    echo "Node.js $(node -v) is already installed."
 fi
 
-# 2. Setup Yumna Directory
-INSTALL_DIR="/opt/yumnapanel"
-echo -e "${YELLOW}[2/6] Menyiapkan direktori di $INSTALL_DIR...${NC}"
-mkdir -p $INSTALL_DIR
-cp -r . $INSTALL_DIR
-cd $INSTALL_DIR
+# Install MariaDB
+echo -e "${BLUE}[4/6] Installing MariaDB Database...${NC}"
+apt-get install -y mariadb-server
+systemctl start mariadb
+systemctl enable mariadb
 
-# 3. Install NPM dependencies
-echo -e "${YELLOW}[3/6] Memasang dependensi Node.js (WHM, Agent, Panel)...${NC}"
-(cd whm && npm install)
-(cd agent && npm install)
-(cd panel && npm install)
+# Install Nginx
+echo -e "${BLUE}[5/6] Installing Nginx Web Server...${NC}"
+apt-get install -y nginx
+systemctl start nginx
+systemctl enable nginx
 
-# 4. Build Panel (Frontend)
-echo -e "${YELLOW}[4/6] Membangun Panel Frontend...${NC}"
-(cd panel && npm run build)
+# Clone Yumna Panel
+INSTALL_DIR="/opt/yumna-panel"
+echo -e "${BLUE}[6/6] Deploying Yumna Panel to $INSTALL_DIR...${NC}"
 
-# 5. Setup Systemd Services
-echo -e "${YELLOW}[5/6] Mengonfigurasi Layanan Systemd...${NC}"
-cp deployment/systemd/yumna-whm.service /etc/systemd/system/
-cp deployment/systemd/yumna-agent.service /etc/systemd/system/
+if [ -d "$INSTALL_DIR" ]; then
+    echo -e "${YELLOW}Directory exists. Pulling latest updates...${NC}"
+    cd "$INSTALL_DIR"
+    git pull
+else
+    git clone https://github.com/ycopyer/yumna-panel.git "$INSTALL_DIR"
+    cd "$INSTALL_DIR"
+fi
+
+# Setup Environment
+echo -e "${BLUE}Configuring Environment...${NC}"
+
+# WHM Setup
+cd "$INSTALL_DIR/whm"
+if [ ! -f .env ]; then
+    cp .env.example .env
+    # Generate random secrets
+    SECRET=$(openssl rand -hex 32)
+    AGENT_SECRET=$(openssl rand -hex 32)
+    sed -i "s/change_this_to_a_secure_random_string_v3/$SECRET/" .env
+    sed -i "s/change_this_shared_secret_for_nodes/$AGENT_SECRET/" .env
+fi
+npm install --production
+
+# Agent Setup
+cd "$INSTALL_DIR/agent"
+if [ ! -f .env ]; then
+    cp .env.example .env || echo "AGENT_SECRET=$AGENT_SECRET" > .env
+    # sed -i "s/YOUR_AGENT_SECRET/$AGENT_SECRET/" .env
+fi
+npm install --production
+
+# Panel Setup (Build)
+cd "$INSTALL_DIR/panel"
+npm install
+# npm run build # Requires more resources, maybe skip build on low-end VPS and download assets?
+# For now, let's assume we build it.
+echo -e "${YELLOW}Building Frontend (this may take a while)...${NC}"
+npm run build
+
+# Setup Systemd Services
+echo -e "${BLUE}Installing Services...${NC}"
+cp "$INSTALL_DIR/scripts/systemd/yumna-whm.service" /etc/systemd/system/
+cp "$INSTALL_DIR/scripts/systemd/yumna-agent.service" /etc/systemd/system/
 
 systemctl daemon-reload
-systemctl enable yumna-whm
-systemctl enable yumna-agent
-systemctl start yumna-whm
-systemctl start yumna-agent
+systemctl enable yumna-whm yumna-agent
+systemctl start yumna-whm yumna-agent
 
-# 6. Configure Nginx for Panel
-echo -e "${YELLOW}[6/6] Mengonfigurasi Web Server (Nginx)...${NC}"
-NGINX_CONF="/etc/nginx/sites-available/yumna-panel"
-cat > $NGINX_CONF <<EOF
-server {
-    listen 80;
-    server_name _;
+# Setup Database
+echo -e "${BLUE}Configuring Database...${NC}"
+mysql -e "CREATE DATABASE IF NOT EXISTS yumna_whm;"
+mysql -e "CREATE USER IF NOT EXISTS 'yumna_whm'@'localhost' IDENTIFIED BY 'yumna_db_password';"
+mysql -e "GRANT ALL PRIVILEGES ON yumna_whm.* TO 'yumna_whm'@'localhost';"
+mysql -e "FLUSH PRIVILEGES;"
 
-    root $INSTALL_DIR/panel/dist;
-    index index.html;
+# Firewall
+echo -e "${BLUE}Configuring Firewall...${NC}"
+ufw allow 22/tcp
+ufw allow 80/tcp
+ufw allow 443/tcp
+ufw allow 3000/tcp # Agent
+ufw allow 4000/tcp # WHM
+ufw --force enable
 
-    location / {
-        try_files \$uri \$uri/ /index.html;
-    }
-
-    location /api {
-        proxy_pass http://localhost:4000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_cache_bypass \$http_upgrade;
-    }
-}
-EOF
-ln -sf $NGINX_CONF /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
-nginx -t && systemctl restart nginx
-
-# 7. Initialize Database
-echo -e "${YELLOW}Inisialisasi Database...${NC}"
-mysql -e "CREATE DATABASE IF NOT EXISTS yumna_v3;"
-# Run WHM migration
-cd whm && node -e "require('./src/migrations/init_v3')().then(() => process.exit(0))"
-
-echo -e "${GREEN}====================================================${NC}"
-echo -e "${GREEN}✅ YUMNA PANEL V3 BERHASIL TERINSTAL!${NC}"
-echo -e "Akses Panel: http://$(hostname -I | awk '{print $1}')${NC}"
-echo -e "${BLUE}====================================================${NC}"
+echo -e "${GREEN}=====================================${NC}"
+echo -e "${GREEN}    INSTALLATION COMPLETE! 🎊       ${NC}"
+echo -e "${GREEN}=====================================${NC}"
+echo -e "WHM URL:   http://$(curl -s ifconfig.me):4000"
+echo -e "Panel URL: http://$(curl -s ifconfig.me)"
+echo -e "DB User:   yumna_whm"
+echo -e "DB Pass:   yumna_db_password"
+echo ""
+echo -e "${YELLOW}Please restart your session or reboot needed.${NC}"
