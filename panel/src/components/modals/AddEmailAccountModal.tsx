@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, User, Lock, Mail, Loader2, Key } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, User, Lock, Mail, Loader2, Key, Server } from 'lucide-react';
 import axios from 'axios';
 
 interface AddEmailAccountModalProps {
@@ -8,12 +8,38 @@ interface AddEmailAccountModalProps {
     onSuccess: () => void;
 }
 
+interface ServerNode {
+    id: number;
+    name: string;
+    hostname: string;
+    ip: string;
+    is_local: boolean;
+    status: string;
+    cpu_usage: number;
+    ram_usage: number;
+    disk_usage: number;
+}
+
 const AddEmailAccountModal: React.FC<AddEmailAccountModalProps> = ({ userId, onClose, onSuccess }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [quota, setQuota] = useState('1024'); // Default 1GB
+    const [serverId, setServerId] = useState<number>(1);
+    const [servers, setServers] = useState<ServerNode[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        // Fetch available servers
+        axios.get('/api/email/servers', { headers: { 'x-user-id': userId } })
+            .then(res => {
+                setServers(res.data);
+                if (res.data.length > 0) {
+                    setServerId(res.data[0].id);
+                }
+            })
+            .catch(err => console.error('Failed to fetch servers', err));
+    }, [userId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -22,7 +48,20 @@ const AddEmailAccountModal: React.FC<AddEmailAccountModalProps> = ({ userId, onC
         setLoading(true);
         setError('');
         try {
-            await axios.post('/api/mail/accounts', { email, password, quota_mb: parseInt(quota), userId });
+            const response = await axios.post('/api/email/accounts', {
+                email,
+                password,
+                quota: parseInt(quota),
+                serverId
+            }, {
+                headers: { 'x-user-id': userId }
+            });
+
+            // Show success message with server info
+            if (response.data.server) {
+                alert(`Email account created successfully on ${response.data.server.name} (${response.data.server.ip})!`);
+            }
+
             onSuccess();
         } catch (err: any) {
             setError(err.response?.data?.error || 'Failed to create account');
@@ -96,6 +135,40 @@ const AddEmailAccountModal: React.FC<AddEmailAccountModalProps> = ({ userId, onC
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-5 py-4 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500/50 transition-all font-medium"
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-white/40 ml-1">
+                                Deploy to Server
+                                {servers.length > 1 && <span className="ml-2 text-sky-400 font-normal">({servers.length} available)</span>}
+                            </label>
+                            <div className="relative">
+                                <Server className="absolute left-5 top-1/2 -translate-y-1/2 text-white/20 z-10" size={20} />
+                                <select
+                                    value={serverId}
+                                    onChange={(e) => setServerId(Number(e.target.value))}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-5 py-4 text-white focus:outline-none focus:ring-2 focus:ring-sky-500/50 focus:border-sky-500/50 transition-all font-medium appearance-none cursor-pointer"
+                                >
+                                    {servers.map(server => (
+                                        <option key={server.id} value={server.id} style={{ background: '#1a1a2e' }}>
+                                            {server.name} ({server.ip}) {server.is_local ? '🏠 Local' : '🌐 Remote'} - CPU: {Math.round(server.cpu_usage)}%
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {servers.length === 0 && (
+                                <p className="text-xs text-red-400 font-semibold mt-2">⚠️ No active servers available.</p>
+                            )}
+                            {servers.find(s => s.id === serverId) && (
+                                <div className="mt-3 p-3 rounded-xl bg-sky-500/5 border border-sky-500/10">
+                                    <p className="text-[10px] font-black text-sky-400 uppercase tracking-widest mb-1">
+                                        📍 Selected: {servers.find(s => s.id === serverId)?.name}
+                                    </p>
+                                    <p className="text-xs text-white/50">
+                                        Email account will be created on {servers.find(s => s.id === serverId)?.is_local ? 'local' : 'remote'} mail server
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
 

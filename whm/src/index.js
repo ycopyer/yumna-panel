@@ -14,7 +14,7 @@ app.use(express.json());
 app.get('/', (req, res) => {
     res.json({
         service: 'Yumna WHM',
-        version: '3.0.0',
+        version: '3.1.0',
         status: 'operational'
     });
 });
@@ -25,6 +25,11 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/servers', require('./routes/servers'));
 app.use('/api/websites', require('./routes/websites'));
 app.use('/api/databases', require('./routes/databases'));
+app.use('/api/email', require('./routes/email'));
+app.use('/api/ftp', require('./routes/ftp'));
+app.use('/api/cron', require('./routes/cron'));
+app.use('/api/docker', require('./routes/docker'));
+app.use('/api/backups', require('./routes/backups'));
 app.use('/api', require('./routes/files'));
 app.use('/api', require('./routes/security'));
 app.use('/api/ssl', require('./routes/ssl'));
@@ -42,6 +47,8 @@ app.use('/api/ha', require('./routes/ha'));
 app.use('/api/cdn', require('./routes/cdn'));
 app.use('/api/db-tools', require('./routes/database-tools'));
 app.use('/api/wordpress', require('./routes/wordpress'));
+app.use('/api', require('./routes/auth')); // Aliases for login, captcha, etc.
+app.use('/api', require('./routes/settings'));
 app.use('/api', require('./routes/analytics')); // For activity-history without prefix
 
 // Services

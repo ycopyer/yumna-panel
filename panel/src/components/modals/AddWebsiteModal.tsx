@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Globe, Folder, Cpu, Loader2, Shield, RefreshCw } from 'lucide-react';
+import { X, Globe, Folder, Cpu, Loader2, Shield, RefreshCw, Server } from 'lucide-react';
 import axios from 'axios';
 
 interface AddWebsiteModalProps {
@@ -9,13 +9,27 @@ interface AddWebsiteModalProps {
     onSuccess: () => void;
 }
 
+interface ServerNode {
+    id: number;
+    name: string;
+    hostname: string;
+    ip: string;
+    is_local: boolean;
+    status: string;
+    cpu_usage: number;
+    ram_usage: number;
+    disk_usage: number;
+}
+
 const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onClose, onSuccess }) => {
     const [domain, setDomain] = useState('');
     const [rootPath, setRootPath] = useState('');
     const [phpVersion, setPhpVersion] = useState('8.2');
     const [webStack, setWebStack] = useState<'nginx' | 'apache' | 'hybrid'>('nginx');
+    const [serverId, setServerId] = useState<number>(1);
     const [targetUserId, setTargetUserId] = useState<number>(userId);
     const [users, setUsers] = useState<any[]>([]);
+    const [servers, setServers] = useState<ServerNode[]>([]);
     const [loading, setLoading] = useState(false);
 
     const isAdmin = userRole === 'admin';
@@ -28,6 +42,17 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
             .then(res => setDefaultBaseDir(res.data.baseDir))
             .catch(err => console.error('Failed to fetch defaults', err));
 
+        // Fetch available servers
+        axios.get('/api/websites/servers', { headers: { 'x-user-id': userId } })
+            .then(res => {
+                setServers(res.data);
+                // Set default to first server (usually local)
+                if (res.data.length > 0) {
+                    setServerId(res.data[0].id);
+                }
+            })
+            .catch(err => console.error('Failed to fetch servers', err));
+
         if (isAdmin) {
             axios.get('/api/users', { headers: { 'x-user-id': userId } })
                 .then(res => setUsers(res.data))
@@ -36,19 +61,25 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
     }, [isAdmin, userId]);
 
 
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         try {
-            await axios.post('/api/websites', {
+            const response = await axios.post('/api/websites', {
                 domain,
                 rootPath,
                 phpVersion,
                 webStack,
+                serverId,
                 targetUserId: isAdmin ? targetUserId : userId
             }, {
                 headers: { 'x-user-id': userId }
             });
+
+            // Show success message with server info
+            const serverInfo = response.data.server;
+            alert(`Website created successfully on ${serverInfo.name} (${serverInfo.ip})!`);
 
             onSuccess();
         } catch (err: any) {
@@ -146,6 +177,46 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
                                     <option value="hybrid">Nginx + Apache (Hybrid Power)</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: '800', color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Deploy to Server
+                                {servers.length > 1 && <span style={{ marginLeft: '8px', fontSize: '10px', color: 'var(--primary)', fontWeight: 'normal' }}>({servers.length} available)</span>}
+                            </label>
+                            <div style={{ position: 'relative' }}>
+                                <Server size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', zIndex: 1 }} />
+                                <select
+                                    className="input-glass"
+                                    style={{ width: '100%', padding: '14px 14px 14px 44px', borderRadius: '14px', appearance: 'none', cursor: 'pointer' }}
+                                    value={serverId}
+                                    onChange={e => setServerId(Number(e.target.value))}
+                                >
+                                    {servers.map(server => (
+                                        <option key={server.id} value={server.id} style={{ background: 'var(--bg-dark)' }}>
+                                            {server.name} ({server.ip}) {server.is_local ? '🏠 Local' : '🌐 Remote'} - CPU: {Math.round(server.cpu_usage)}% | RAM: {Math.round(server.ram_usage)}%
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {servers.length === 0 && (
+                                <p style={{ marginTop: '8px', fontSize: '11px', color: '#ef4444', fontWeight: '600' }}>
+                                    ⚠️ No active servers available. Please add a server first.
+                                </p>
+                            )}
+                            {servers.find(s => s.id === serverId) && (
+                                <div style={{ marginTop: '8px', padding: '10px 12px', background: 'rgba(99, 102, 241, 0.05)', borderRadius: '10px', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
+                                    <p style={{ fontSize: '10px', color: 'rgba(99, 102, 241, 0.8)', fontWeight: '700', marginBottom: '4px' }}>
+                                        📍 Selected: {servers.find(s => s.id === serverId)?.name}
+                                    </p>
+                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                                        {servers.find(s => s.id === serverId)?.is_local
+                                            ? 'Website will be deployed to your local server'
+                                            : `Website will be deployed to remote server at ${servers.find(s => s.id === serverId)?.ip}`
+                                        }
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {isAdmin && (

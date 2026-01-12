@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const { requireAuth, requireAdmin } = require('../../middleware/auth');
-const paymentGatewayManager = require('../../services/payments/PaymentGatewayManager');
-const { getClientIp } = require('../../utils/helpers');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
+const paymentGatewayManager = require('../services/payments/PaymentGatewayManager');
+const { getClientIp } = require('../utils/helpers');
 
 // --- Gateway Configuration (Admin Only) ---
 
@@ -76,7 +76,7 @@ router.post('/create', requireAuth, async (req, res) => {
 
         // Verify invoice belongs to user (unless admin)
         if (req.userRole !== 'admin') {
-            const pool = require('../../config/db');
+            const pool = require('../config/db');
             const [invoices] = await pool.promise().query(
                 'SELECT userId FROM billing_invoices WHERE id = ?',
                 [invoiceId]
@@ -259,7 +259,7 @@ router.post('/refund', requireAuth, requireAdmin, async (req, res) => {
  */
 router.get('/refunds', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const pool = require('../../config/db');
+        const pool = require('../config/db');
         const [refunds] = await pool.promise().query(`
             SELECT r.*, t.gateway, t.gateway_transaction_id, t.user_id, u.username
             FROM payment_refunds r
@@ -283,7 +283,7 @@ router.get('/refunds', requireAuth, requireAdmin, async (req, res) => {
  */
 router.get('/webhook-events', requireAuth, requireAdmin, async (req, res) => {
     try {
-        const pool = require('../../config/db');
+        const pool = require('../config/db');
         const gateway = req.query.gateway;
         const limit = parseInt(req.query.limit) || 50;
 

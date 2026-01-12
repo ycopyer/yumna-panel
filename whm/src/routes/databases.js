@@ -4,13 +4,17 @@ const pool = require('../config/db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const axios = require('axios');
 
-// Configure Agent for local (default)
-const AGENT_URL = process.env.AGENT_URL || 'http://localhost:4001';
-const AGENT_SECRET = process.env.AGENT_SECRET;
-
-const agentApi = axios.create({
-    baseURL: AGENT_URL,
-    headers: { 'X-Agent-Secret': AGENT_SECRET }
+// GET /api/databases/servers - Get available servers for database deployment
+router.get('/servers', requireAuth, async (req, res) => {
+    try {
+        const [servers] = await pool.promise().query(
+            'SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage FROM servers WHERE status = ? ORDER BY is_local DESC, name ASC',
+            ['active']
+        );
+        res.json(servers);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // List Databases
@@ -33,12 +37,28 @@ router.get('/', requireAuth, async (req, res) => {
 
         const [rows] = await pool.promise().query(query, params);
 
-        // Fetch real stats from Agent
+        // Fetch real stats from Agent (for each server)
         const enriched = await Promise.all(rows.map(async (db) => {
             try {
-                // orchestration: call agent for stats
-                const statsRes = await agentApi.get('/db/stats', { params: { name: db.name } });
-                return { ...db, ...statsRes.data };
+                // Get server info
+                const [serverRows] = await pool.promise().query('SELECT * FROM servers WHERE id = ?', [db.serverId || 1]);
+                if (serverRows.length === 0) {
+                    return { ...db, size_mb: 0, table_count: 0, error: 'Server not found' };
+                }
+
+                const server = serverRows[0];
+                const agentUrl = server.is_local
+                    ? (process.env.AGENT_URL || 'http://localhost:4001')
+                    : `http://${server.ip}:4001`;
+
+                const agentClient = axios.create({
+                    baseURL: agentUrl,
+                    headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+                    timeout: 5000
+                });
+
+                const statsRes = await agentClient.get('/db/stats', { params: { name: db.name } });
+                return { ...db, ...statsRes.data, serverName: server.name };
             } catch (e) {
                 return { ...db, size_mb: 0, table_count: 0, error: 'Agent error' };
             }
@@ -52,15 +72,27 @@ router.get('/', requireAuth, async (req, res) => {
 
 // Create Database
 router.post('/', requireAuth, async (req, res) => {
-    const { name, user, password } = req.body;
+    const { name, user, password, serverId } = req.body;
     const userId = req.userId;
     const isAdmin = req.userRole === 'admin';
+    let selectedServerId = serverId || 1; // Default to server 1
 
     if (!name || !user || !password) return res.status(400).json({ error: 'Missing required fields' });
 
     const connection = await pool.promise().getConnection();
     try {
         await connection.beginTransaction();
+
+        // Validate Server
+        const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [selectedServerId]);
+        if (serverRows.length === 0) {
+            throw new Error('Selected server not found');
+        }
+        const selectedServer = serverRows[0];
+
+        if (selectedServer.status !== 'active') {
+            throw new Error(`Server "${selectedServer.name}" is not active`);
+        }
 
         // Quota Check
         if (!isAdmin) {
@@ -74,17 +106,38 @@ router.post('/', requireAuth, async (req, res) => {
         const [existing] = await connection.query('SELECT id FROM `databases` WHERE name = ?', [name]);
         if (existing.length > 0) throw new Error('Database name already exists');
 
-        // Trigger Agent
-        await agentApi.post('/db/create', { name, user, password });
+        // Determine Agent URL
+        const agentUrl = selectedServer.is_local
+            ? (process.env.AGENT_URL || 'http://localhost:4001')
+            : `http://${selectedServer.ip}:4001`;
 
-        // Record in WHM
+        const agentClient = axios.create({
+            baseURL: agentUrl,
+            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+            timeout: 10000
+        });
+
+        // Trigger Agent to create database
+        await agentClient.post('/db/create', { name, user, password });
+
+        // Record in WHM with serverId
         await connection.query(
-            'INSERT INTO `databases` (userId, name, user, password) VALUES (?, ?, ?, ?)',
-            [userId, name, user, password]
+            'INSERT INTO `databases` (userId, serverId, name, user, password) VALUES (?, ?, ?, ?, ?)',
+            [userId, selectedServerId, name, user, password]
         );
 
         await connection.commit();
-        res.status(201).json({ message: 'Database created successfully' });
+
+        console.log(`[DATABASE] "${name}" created on server "${selectedServer.name}"`);
+
+        res.status(201).json({
+            message: 'Database created successfully',
+            server: {
+                id: selectedServer.id,
+                name: selectedServer.name,
+                ip: selectedServer.ip
+            }
+        });
     } catch (err) {
         await connection.rollback();
         res.status(500).json({ error: err.message });
@@ -107,8 +160,23 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
         const db = rows[0];
 
-        // Trigger Agent
-        await agentApi.post('/db/drop', { name: db.name, user: db.user });
+        // Get server info
+        const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [db.serverId || 1]);
+        if (serverRows.length > 0) {
+            const server = serverRows[0];
+            const agentUrl = server.is_local
+                ? (process.env.AGENT_URL || 'http://localhost:4001')
+                : `http://${server.ip}:4001`;
+
+            const agentClient = axios.create({
+                baseURL: agentUrl,
+                headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+                timeout: 10000
+            });
+
+            // Trigger Agent
+            await agentClient.post('/db/drop', { name: db.name, user: db.user });
+        }
 
         // Delete Record
         await connection.query('DELETE FROM `databases` WHERE id = ?', [dbId]);
@@ -136,18 +204,35 @@ router.post('/:id/clone', requireAuth, async (req, res) => {
 
         const sourceDb = rows[0];
 
+        // Get server info
+        const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [sourceDb.serverId || 1]);
+        if (serverRows.length === 0) {
+            throw new Error('Server not found');
+        }
+
+        const server = serverRows[0];
+        const agentUrl = server.is_local
+            ? (process.env.AGENT_URL || 'http://localhost:4001')
+            : `http://${server.ip}:4001`;
+
+        const agentClient = axios.create({
+            baseURL: agentUrl,
+            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+            timeout: 30000 // Clone might take longer
+        });
+
         // Trigger Agent
-        await agentApi.post('/db/clone', {
+        await agentClient.post('/db/clone', {
             source: sourceDb.name,
             target: newName,
             user: sourceDb.user,
             password: sourceDb.password
         });
 
-        // Record it
+        // Record it (same server as source)
         await connection.query(
-            'INSERT INTO `databases` (userId, name, user, password) VALUES (?, ?, ?, ?)',
-            [sourceDb.userId, newName, sourceDb.user, sourceDb.password]
+            'INSERT INTO `databases` (userId, serverId, name, user, password) VALUES (?, ?, ?, ?, ?)',
+            [sourceDb.userId, sourceDb.serverId, newName, sourceDb.user, sourceDb.password]
         );
 
         res.json({ message: 'Database cloned successfully' });

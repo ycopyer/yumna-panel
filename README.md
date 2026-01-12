@@ -2,7 +2,7 @@
 
 Modern, distributed, and highly scalable Hosting & Infrastructure Management Panel built for the modern cloud.
 
-![Version](https://img.shields.io/badge/version-3.0.0-success.svg)
+![Version](https://img.shields.io/badge/version-3.1.0-success.svg)
 ![Completion](https://img.shields.io/badge/roadmap-100%25%20complete-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Architecture](https://img.shields.io/badge/architecture-WHM%2FAgent-blue.svg)
@@ -96,6 +96,28 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 - ✅ **Distributed Control Plane (WHM)** - Centralized management for unlimited server nodes.
 - ✅ **Lightweight Agents** - High-performance Node.js agents for target server orchestration.
 - ✅ **Unified Dashboard** - Manage multiple servers from a single glassmorphism interface.
+- ✅ **Multi-Server Integration** - Combine multiple panels into one centralized control plane.
+- ✅ **Real-time Metrics** - Monitor CPU, RAM, Disk usage across all servers from one dashboard.
+- ✅ **Automated Heartbeat** - Health checks every 5 minutes with automatic failover detection.
+- ✅ **Remote Operations** - Deploy, restart services, and manage resources on any connected server.
+- ✅ **Load Balancing** - Distribute traffic across multiple server nodes automatically.
+
+#### **🌐 Multi-Server Resource Deployment (NEW!)**
+- ✅ **Server Selection** - Choose which server to deploy resources to when creating:
+  - Websites & Virtual Hosts
+  - DNS Zones & Records
+  - Databases (MySQL/PostgreSQL)
+  - Email Accounts
+  - FTP Accounts
+  - SSL Certificates
+  - Cron Jobs
+- ✅ **Visual Server Metrics** - See CPU, RAM usage before selecting server
+- ✅ **Smart Routing** - Automatic routing to local or remote Agent
+- ✅ **Geographic Distribution** - Deploy resources closer to end users
+- ✅ **Environment Isolation** - Separate production, staging, and development servers
+
+**📖 Quick Start**: See [Multi-Server Integration Guide](docs/QUICK_START_MULTI_SERVER.md) to combine 2+ panels into one.
+**📖 Complete Guide**: See [Multi-Server Final Summary](docs/MULTI_SERVER_FINAL_SUMMARY.md) for full documentation.
 
 ### 💼 Enterprise & Reseller Features (v3.0)
 - ✅ **Reseller Hierarchy** - Multi-tier reseller system with parent-child relationships.
@@ -217,26 +239,49 @@ See [docs/INSTALL.md](docs/INSTALL.md) for detailed manual setup instructions.
 ## 👨‍💻 Development
 To run Yumna Panel in development mode (Hot Reload):
 
-**1. Backend (WHM)**
+### 1. Unified Environment Setup
+Ensure you have Node.js (v20+) and MariaDB/MySQL installed.
+
+**Stop Background Services** (if running):
+```bash
+# Windows
+.\stop_background.vbs
+```
+
+### 2. Run Backend (WHM)
+The central API and database manager.
 ```bash
 cd whm
-npm install && npm run dev
-# Runs on Port 4000
+npm install
+npm run dev
+# Default: http://localhost:4000
 ```
 
-**2. Frontend (Panel)**
+### 3. Run Frontend (Panel)
+The React administrative interface.
 ```bash
 cd panel
-npm install && npm run dev
-# Accessible at http://localhost:5173
+npm install
+npm run dev
+# Default: http://localhost:5173
 ```
 
-**3. Agent (Worker)**
+### 4. Run Agent (Worker)
+The system executor for hosting tasks.
 ```bash
 cd agent
-npm install && npm run dev
-# Runs on Port 3000
+npm install
+npm run dev
+# Default: http://localhost:3000 (or 4001)
 ```
+
+---
+
+## 🛠️ Troubleshooting
+
+- **EADDRINUSE (Port busy)**: Run `taskkill /F /IM node.exe /T` (Windows) or `killall node` (Linux) to clear hanging processes.
+- **MODULE_NOT_FOUND**: Always run `npm install` inside each component folder (`whm`, `agent`, `panel`) after an update.
+- **ECONNREFUSED (Database)**: Ensure MariaDB service is started and your `.env` credentials are correct.
 
 ## 🛡️ Architecture
 - **WHM**: Centralized Control Plane (API & Database).
@@ -244,14 +289,14 @@ npm install && npm run dev
 - **Panel**: React-based administrative interface.
 
 ## 📄 License
-
 This project is licensed under the MIT License.
 
 ---
 
 **Made with ❤️ by Yumna Panel Project Team**
 
-**Version**: 3.0.0 (Production)  
+**Version**: 3.0.0 (Production)
+
 **Last Updated**: 2026-01-11
 
 ## 📚 Documentation

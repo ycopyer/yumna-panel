@@ -8,9 +8,17 @@ const path = require('path');
 const AGENT_URL = process.env.AGENT_URL || 'http://localhost:4001';
 const AGENT_SECRET = process.env.AGENT_SECRET;
 
-const agentApi = axios.create({
-    baseURL: AGENT_URL,
-    headers: { 'X-Agent-Secret': AGENT_SECRET }
+// GET /api/ssl/servers - Get available servers
+router.get('/servers', requireAuth, async (req, res) => {
+    try {
+        const [servers] = await pool.promise().query(
+            'SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage FROM servers WHERE status = ? ORDER BY is_local DESC, name ASC',
+            ['active']
+        );
+        res.json(servers);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // GET /api/ssl - List Certificates
@@ -52,15 +60,33 @@ router.post('/letsencrypt', requireAuth, async (req, res) => {
         const website = webs[0];
         if (!isAdmin && website.userId != userId) return res.status(403).json({ error: 'Access denied' });
 
-        // 2. Call Agent to issue cert
-        const agentRes = await agentApi.post('/ssl/letsencrypt', {
+        // 2. Get server info
+        const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [website.serverId || 1]);
+        if (serverRows.length === 0) {
+            throw new Error('Server not found for this website');
+        }
+        const server = serverRows[0];
+
+        // 3. Determine Agent URL
+        const agentUrl = server.is_local
+            ? (process.env.AGENT_URL || 'http://localhost:4001')
+            : `http://${server.ip}:4001`;
+
+        const agentClient = axios.create({
+            baseURL: agentUrl,
+            headers: { 'X-Agent-Secret': AGENT_SECRET },
+            timeout: 30000 // SSL operations can take time
+        });
+
+        // 4. Call Agent to issue cert
+        const agentRes = await agentClient.post('/ssl/letsencrypt', {
             domain,
             rootPath: website.rootPath,
             wildcard
         });
 
-        // 3. Update VHost on Agent to enable SSL
-        await agentApi.post('/web/vhost', {
+        // 5. Update VHost on Agent to enable SSL
+        await agentClient.post('/web/vhost', {
             domain: website.domain,
             rootPath: website.rootPath,
             phpVersion: website.phpVersion,
@@ -68,25 +94,35 @@ router.post('/letsencrypt', requireAuth, async (req, res) => {
             ssl: true
         });
 
-        // 4. Record in WHM DB
+        // 6. Record in WHM DB
         const expiry = new Date();
         expiry.setMonth(expiry.getMonth() + 3);
 
         await connection.query(
-            'INSERT INTO ssl_certificates (userId, domain, cert_path, key_path, fullchain_path, expiry_date, provider, status, wildcard) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO ssl_certificates (userId, serverId, domain, cert_path, key_path, fullchain_path, expiry_date, provider, status, wildcard) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [
-                website.userId, domain,
-                `/etc/ssl/${domain}-chain.pem`, // Placeholder/Standard path
+                website.userId, website.serverId, domain,
+                `/etc/ssl/${domain}-chain.pem`,
                 `/etc/ssl/${domain}-key.pem`,
                 `/etc/ssl/${domain}-chain.pem`,
                 expiry, 'letsencrypt', 'active', wildcard ? 1 : 0
             ]
         );
 
-        // 5. Update website table
+        // 7. Update website table
         await connection.query('UPDATE websites SET sslEnabled = 1 WHERE id = ?', [website.id]);
 
-        res.json({ message: 'Let\'s Encrypt certificate issued and applied successfully!', details: agentRes.data });
+        console.log(`[SSL] Certificate issued for "${domain}" on server "${server.name}"`);
+
+        res.json({
+            message: 'Let\'s Encrypt certificate issued and applied successfully!',
+            details: agentRes.data,
+            server: {
+                id: server.id,
+                name: server.name,
+                ip: server.ip
+            }
+        });
     } catch (err) {
         console.error('[WHM] SSL Issue Error:', err.response?.data || err.message);
         res.status(500).json({ error: err.response?.data?.error || err.message });

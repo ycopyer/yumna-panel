@@ -44,6 +44,19 @@ const checkRecordOwnership = async (req, res, next) => {
     }
 };
 
+// GET /api/dns/servers - Get available servers for DNS deployment
+router.get('/servers', requireAuth, async (req, res) => {
+    try {
+        const [servers] = await pool.promise().query(
+            'SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage FROM servers WHERE status = ? ORDER BY is_local DESC, name ASC',
+            ['active']
+        );
+        res.json(servers);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.get('/', requireAuth, async (req, res) => {
     const userId = req.userId;
     const isAdmin = req.userRole === 'admin';
@@ -79,17 +92,38 @@ router.get('/:zoneId/records', requireAuth, checkZoneOwnership, async (req, res)
 });
 
 router.post('/', requireAuth, async (req, res) => {
-    const { domain } = req.body;
+    const { domain, serverId } = req.body;
     const userId = req.userId;
-    const serverIp = process.env.SERVER_IP || '127.0.0.1';
+    let selectedServerId = serverId || 1; // Default to server 1
 
     const conn = await pool.promise().getConnection();
     try {
         await conn.beginTransaction();
 
-        const [zoneResult] = await conn.query('INSERT INTO dns_zones (userId, domain) VALUES (?, ?)', [userId, domain]);
+        // Validate Server
+        const [serverRows] = await conn.query('SELECT * FROM servers WHERE id = ?', [selectedServerId]);
+        if (serverRows.length === 0) {
+            throw new Error('Selected server not found');
+        }
+        const selectedServer = serverRows[0];
+
+        if (selectedServer.status !== 'active') {
+            throw new Error(`Server "${selectedServer.name}" is not active`);
+        }
+
+        // Get server IP for DNS records
+        const serverIp = selectedServer.is_local
+            ? (process.env.SERVER_IP || '127.0.0.1')
+            : selectedServer.ip;
+
+        // Insert DNS Zone with serverId
+        const [zoneResult] = await conn.query(
+            'INSERT INTO dns_zones (userId, domain, serverId) VALUES (?, ?, ?)',
+            [userId, domain, selectedServerId]
+        );
         const zoneId = zoneResult.insertId;
 
+        // Create default DNS records
         const defaultRecords = [
             { type: 'A', name: '@', content: serverIp },
             { type: 'CNAME', name: 'www', content: domain },
@@ -111,7 +145,37 @@ router.post('/', requireAuth, async (req, res) => {
             console.error('[DNS] Cluster sync error:', err.message);
         });
 
-        res.status(201).json({ message: 'DNS Zone created', zoneId });
+        // If remote server, also sync to that server's PowerDNS
+        if (!selectedServer.is_local) {
+            try {
+                const agentUrl = `http://${selectedServer.ip}:4001`;
+                const agentClient = axios.create({
+                    baseURL: agentUrl,
+                    headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+                    timeout: 10000
+                });
+
+                await agentClient.post('/dns/zone', {
+                    domain,
+                    records: defaultRecords
+                });
+
+                console.log(`[DNS] Zone "${domain}" synced to server "${selectedServer.name}"`);
+            } catch (agentErr) {
+                console.error('[DNS] Agent sync failed:', agentErr.message);
+                // Don't fail the transaction, zone is created in DB
+            }
+        }
+
+        res.status(201).json({
+            message: 'DNS Zone created',
+            zoneId,
+            server: {
+                id: selectedServer.id,
+                name: selectedServer.name,
+                ip: selectedServer.ip
+            }
+        });
     } catch (err) {
         await conn.rollback();
         res.status(500).json({ error: err.message });

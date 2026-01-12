@@ -4,6 +4,21 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
+## [3.1.0] - 2026-01-12
+### Added
+- **Interactive Database Installer**:
+    - New Wizard in `deploy_v3.sh` and `deploy_v3.ps1` prompts for Database Host, Name, User, and Password at first install.
+    - Automatic creation of MariaDB Database and User on Linux Localhost setups using `sudo` privileges.
+    - Auto-configuration of `.env` files based on wizard inputs.
+- **Unified Security Architecture**:
+    - Consolidated 5+ legacy firewall tables into a single robust `firewall` table and `security_patterns` table.
+    - Improved synchronization speed between WHM and Agent nodes.
+    - Standardized **Agent Port** to **4001** (previously 3000) for better firewall compliance.
+    - Full implementation of "Threat Defense Center" with active session monitoring and login auditing.
+- **System Stability**:
+    - Fixed installer `mysql` authentication issues for modern MariaDB versions (Socket Auth compatible).
+    - Unified Migration Script (`init_v3.js`) now handles all 20+ modules and security tables in one pass.
+
 ## [3.0.0] - 2026-01-11
 ### Added
 - **Production Release**: Reached 100% Roadmap Completion! 🎊

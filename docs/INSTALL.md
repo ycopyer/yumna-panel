@@ -63,6 +63,13 @@ cd C:\YumnaPanel\scripts\deploy
 2. Navigate to `C:\YumnaPanel\scripts\run`.
 3. Right-click `online.bat` and select **Run as Administrator**.
    *(This determines your environment and launches the PowerShell installer automatically)*
+   
+### 2. Database Configuration
+The installer will prompt you for database details:
+- **Database Host**: Enter IP or `localhost`.
+- **Database Name**: Default `yumnapanel`.
+- **User/Password**: Create your own credentials.
+> **Note:** On Linux (localhost), the installer will automatically create the database and user for you!
 
 ### 2. Choose Installation Mode
 The installer will ask you to select a mode:
@@ -121,9 +128,9 @@ If you installed a **Worker Node**:
   - WHM: `journalctl -u yumna-whm -f`
   - Agent: `journalctl -u yumna-agent -f`
 - **Firewall**:
-  - Ensure Ports 80, 443, 3000 (Agent), 4000 (WHM) are open.
+  - Ensure Ports 80, 443, 4001 (Agent), 4000 (WHM) are open.
   - The installer tries to configure `ufw` or `firewalld` automatically.
 
 ---
 
-**Version**: 3.0.0 (Universal)
+**Version**: 3.1.0 (Universal)

@@ -1,29 +1,68 @@
-import React, { useState } from 'react';
-import { X, Key, FolderOpen, Loader2, Eye, EyeOff } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Key, FolderOpen, Loader2, Eye, EyeOff, Server } from 'lucide-react';
 import axios from 'axios';
 
 interface CreateFTPModalProps {
+    userId?: number;
     onClose: () => void;
     onSuccess: () => void;
 }
 
-const CreateFTPModal: React.FC<CreateFTPModalProps> = ({ onClose, onSuccess }) => {
+interface ServerNode {
+    id: number;
+    name: string;
+    hostname: string;
+    ip: string;
+    is_local: boolean;
+    status: string;
+    cpu_usage: number;
+    ram_usage: number;
+    disk_usage: number;
+}
+
+const CreateFTPModal: React.FC<CreateFTPModalProps> = ({ userId = 1, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [serverId, setServerId] = useState<number>(1);
+    const [servers, setServers] = useState<ServerNode[]>([]);
     const [formData, setFormData] = useState({
         username: '',
         password: '',
-        rootPath: '',
+        homedir: '',
         description: ''
     });
+
+    useEffect(() => {
+        // Fetch available servers
+        axios.get('/api/ftp/servers', { headers: { 'x-user-id': userId } })
+            .then(res => {
+                setServers(res.data);
+                if (res.data.length > 0) {
+                    setServerId(res.data[0].id);
+                }
+            })
+            .catch(err => console.error('Failed to fetch servers', err));
+    }, [userId]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
         try {
-            await axios.post('/api/ftp', formData);
-            alert('FTP account created successfully!');
+            const response = await axios.post('/api/ftp/accounts', {
+                ...formData,
+                serverId
+            }, {
+                headers: { 'x-user-id': userId }
+            });
+
+            // Show success message with server info
+            if (response.data.server) {
+                alert(`FTP account created successfully on ${response.data.server.name} (${response.data.server.ip})!`);
+            } else {
+                alert('FTP account created successfully!');
+            }
+
             onSuccess();
         } catch (err: any) {
             alert(err.response?.data?.error || 'Failed to create FTP account');
@@ -124,33 +163,54 @@ const CreateFTPModal: React.FC<CreateFTPModalProps> = ({ onClose, onSuccess }) =
                     {/* Root Path */}
                     <div className="space-y-2">
                         <label className="text-xs font-black text-white/60 uppercase tracking-widest ml-1">
-                            Root Directory (Optional)
+                            Home Directory (Optional)
                         </label>
                         <div className="relative">
                             <FolderOpen size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
                             <input
                                 type="text"
                                 placeholder="/home/user/ftp_directory (auto-generated if empty)"
-                                value={formData.rootPath}
-                                onChange={e => setFormData({ ...formData, rootPath: e.target.value })}
+                                value={formData.homedir}
+                                onChange={e => setFormData({ ...formData, homedir: e.target.value })}
                                 className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white font-bold text-sm focus:border-cyan-500 outline-none transition-all"
                             />
                         </div>
                         <p className="text-[10px] text-white/30 ml-1">Leave empty to auto-generate a secure path</p>
                     </div>
 
-                    {/* Description */}
+                    {/* Server Selection */}
                     <div className="space-y-2">
                         <label className="text-xs font-black text-white/60 uppercase tracking-widest ml-1">
-                            Description (Optional)
+                            Deploy to Server
+                            {servers.length > 1 && <span className="ml-2 text-cyan-400 font-normal">({servers.length} available)</span>}
                         </label>
-                        <textarea
-                            placeholder="e.g., Developer access for project XYZ"
-                            value={formData.description}
-                            onChange={e => setFormData({ ...formData, description: e.target.value })}
-                            rows={3}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white font-bold text-sm focus:border-cyan-500 outline-none transition-all resize-none"
-                        />
+                        <div className="relative">
+                            <Server size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40 z-10" />
+                            <select
+                                value={serverId}
+                                onChange={(e) => setServerId(Number(e.target.value))}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white font-bold text-sm focus:border-cyan-500 outline-none transition-all appearance-none cursor-pointer"
+                            >
+                                {servers.map(server => (
+                                    <option key={server.id} value={server.id} style={{ background: '#1a1a2e' }}>
+                                        {server.name} ({server.ip}) {server.is_local ? '🏠 Local' : '🌐 Remote'} - CPU: {Math.round(server.cpu_usage)}%
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        {servers.length === 0 && (
+                            <p className="text-xs text-red-400 font-semibold mt-2">⚠️ No active servers available.</p>
+                        )}
+                        {servers.find(s => s.id === serverId) && (
+                            <div className="mt-3 p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/10">
+                                <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest mb-1">
+                                    📍 Selected: {servers.find(s => s.id === serverId)?.name}
+                                </p>
+                                <p className="text-xs text-white/50">
+                                    FTP account will be created on {servers.find(s => s.id === serverId)?.is_local ? 'local' : 'remote'} FTP server
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     {/* Actions */}

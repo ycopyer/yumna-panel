@@ -3,7 +3,7 @@ const express = require('express');
 const si = require('systeminformation');
 
 const app = express();
-const PORT = process.env.AGENT_PORT || 4001;
+const PORT = process.env.PORT || process.env.AGENT_PORT || 3000;
 
 // Utility for async error handling
 const asyncHandler = fn => (req, res, next) =>
@@ -254,8 +254,8 @@ app.get('/fs/download', (req, res) => {
 // --- Internal API: Security ---
 app.post('/firewall/sync', asyncHandler(async (req, res) => {
     const FirewallService = require('./services/FirewallService');
-    const { rules } = req.body;
-    const result = await FirewallService.sync(rules);
+    const { rules, patterns } = req.body;
+    const result = await FirewallService.sync(rules, patterns);
     res.json(result);
 }));
 

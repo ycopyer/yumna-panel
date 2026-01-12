@@ -331,9 +331,44 @@ if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
     fi
 
     # DB Config
-    echo -e "${YELLOW}Setting up Database...${NC}"
-    mysql -e "CREATE DATABASE IF NOT EXISTS yumna_whm;" 2>/dev/null || sudo mysql -e "CREATE DATABASE IF NOT EXISTS yumna_whm;" 2>/dev/null
+    echo -e "${YELLOW}=== DATABASE CONFIGURATION ===${NC}"
     
+    read -p "Database Host [localhost]: " INP_DB_HOST
+    DB_HOST=${INP_DB_HOST:-localhost}
+    
+    read -p "Database Name [yumnapanel]: " INP_DB_NAME
+    DB_NAME=${INP_DB_NAME:-yumnapanel}
+    
+    read -p "Database User [yumnapanel]: " INP_DB_USER
+    DB_USER=${INP_DB_USER:-yumnapanel}
+    
+    read -p "Database Password [yumnapanel]: " INP_DB_PASS
+    DB_PASS=${INP_DB_PASS:-yumnapanel}
+    
+    # Init SED
+    SED_CMD="sed -i"
+    if command -v gsed &> /dev/null; then SED_CMD="gsed -i"; fi
+    
+    # Update .env
+    $SED_CMD "s/^DB_HOST=.*/DB_HOST=$DB_HOST/" .env
+    $SED_CMD "s/^DB_NAME=.*/DB_NAME=$DB_NAME/" .env
+    $SED_CMD "s/^DB_USER=.*/DB_USER=$DB_USER/" .env
+    $SED_CMD "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" .env
+    
+    # Create DB if Local
+    if [ "$DB_HOST" == "localhost" ] || [ "$DB_HOST" == "127.0.0.1" ]; then
+        echo -e "${YELLOW}Creating Local Database and User...${NC}"
+        DB_SQL="CREATE DATABASE IF NOT EXISTS $DB_NAME; GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS'; FLUSH PRIVILEGES;"
+        mysql -e "$DB_SQL" 2>/dev/null || sudo mysql -e "$DB_SQL" 2>/dev/null
+        if [ $? -eq 0 ]; then
+             echo -e "${GREEN}Database Created Successfully!${NC}"
+        else
+             echo -e "${RED}Warning: Could not auto-create database using 'mysql' command without password.${NC}"
+             echo "Please ensure you create the database manually:"
+             echo "mysql -u root -p -e \"$DB_SQL\""
+        fi
+    fi
+
     if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then
         cp "$INSTALL_DIR/scripts/systemd/yumna-whm.service" /etc/systemd/system/
     fi
@@ -351,7 +386,7 @@ if [ "$INSTALL_MODE" != "3" ]; then
     
     if [ ! -f .env ]; then
         [ -f .env.example ] && cp .env.example .env
-        [ ! -f .env ] && echo "NODE_ENV=production" > .env && echo "PORT=3000" >> .env
+        [ ! -f .env ] && echo "NODE_ENV=production" > .env && echo "PORT=4001" >> .env
         
         S=${CURRENT_AGENT_SECRET:-"change_me"}
         if [ "$INSTALL_MODE" == "2" ]; then
@@ -388,13 +423,13 @@ if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then
     
     # Firewall (Linux)
     if command -v ufw &> /dev/null; then
-        ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp; ufw allow 3000/tcp
+        ufw allow 22/tcp; ufw allow 80/tcp; ufw allow 443/tcp; ufw allow 4001/tcp
         [ "$INSTALL_MODE" != "2" ] && ufw allow 4000/tcp
         ufw --force enable
     elif command -v firewall-cmd &> /dev/null; then
         systemctl enable --now firewalld
         firewall-cmd --permanent --add-service=http; firewall-cmd --permanent --add-service=https
-        firewall-cmd --permanent --add-port=3000/tcp; [ "$INSTALL_MODE" != "2" ] && firewall-cmd --permanent --add-port=4000/tcp
+        firewall-cmd --permanent --add-port=4001/tcp; [ "$INSTALL_MODE" != "2" ] && firewall-cmd --permanent --add-port=4000/tcp
         firewall-cmd --reload
     fi
 else

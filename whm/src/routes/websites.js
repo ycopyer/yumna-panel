@@ -20,6 +20,19 @@ router.get('/defaults', (req, res) => {
     res.json({ baseDir });
 });
 
+// GET /api/websites/servers - Get available servers for deployment
+router.get('/servers', requireAuth, async (req, res) => {
+    try {
+        const [servers] = await pool.promise().query(
+            'SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage FROM servers WHERE status = ? ORDER BY is_local DESC, name ASC',
+            ['active']
+        );
+        res.json(servers);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/websites - List Websites
 router.get('/', requireAuth, async (req, res) => {
     const userId = req.userId;
@@ -43,7 +56,7 @@ router.get('/', requireAuth, async (req, res) => {
 
 // POST /api/websites - Create Website
 router.post('/', requireAuth, async (req, res) => {
-    let { domain, rootPath, phpVersion, targetUserId, webStack } = req.body;
+    let { domain, rootPath, phpVersion, targetUserId, webStack, serverId } = req.body;
     let userId = req.userId;
     const isAdmin = req.userRole === 'admin';
 
@@ -54,11 +67,8 @@ router.post('/', requireAuth, async (req, res) => {
     // Sanitize domain
     domain = domain.toLowerCase().trim();
 
-    // Defaults
-    if (!rootPath) {
-        const isWin = process.platform === 'win32';
-        rootPath = isWin ? `C:/YumnaPanel/www/${domain}` : `/var/www/${domain}`;
-    }
+    // Default to server 1 (local) if not specified
+    if (!serverId) serverId = 1;
 
     const connection = await pool.promise().getConnection();
     try {
@@ -74,40 +84,83 @@ router.post('/', requireAuth, async (req, res) => {
             }
         }
 
+        // Validate Server Exists
+        const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [serverId]);
+        if (serverRows.length === 0) {
+            throw new Error('Selected server not found');
+        }
+        const selectedServer = serverRows[0];
+
+        // Check Server Status
+        if (selectedServer.status !== 'active') {
+            throw new Error(`Server "${selectedServer.name}" is not active (status: ${selectedServer.status})`);
+        }
+
         // Check Duplicates
         const [existing] = await connection.query('SELECT id FROM websites WHERE domain = ?', [domain]);
         if (existing.length > 0) throw new Error('Domain already exists');
 
-        // Insert Website
+        // Auto-generate rootPath based on server OS if not provided
+        if (!rootPath) {
+            // For remote servers, we might need to query their OS, but for now assume Linux for remote
+            const isWin = selectedServer.is_local && process.platform === 'win32';
+            rootPath = isWin ? `C:/YumnaPanel/www/${domain}` : `/var/www/${domain}`;
+        }
+
+        // Insert Website with serverId
         const [webResult] = await connection.query(
-            'INSERT INTO websites (userId, domain, rootPath, phpVersion, status, webStack) VALUES (?, ?, ?, ?, ?, ?)',
-            [userId, domain, rootPath, phpVersion || '8.2', 'active', webStack || 'nginx']
+            'INSERT INTO websites (userId, domain, serverId, rootPath, phpVersion, status, webStack) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [userId, domain, serverId, rootPath, phpVersion || '8.2', 'active', webStack || 'nginx']
         );
         const websiteId = webResult.insertId;
 
         // Insert DNS Zone (Mock/Simple)
         const [zoneRows] = await connection.query('SELECT id FROM dns_zones WHERE domain = ?', [domain]);
         if (zoneRows.length === 0) {
-            await connection.query('INSERT INTO dns_zones (userId, domain) VALUES (?, ?)', [userId, domain]);
+            await connection.query('INSERT INTO dns_zones (userId, domain, serverId) VALUES (?, ?, ?)', [userId, domain, serverId]);
+        }
+
+        // Determine Agent URL based on server
+        let agentUrl;
+        if (selectedServer.is_local) {
+            agentUrl = process.env.AGENT_URL || 'http://localhost:4001';
+        } else {
+            agentUrl = `http://${selectedServer.ip}:4001`;
         }
 
         // Call Agent to Create VHost & FS
         try {
-            await agentApi.post('/web/vhost', {
+            const agentClient = axios.create({
+                baseURL: agentUrl,
+                headers: { 'X-Agent-Secret': AGENT_SECRET },
+                timeout: 10000
+            });
+
+            await agentClient.post('/web/vhost', {
                 domain,
                 rootPath,
                 phpVersion,
                 stack: webStack,
                 ssl: false
             });
+
+            console.log(`[WHM] Website "${domain}" created on server "${selectedServer.name}" (${agentUrl})`);
         } catch (agentErr) {
             console.error('[WHM] Agent VHost creation failed:', agentErr.message);
-            // Optionally rollback or just warn
-            // navigate: connection.rollback(); throw agentErr;
+            // Log but don't fail the transaction - website is created in DB
+            // Admin can manually sync later
         }
 
         await connection.commit();
-        res.status(201).json({ message: 'Website created successfully', websiteId });
+        res.status(201).json({
+            message: 'Website created successfully',
+            websiteId,
+            server: {
+                id: selectedServer.id,
+                name: selectedServer.name,
+                ip: selectedServer.ip
+            }
+        });
     } catch (err) {
         await connection.rollback();
         res.status(500).json({ error: err.message });

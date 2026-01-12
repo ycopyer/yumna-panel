@@ -105,6 +105,26 @@ if ($installMode -eq "1" -or $installMode -eq "3") {
         (Get-Content .env) -replace 'change_this_to_a_secure_random_string_v3', $s1 | Set-Content .env
         (Get-Content .env) -replace 'change_this_shared_secret_for_nodes', $s2 | Set-Content .env
         (Get-Content .env) -replace '^AGENT_SECRET=.*', "AGENT_SECRET=$s2" | Set-Content .env
+
+        # Database Configuration
+        Write-Host ""
+        Write-Host "=== DATABASE CONFIGURATION ===" -ForegroundColor Yellow
+        $dbHost = Read-Host "Database Host [localhost]"
+        if ([string]::IsNullOrWhiteSpace($dbHost)) { $dbHost = "localhost" }
+        
+        $dbName = Read-Host "Database Name [yumnapanel]"
+        if ([string]::IsNullOrWhiteSpace($dbName)) { $dbName = "yumnapanel" }
+        
+        $dbUser = Read-Host "Database User [yumnapanel]"
+        if ([string]::IsNullOrWhiteSpace($dbUser)) { $dbUser = "yumnapanel" }
+        
+        $dbPass = Read-Host "Database Password [yumnapanel]"
+        if ([string]::IsNullOrWhiteSpace($dbPass)) { $dbPass = "yumnapanel" }
+
+        (Get-Content .env) -replace '^DB_HOST=.*', "DB_HOST=$dbHost" | Set-Content .env
+        (Get-Content .env) -replace '^DB_NAME=.*', "DB_NAME=$dbName" | Set-Content .env
+        (Get-Content .env) -replace '^DB_USER=.*', "DB_USER=$dbUser" | Set-Content .env
+        (Get-Content .env) -replace '^DB_PASSWORD=.*', "DB_PASSWORD=$dbPass" | Set-Content .env
     }
     
     # Get Current Secret
@@ -136,7 +156,7 @@ if ($installMode -ne "3") {
 
     if (-not (Test-Path .env)) {
         if (Test-Path .env.example) { Copy-Item .env.example .env }
-        else { "NODE_ENV=production`nPORT=3000" | Out-File .env -Encoding utf8 }
+        else { "NODE_ENV=production`nPORT=4001" | Out-File .env -Encoding utf8 }
         
         $secret = $CURRENT_AGENT_SECRET
         if ([string]::IsNullOrWhiteSpace($secret)) { $secret = "change_me" }
