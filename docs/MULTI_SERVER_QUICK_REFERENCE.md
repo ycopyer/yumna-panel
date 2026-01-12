@@ -131,4 +131,4 @@ Start deploying resources to multiple servers NOW! 🚀
 
 ---
 
-**Version**: 3.0.0 | **Date**: 2026-01-12 | **Status**: ✅ PRODUCTION READY
+**Version**: 3.1.0 | **Date**: 2026-01-12 | **Status**: ✅ PRODUCTION READY

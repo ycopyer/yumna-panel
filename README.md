@@ -1,4 +1,4 @@
-# 🚀 Yumna Panel v3.0 - Distributed Server Control Plane
+# 🚀 Yumna Panel v3.1 - Distributed Server Control Plane
 
 Modern, distributed, and highly scalable Hosting & Infrastructure Management Panel built for the modern cloud.
 
