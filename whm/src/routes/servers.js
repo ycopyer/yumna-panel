@@ -9,7 +9,7 @@ const { encrypt } = require('../utils/helpers');
 // List all servers
 router.get('/', requireAuth, async (req, res) => {
     try {
-        const [servers] = await pool.promise().query('SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage, last_seen FROM servers');
+        const [servers] = await pool.promise().query('SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage, last_seen, connection_type, agent_id FROM servers');
         res.json(servers);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -33,20 +33,14 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 // Add new server
 router.post('/', requireAdmin, async (req, res) => {
-    const { name, hostname, ip, ssh_user, ssh_password, ssh_port, is_local } = req.body;
-
-    // Check local
-    if (is_local) {
-        // Only one local server allowed usually (The Controller)
-        // But for flexible topology, let's allow it but warn or check logic specific to local agent
-    }
+    const { name, hostname, ip, ssh_user, ssh_password, ssh_port, is_local, connection_type, agent_id, agentSecret } = req.body;
 
     try {
         const encryptedPass = ssh_password ? encrypt(ssh_password) : null;
         const [result] = await pool.promise().query(
-            `INSERT INTO servers (name, hostname, ip, is_local, ssh_user, ssh_password, ssh_port, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'unknown')`,
-            [name, hostname, ip, is_local ? 1 : 0, ssh_user, encryptedPass, ssh_port || 22]
+            `INSERT INTO servers (name, hostname, ip, is_local, ssh_user, ssh_password, ssh_port, status, connection_type, agent_id, agentSecret)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'unknown', ?, ?, ?)`,
+            [name, hostname, ip, is_local ? 1 : 0, ssh_user, encryptedPass, ssh_port || 22, connection_type || 'direct', agent_id, agentSecret]
         );
 
         // Trigger immediate check
@@ -57,7 +51,10 @@ router.post('/', requireAdmin, async (req, res) => {
         if (newRows[0].is_local) {
             serverNodeService.checkLocalAgent(newRows[0]);
         } else {
-            serverNodeService.checkRemote(newRows[0]);
+            // Check remote but only if direct (tunnel waits for incoming)
+            if (newRows[0].connection_type === 'direct') {
+                serverNodeService.checkRemote(newRows[0]);
+            }
         }
 
         res.json({ message: 'Server added successfully', id: newServerId });

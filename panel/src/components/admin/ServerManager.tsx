@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Server, Plus, Trash2, Edit2, Shield, Activity, X, Save, Loader2, Globe, Cpu, HardDrive, RefreshCw, Zap, Clock, Wifi, ChevronDown, ChevronUp } from 'lucide-react';
+import { Server, Plus, Trash2, Edit2, Shield, Activity, X, Save, Loader2, Globe, Cpu, HardDrive, RefreshCw, Zap, Clock, Wifi, ChevronDown, ChevronUp, Link2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NodeUsageChart from './NodeUsageChart';
 
@@ -12,6 +12,8 @@ interface ServerNode {
     ssh_user: string;
     ssh_port: number;
     status: 'active' | 'offline' | 'maintenance' | 'online' | 'connection_error';
+    connection_type: 'direct' | 'tunnel';
+    agent_id?: string;
     is_local: boolean;
     last_seen: string | null;
     cpu_usage: number;
@@ -32,8 +34,6 @@ const ResourceGauge: React.FC<{ value: number; label: string; icon: React.ReactN
     const circumference = 2 * Math.PI * radius;
     const offset = circumference - (Math.min(value, 100) / 100) * circumference;
 
-    // Determine color based on threshold if no specific color overrides (optional logic, but here we use passed color)
-    // Dynamic color for thresholds
     let dynamicColor = color;
     if (value > 90) dynamicColor = '#ef4444'; // Red
     else if (value > 75) dynamicColor = '#f59e0b'; // Amber
@@ -43,7 +43,6 @@ const ResourceGauge: React.FC<{ value: number; label: string; icon: React.ReactN
             <div className={`absolute inset-0 bg-${color}-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500`} style={{ backgroundColor: `${dynamicColor}10` }} />
 
             <div className="relative w-24 h-24 flex items-center justify-center mb-2">
-                {/* Background Track */}
                 <svg className="w-full h-full transform -rotate-90">
                     <circle
                         cx="48"
@@ -53,7 +52,6 @@ const ResourceGauge: React.FC<{ value: number; label: string; icon: React.ReactN
                         className="stroke-white/10"
                         strokeWidth="8"
                     />
-                    {/* Progress Circle */}
                     <circle
                         cx="48"
                         cy="48"
@@ -68,7 +66,6 @@ const ResourceGauge: React.FC<{ value: number; label: string; icon: React.ReactN
                     />
                 </svg>
 
-                {/* Center Icon/Text */}
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                     <div className="text-white/40 mb-0.5 scale-75 transform">{icon}</div>
                     <span className="text-sm font-black tracking-tighter tabular-nums">{Math.round(value)}%</span>
@@ -119,7 +116,6 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
             await axios.post(`/api/servers/${id}/deploy-agent`, { dbConfig }, { headers: { 'x-user-id': userId } });
             alert('Deployment started in background. Please wait a few minutes.');
 
-            // Start polling status
             const poll = setInterval(async () => {
                 const res = await axios.get(`/api/servers/${id}/deploy-status`, { headers: { 'x-user-id': userId } });
                 if (res.data.status === 'success' || res.data.status === 'failed') {
@@ -136,12 +132,11 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
 
     useEffect(() => {
         fetchServers();
-        const interval = setInterval(fetchServers, 30000); // Poll every 30s
+        const interval = setInterval(fetchServers, 30000);
         return () => clearInterval(interval);
     }, []);
 
     const fetchServers = async () => {
-        // Only show full-screen loader on first load
         if (servers.length === 0) setLoading(true);
         try {
             const res = await axios.get('/api/servers', { headers: { 'x-user-id': userId } });
@@ -157,7 +152,6 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
         setServers(prev => prev.map(s => s.id === id ? { ...s, is_syncing: true } : s));
         try {
             await axios.post(`/api/servers/${id}/sync`, {}, { headers: { 'x-user-id': userId } });
-            // Wait a bit for db update then refresh
             setTimeout(fetchServers, 1000);
         } catch (err) {
             console.error('Sync failed', err);
@@ -361,11 +355,9 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                 transition={{ delay: idx * 0.1 }}
                                                 className="bg-black/30 backdrop-blur-md border border-white/5 p-8 rounded-[2.5rem] hover:border-indigo-500/30 transition-all group relative overflow-hidden flex flex-col h-full shadow-2xl"
                                             >
-                                                {/* Ambient Glow */}
                                                 <div className={`absolute top-0 right-0 w-64 h-64 ${server.status === 'active' ? 'bg-emerald-500/10' : server.status === 'offline' ? 'bg-red-500/10' : 'bg-amber-500/10'} rounded-full blur-[80px] pointer-events-none transition-colors duration-1000`} />
 
                                                 <div className="relative z-10">
-                                                    {/* Card Header */}
                                                     <div className="flex items-start justify-between mb-10">
                                                         <div className="flex items-center gap-6">
                                                             <div className={`w-16 h-16 flex items-center justify-center ${server.is_local ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'} rounded-2xl border shadow-inner`}>
@@ -377,9 +369,15 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                                     {server.is_local && <span className="text-[9px] font-black text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg uppercase border border-amber-500/20 tracking-wider">Local Master</span>}
                                                                 </div>
                                                                 <div className="flex items-center gap-4 mt-2">
-                                                                    <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-lg border border-white/5">
-                                                                        <Globe size={10} className="text-indigo-400" />
-                                                                        <p className="text-[10px] font-mono font-bold text-white/50">{server.ip}</p>
+                                                                    <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${server.connection_type === 'tunnel' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-white/5 border-white/5'}`}>
+                                                                        {server.connection_type === 'tunnel' ? (
+                                                                            <Link2 size={10} className="text-emerald-400" />
+                                                                        ) : (
+                                                                            <Globe size={10} className="text-indigo-400" />
+                                                                        )}
+                                                                        <p className={`text-[10px] font-mono font-bold ${server.connection_type === 'tunnel' ? 'text-emerald-400' : 'text-white/50'}`}>
+                                                                            {server.connection_type === 'tunnel' ? 'TUNNEL' : server.ip}
+                                                                        </p>
                                                                     </div>
                                                                     <div className="w-px h-3 bg-white/10" />
                                                                     <p className="text-[10px] font-mono font-bold text-white/30">{server.hostname}</p>
@@ -408,7 +406,6 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                         </div>
                                                     </div>
 
-                                                    {/* Resource Gauges */}
                                                     {(server.is_local || (server.cpu_usage > 0 || server.ram_usage > 0)) && (
                                                         <div className="grid grid-cols-3 gap-6 mb-8">
                                                             <ResourceGauge
@@ -432,7 +429,6 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                         </div>
                                                     )}
 
-                                                    {/* Usage History Chart (Condition-based) */}
                                                     <AnimatePresence>
                                                         {expandedNodes.includes(server.id) && (
                                                             <motion.div
@@ -446,7 +442,6 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                         )}
                                                     </AnimatePresence>
 
-                                                    {/* Toggle Button */}
                                                     <div className="flex justify-center mb-6 -mt-2">
                                                         <button
                                                             onClick={(e) => {
@@ -467,7 +462,6 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                         </button>
                                                     </div>
 
-                                                    {/* Footer Info */}
                                                     <div className="flex items-center justify-between p-5 bg-white/[0.03] rounded-2xl border border-white/5 mt-auto">
                                                         <div className="flex gap-8">
                                                             <div className="flex flex-col gap-1">
@@ -552,7 +546,6 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                     )}
                 </AnimatePresence>
             </div>
-            {/* Deployment Config Modal */}
             <AnimatePresence>
                 {showDeployModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
