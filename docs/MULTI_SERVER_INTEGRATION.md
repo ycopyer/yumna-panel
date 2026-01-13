@@ -83,39 +83,27 @@ DESCRIBE servers;
 -- (Biasanya sudah otomatis dibuat saat instalasi)
 ```
 
-#### **Step 2: Install Agent di Server Remote (Server B)**
+#### **Step 2: Automated Deployment via WHM (Recommended)**
 
-Di **Server B** (server yang akan dikontrol):
+Di **Server A** (Control Plane), Anda sekarang dapat menginstal Agent ke **Server B** tanpa mengetik satu baris perintah pun di terminal server remote:
 
-```bash
-# 1. Clone repository
-git clone https://github.com/ycopyer/yumna-panel.git /opt/yumna-panel
-cd /opt/yumna-panel/agent
+1.  Buka **Yumna Panel GUI** → **System** → **Server Management**.
+2.  Klik **Add New Server**, masukkan detail SSH (IP, User, Password, Port).
+3.  Klik **Add Server**.
+4.  Pada list server, klik tombol **"Deploy Agent"** (Ikon ⚡).
+5.  **Konfigurasi Database**: Masukkan kredensial database untuk Agent di modal yang muncul.
+6.  Sistem akan melakukan koneksi SSH, menginstal Node.js, mentransfer file, dan menjalankan service Agent secara otomatis.
 
-# 2. Install dependencies
-npm install
+#### **Step 3: Verifikasi via Dashboard**
 
-# 3. Buat file .env
-cat > .env << EOF
-# Agent Configuration
-PORT=4001
-AGENT_SECRET=your-secure-secret-key-here
+Setelah status server berubah menjadi **"Active"**, Anda akan langsung melihat statistik CPU, RAM, dan Disk dari server tersebut di dashboard utama.
 
-# WHM Connection (Server A)
-WHM_URL=http://192.168.1.100:4000
-WHM_API_KEY=your-whm-api-key
+---
 
-# Server Info
-SERVER_NAME=Server-B-Production
-SERVER_IP=192.168.1.101
-EOF
+### **Metode Alternatif: Integrasi Manual (Legacy)**
+(Hanya gunakan jika server remote tidak mendukung SSH/SFTP)
 
-# 4. Jalankan Agent
-npm run dev
-
-# Atau untuk production:
-npm start
-```
+---
 
 #### **Step 3: Daftarkan Server Remote ke Control Plane**
 
