@@ -8,6 +8,7 @@ class TunnelManagerService {
         this.activeTunnels = new Map(); // Map<agentId, WebSocket>
         this.pendingRequests = new Map(); // Map<requestId, {resolve, reject, timeout}>
         this.shellBuffers = new Map(); // shellId -> Array<{stream, data}>
+        this.downloadListeners = new Map(); // requestId -> expressResponse
     }
 
     /**
@@ -145,6 +146,31 @@ class TunnelManagerService {
             this.handleShellOutput(agentId, { ...payload, stream: 'system', data: btoa(`Exited with code ${payload.code}`) });
             return;
         }
+
+        if (payload.type === 'FILE_CHUNK') {
+            this.handleFileChunk(payload);
+            return;
+        }
+    }
+
+    handleFileChunk({ requestId, data, isLast }) {
+        const res = this.downloadListeners.get(requestId);
+        if (!res) return;
+
+        if (data) {
+            const buffer = Buffer.from(data, 'base64');
+            res.write(buffer);
+        }
+
+        if (isLast) {
+            res.end();
+            this.downloadListeners.delete(requestId);
+        }
+    }
+
+    registerDownloadListener(requestId, res) {
+        this.downloadListeners.set(requestId, res);
+        res.on('close', () => this.downloadListeners.delete(requestId));
     }
 
     handleShellOutput(agentId, { shellId, stream, data }) {
@@ -189,14 +215,14 @@ class TunnelManagerService {
     /**
      * Send a command to a tunnelled agent and wait for response
      */
-    sendCommand(agentId, type, data = {}) {
+    sendCommand(agentId, type, data = {}, customRequestId = null) {
         return new Promise((resolve, reject) => {
             const ws = this.activeTunnels.get(agentId);
             if (!ws || ws.readyState !== WebSocket.OPEN) {
                 return reject(new Error(`Tunnel not active for Agent ${agentId}`));
             }
 
-            const requestId = uuidv4();
+            const requestId = customRequestId || uuidv4();
             const payload = JSON.stringify({
                 requestId,
                 type,

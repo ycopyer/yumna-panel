@@ -4,29 +4,19 @@ const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const axios = require('axios');
 const path = require('path');
+const tunnelManager = require('../services/TunnelManagerService');
+const { v4: uuidv4 } = require('uuid');
 
-const AGENT_URL = process.env.AGENT_URL || 'http://localhost:4001';
 const AGENT_SECRET = process.env.AGENT_SECRET || 'insecure_default';
 
-const agentApi = axios.create({
-    baseURL: AGENT_URL,
-    headers: { 'X-Agent-Secret': AGENT_SECRET }
-});
-
-// Helper to get user's root path
+// Helper to get user's root path (Legacy/Local)
 async function getUserRoot(userId, role, username) {
     if (role === 'admin') {
         const isWin = process.platform === 'win32';
         return isWin ? 'C:/YumnaPanel' : '/var/lib/yumnapanel';
     }
-
-    // Check sftp_configs for custom root
     const [rows] = await pool.promise().query('SELECT rootPath FROM sftp_configs WHERE userId = ?', [userId]);
-    if (rows.length > 0 && rows[0].rootPath) {
-        return rows[0].rootPath;
-    }
-
-    // Default fallback
+    if (rows.length > 0 && rows[0].rootPath) return rows[0].rootPath;
     const isWin = process.platform === 'win32';
     return isWin ? `C:/YumnaPanel/users/${username}` : `/home/${username}/files`;
 }
@@ -41,7 +31,7 @@ async function resolveTarget(req, targetPath) {
         const domain = websiteMatch[1];
         const subPath = websiteMatch[2] || '/';
 
-        let query = 'SELECT w.rootPath, s.ip, s.is_local FROM websites w JOIN servers s ON w.serverId = s.id WHERE w.domain = ?';
+        let query = 'SELECT w.rootPath, s.ip, s.is_local, s.connection_type, s.agent_id FROM websites w JOIN servers s ON w.serverId = s.id WHERE w.domain = ?';
         let params = [domain];
 
         if (!isAdmin) {
@@ -52,45 +42,55 @@ async function resolveTarget(req, targetPath) {
         const [rows] = await pool.promise().query(query, params);
         if (rows.length > 0) {
             const website = rows[0];
-            const agentUrl = website.is_local ? (process.env.AGENT_URL || 'http://localhost:4001') : `http://${website.ip}:4001`;
-            return { agentUrl, root: website.rootPath, path: subPath };
+            return {
+                mode: website.connection_type === 'tunnel' ? 'tunnel' : 'direct',
+                agentId: website.agent_id,
+                agentUrl: website.is_local ? (process.env.AGENT_URL || 'http://localhost:4001') : `http://${website.ip}:4001`,
+                root: website.rootPath,
+                path: subPath
+            };
         }
     }
 
     // 2. Default fallback to Master Node / User Root
     const root = await getUserRoot(req.userId, req.userRole, req.user.username);
     return {
+        mode: 'direct',
         agentUrl: process.env.AGENT_URL || 'http://localhost:4001',
         root,
         path: targetPath
     };
 }
 
-// Utility to create agent client
-function getAgentClient(agentUrl) {
-    return axios.create({
-        baseURL: agentUrl,
-        headers: { 'X-Agent-Secret': AGENT_SECRET },
-        timeout: 10000
-    });
-}
-
-// Wrapper for agent calls with error handling
-async function handleAgentRequest(res, agentUrl, fn) {
-    try {
-        const client = getAgentClient(agentUrl);
-        return await fn(client);
-    } catch (agentErr) {
-        console.error(`[FILES] Agent Request Failed (${agentUrl}):`, agentErr.message);
-        if (agentErr.code === 'ECONNREFUSED' || agentErr.code === 'ETIMEDOUT' || !agentErr.response) {
-            return res.status(503).json({
-                error: `Agent at ${agentUrl} is unreachable. Please ensure the agent is installed and running on the target server.`,
-                code: 'AGENT_OFFLINE'
+// Unified Handler for Agent Actions
+async function dispatchAction(res, target, tunnelAction, tunnelPayload, directFn) {
+    if (target.mode === 'tunnel') {
+        try {
+            const response = await tunnelManager.sendCommand(target.agentId, 'FILE_ACTION', {
+                action: tunnelAction,
+                root: target.root,
+                path: target.path,
+                ...tunnelPayload
+            });
+            res.json(response);
+        } catch (e) {
+            console.error(`[FILES] Tunnel Request Failed:`, e.message);
+            res.status(500).json({ error: `Tunnel Error: ${e.message}` });
+        }
+    } else {
+        try {
+            const client = axios.create({
+                baseURL: target.agentUrl,
+                headers: { 'X-Agent-Secret': AGENT_SECRET },
+                timeout: 10000
+            });
+            await directFn(client);
+        } catch (agentErr) {
+            console.error(`[FILES] Direct Request Failed (${target.agentUrl}):`, agentErr.message);
+            res.status(agentErr.response?.status || 500).json({
+                error: agentErr.response?.data?.error || agentErr.message
             });
         }
-        res.status(agentErr.response?.status || 500).json({
-            error: agentErr.response?.data?.error || agentErr.message
-        });
     }
 }
 
@@ -115,9 +115,9 @@ router.get('/ls', requireAuth, async (req, res) => {
             })));
         }
 
-        const { agentUrl, root, path } = await resolveTarget(req, targetPath || '/');
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.get('/fs/ls', { params: { root, path } });
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'ls', {}, async (client) => {
+            const response = await client.get('/fs/ls', { params: { root: target.root, path: target.path } });
             res.json(response.data);
         });
     } catch (err) {
@@ -125,18 +125,43 @@ router.get('/ls', requireAuth, async (req, res) => {
     }
 });
 
-// GET /api/download
+// GET /api/download (Streaming Support)
 router.get('/download', requireAuth, async (req, res) => {
     try {
         const { path: targetPath, name } = req.query;
-        const { agentUrl, root, path } = await resolveTarget(req, targetPath || '/');
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.get('/fs/download', { params: { root, path }, responseType: 'stream' });
+        const target = await resolveTarget(req, targetPath || '/');
+
+        if (target.mode === 'tunnel') {
             res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
-            response.data.pipe(res);
-        });
+            const requestId = uuidv4();
+            tunnelManager.registerDownloadListener(requestId, res);
+
+            // Fire and forget command, data comes back via streaming chunks
+            tunnelManager.sendCommand(target.agentId, 'FILE_ACTION', {
+                action: 'download_chunked',
+                root: target.root,
+                path: target.path
+            }, requestId).catch(e => {
+                // If start command fails before streaming starts
+                if (!res.headersSent) res.status(500).json({ error: e.message });
+            });
+        } else {
+            const client = axios.create({
+                baseURL: target.agentUrl,
+                headers: { 'X-Agent-Secret': AGENT_SECRET },
+                responseType: 'stream',
+                timeout: 30000
+            });
+            try {
+                const response = await client.get('/fs/download', { params: { root: target.root, path: target.path } });
+                res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
+                response.data.pipe(res);
+            } catch (e) {
+                res.status(500).json({ error: e.message });
+            }
+        }
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        if (!res.headersSent) res.status(500).json({ error: err.message });
     }
 });
 
@@ -144,9 +169,9 @@ router.get('/download', requireAuth, async (req, res) => {
 router.put('/save-content', requireAuth, async (req, res) => {
     try {
         const { path: targetPath, content } = req.body;
-        const { agentUrl, root, path } = await resolveTarget(req, targetPath || '/');
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.post('/fs/write', { root, path, content });
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'write', { content }, async (client) => {
+            const response = await client.post('/fs/write', { root: target.root, path: target.path, content });
             res.json(response.data);
         });
     } catch (err) {
@@ -158,9 +183,9 @@ router.put('/save-content', requireAuth, async (req, res) => {
 router.get('/read-content', requireAuth, async (req, res) => {
     try {
         const { path: targetPath } = req.query;
-        const { agentUrl, root, path } = await resolveTarget(req, targetPath || '/');
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.get('/fs/read', { params: { root, path } });
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'read', {}, async (client) => {
+            const response = await client.get('/fs/read', { params: { root: target.root, path: target.path } });
             res.json(response.data);
         });
     } catch (err) {
@@ -172,9 +197,9 @@ router.get('/read-content', requireAuth, async (req, res) => {
 router.post('/mkdir', requireAuth, async (req, res) => {
     try {
         const { path: targetPath } = req.body;
-        const { agentUrl, root, path } = await resolveTarget(req, targetPath || '/');
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.post('/fs/mkdir', { root, path });
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'mkdir', {}, async (client) => {
+            const response = await client.post('/fs/mkdir', { root: target.root, path: target.path });
             res.json(response.data);
         });
     } catch (err) {
@@ -186,9 +211,9 @@ router.post('/mkdir', requireAuth, async (req, res) => {
 router.delete('/delete', requireAuth, async (req, res) => {
     try {
         const { path: targetPath, recursive } = req.query;
-        const { agentUrl, root, path } = await resolveTarget(req, targetPath || '/');
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.post('/fs/delete', { root, path, recursive: recursive === 'true' });
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'delete', { recursive: recursive === 'true' }, async (client) => {
+            const response = await client.post('/fs/delete', { root: target.root, path: target.path, recursive: recursive === 'true' });
             res.json(response.data);
         });
     } catch (err) {
@@ -200,24 +225,13 @@ router.delete('/delete', requireAuth, async (req, res) => {
 router.post('/rename', requireAuth, async (req, res) => {
     try {
         const { oldPath, newPath } = req.body;
-        const { agentUrl, root, path: resolvedOldPath } = await resolveTarget(req, oldPath);
-        const { path: resolvedNewPath } = await resolveTarget(req, newPath);
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.post('/fs/rename', { root, oldPath: resolvedOldPath, newPath: resolvedNewPath });
-            res.json(response.data);
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+        const targetOld = await resolveTarget(req, oldPath);
+        const targetNew = await resolveTarget(req, newPath); // Mainly to resolve path relative to root
 
-// PUT /api/chmod
-router.put('/chmod', requireAuth, async (req, res) => {
-    try {
-        const { path: targetPath, mode } = req.body;
-        const { agentUrl, root, path } = await resolveTarget(req, targetPath || '/');
-        await handleAgentRequest(res, agentUrl, async (client) => {
-            const response = await client.post('/fs/chmod', { root, path, mode });
+        // Assuming both are on same server/root, which is typical for rename
+        // We use targetOld settings
+        await dispatchAction(res, targetOld, 'rename', { oldPath: targetOld.path, newPath: targetNew.path }, async (client) => {
+            const response = await client.post('/fs/rename', { root: targetOld.root, oldPath: targetOld.path, newPath: targetNew.path });
             res.json(response.data);
         });
     } catch (err) {

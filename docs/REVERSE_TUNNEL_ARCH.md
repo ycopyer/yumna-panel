@@ -117,7 +117,7 @@ Keamanan adalah prioritas utama karena kita membuka jalan masuk ke server privat
 
 ### Milestone 3: Advanced Features (Minggu 3) (Next Step)
 - [x] Remote Shell / Terminal via Tunnel (WebSSH lewat Tunnel).
-- [ ] File Transfer via Tunnel (Chunked Binary Transfer).
+- [x] File Transfer via Tunnel (Chunked Binary Transfer).
 
 ## 7. Configuration Example
 

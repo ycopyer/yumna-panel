@@ -1,6 +1,9 @@
 const WebSocket = require('ws');
 const StatsService = require('./StatsService');
 const { exec, spawn } = require('child_process');
+const fs = require('fs');
+const fsPromises = fs.promises;
+const path = require('path');
 
 class TunnelClientService {
     constructor() {
@@ -90,6 +93,7 @@ class TunnelClientService {
         if (payload.type === 'START_SHELL') this.startShell(payload);
         if (payload.type === 'SHELL_INPUT') this.inputShell(payload);
         if (payload.type === 'KILL_SHELL') this.killShell(payload);
+        if (payload.type === 'FILE_ACTION') this.handleFileAction(payload);
     }
 
     async executeCommand(payload) {
@@ -196,6 +200,92 @@ class TunnelClientService {
             stream,
             data: buffer.toString('base64')
         }));
+    }
+
+    async handleFileAction({ requestId, data }) {
+        const { action, root, path: relPath, content, recursive, oldPath, newPath } = data;
+
+        // Basic resolution (Security: Production should implement Jail/Chroot check)
+        // Assume root is safe (provided by Master)
+        const resolvePath = (p) => path.resolve(root, (p || '').replace(/^\//, ''));
+        const targetPath = resolvePath(relPath);
+
+        try {
+            let result = null;
+
+            if (action === 'ls') {
+                const items = await fsPromises.readdir(targetPath, { withFileTypes: true });
+                result = await Promise.all(items.map(async (item) => {
+                    const itemPath = path.join(targetPath, item.name);
+                    let stats;
+                    try { stats = await fsPromises.stat(itemPath); } catch { return null; } // Skip broken links
+                    if (!stats) return null;
+
+                    return {
+                        name: item.name,
+                        type: item.isDirectory() ? 'directory' : 'file',
+                        size: stats.size,
+                        mtime: Math.floor(stats.mtimeMs / 1000),
+                        permissions: stats.mode // Send raw mode, frontend can parse
+                    };
+                }));
+                result = result.filter(x => x); // filter nulls
+            }
+            else if (action === 'read') {
+                result = await fsPromises.readFile(targetPath, 'utf8');
+            }
+            else if (action === 'write') {
+                await fsPromises.writeFile(targetPath, content); // Auto creates file
+                result = { success: true };
+            }
+            else if (action === 'mkdir') {
+                await fsPromises.mkdir(targetPath, { recursive: true });
+                result = { success: true };
+            }
+            else if (action === 'delete') {
+                await fsPromises.rm(targetPath, { recursive, force: true });
+                result = { success: true };
+            }
+            else if (action === 'rename') {
+                const p1 = resolvePath(oldPath);
+                const p2 = resolvePath(newPath);
+                await fsPromises.rename(p1, p2);
+                result = { success: true };
+            }
+            else if (action === 'download_chunked') {
+                // Download Stream Logic
+                const stream = fs.createReadStream(targetPath, { highWaterMark: 64 * 1024 }); // 64KB chunks
+
+                stream.on('data', (chunk) => {
+                    if (!this.isConnected) { stream.destroy(); return; }
+                    this.ws.send(JSON.stringify({
+                        type: 'FILE_CHUNK',
+                        requestId,
+                        data: chunk.toString('base64'),
+                        isLast: false
+                    }));
+                });
+
+                stream.on('end', () => {
+                    if (!this.isConnected) return;
+                    this.ws.send(JSON.stringify({
+                        type: 'FILE_CHUNK',
+                        requestId,
+                        data: '',
+                        isLast: true
+                    }));
+                });
+
+                stream.on('error', (err) => {
+                    this.sendError(requestId, err.message);
+                });
+                return; // Response handled by stream events
+            }
+
+            this.sendResponse(requestId, result);
+        } catch (err) {
+            this.sendError(requestId, err.message);
+        }
     }
 
     sendResponse(requestId, data) {
