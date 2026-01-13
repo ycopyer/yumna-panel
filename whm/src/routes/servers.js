@@ -4,8 +4,7 @@ const pool = require('../config/db');
 const axios = require('axios');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const serverNodeService = require('../services/ServerNodeService');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
-const serverNodeService = require('../services/ServerNodeService');
+
 const { encrypt } = require('../utils/helpers');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
