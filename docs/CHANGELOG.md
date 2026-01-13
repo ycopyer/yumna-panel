@@ -4,6 +4,27 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
+## [3.2.0] - 2026-01-13
+### Added
+- **Major Feature: Yumna Tunnel (Reverse Connection Architecture)**:
+    - **NAT/Firewall Traversing**: Enables full management of Agents without Public IPs or VPNs.
+    - **Secure WebSocket Tunnel**: Bidirectional, encrypted (WSS) communication channel between Master and Agent.
+    - **Real-time Protocol**: Push/Pull capabilities for command execution and stats monitoring.
+- **Master Node (WHM)**:
+    - **TunnelManagerService**: New core service to handle WebSocket handshakes and connection pooling.
+    - **Hybrid Connectivity**: Support for mixed environment (Direct SSH Agents + Tunnel Agents).
+    - **Schema Update**: Added `connection_type` and `agent_id` to server registry.
+- **Agent Node**:
+    - **TunnelClientService**: Autonomous connection manager with auto-reconnect and heartbeat loop.
+    - **Unified Command Executor**: Single pipeline for executing commands from both SSH and Tunnel sources.
+
+### Fixed
+- **API Stability**:
+    - Resolved `500 Internal Server Error` on `/api/auth/profile` by restoring missing endpoint.
+    - Fixed `ECONNREFUSED` database errors by enforcing IPv4 (`127.0.0.1`) connection strings.
+- **Frontend**:
+    - Fixed "Session ID Required" errors during profile fetching.
+
 ## [3.1.0] - 2026-01-12
 ### Added
 - **Interactive Database Installer**:
@@ -240,5 +261,5 @@ All notable changes to the **Yumna Panel** project will be documented in this fi
 
 ---
 
-**Current Version**: 3.1.0
-**Last Updated**: 2026-01-12
+**Current Version**: 3.2.0
+**Last Updated**: 2026-01-13

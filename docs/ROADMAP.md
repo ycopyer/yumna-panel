@@ -177,8 +177,8 @@ These features are being maintained/completed while the v3 architecture is built
 
 ### Phase 3.2: Yumna Tunnel (Reverse Connection)
 **Goal**: Manage Agents behind NAT/Firewall without Public IP.
-- [ ] **Architecture Design**: WebSocket Reverse Tunnel design.
-- [ ] **Master Tunnel Server**: WebSocket Server implementation in WHM.
-- [ ] **Agent Tunnel Client**: Auto-connect mechanism in Agent service.
-- [ ] **Security**: TLS 1.3 & Token-based Authentication for tunnels.
-- [ ] **Command Routing**: Routing heartbeat and exec commands via WSS.
+- [x] **Architecture Design**: WebSocket Reverse Tunnel design.
+- [x] **Master Tunnel Server**: WebSocket Server implementation in WHM.
+- [x] **Agent Tunnel Client**: Auto-connect mechanism in Agent service.
+- [x] **Security**: TLS 1.3 & Token-based Authentication for tunnels.
+- [x] **Command Routing**: Routing heartbeat and exec commands via WSS.

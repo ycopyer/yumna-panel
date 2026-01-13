@@ -1,7 +1,7 @@
 # Yumna Tunnel: Reverse Connection Architecture for NAT Routing
-> **Status**: Proposal / Draft
+> **Status**: Implemented / Integrated
 > **Version**: 1.0.0
-> **Target**: Yumna Panel v3.2
+> **Released in**: Yumna Panel v3.1 (Experimental)
 
 ## 1. Overview
 Fitur ini memungkinkan **Agent Nodes** yang berada di dalam jaringan privat (di belakang NAT/Firewall) atau tanpa IP Public untuk dikelola sepenuhnya oleh **Master Node** (WHM). 

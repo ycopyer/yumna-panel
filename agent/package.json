@@ -1,6 +1,6 @@
 {
     "name": "yumna-agent",
-    "version": "3.1.0",
+    "version": "3.2.0",
     "description": "Yumna Server Agent - System Executor & Monitor",
     "main": "src/index.js",
     "scripts": {
