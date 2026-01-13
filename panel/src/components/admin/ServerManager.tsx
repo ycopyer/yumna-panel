@@ -11,7 +11,7 @@ interface ServerNode {
     ip: string;
     ssh_user: string;
     ssh_port: number;
-    status: 'active' | 'offline' | 'maintenance';
+    status: 'active' | 'offline' | 'maintenance' | 'online' | 'connection_error';
     is_local: boolean;
     last_seen: string | null;
     cpu_usage: number;
@@ -97,7 +97,7 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
     const [sshUser, setSshUser] = useState('root');
     const [sshPass, setSshPass] = useState('');
     const [sshPort, setSshPort] = useState(22);
-    const [status, setStatus] = useState<'active' | 'offline' | 'maintenance'>('active');
+    const [status, setStatus] = useState<'active' | 'offline' | 'maintenance' | 'online' | 'connection_error'>('active');
 
     const [deployingIds, setDeployingIds] = useState<number[]>([]);
 
@@ -387,18 +387,23 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                             </div>
                                                         </div>
 
-                                                        <div className={`flex flex-col items-end gap-1 px-4 py-2 rounded-xl backdrop-blur-sm border ${server.status === 'active'
-                                                            ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                                            : server.status === 'offline'
-                                                                ? 'bg-red-500/10 border-red-500/20 text-red-400'
-                                                                : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                                                        <div className={`flex flex-col items-end gap-1 px-4 py-2 rounded-xl backdrop-blur-sm border ${server.status === 'active' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                                                            server.status === 'online' ? 'bg-sky-500/10 border-sky-500/20 text-sky-400' :
+                                                                server.status === 'offline' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+                                                                    'bg-amber-500/10 border-amber-500/20 text-amber-400'
                                                             }`}>
                                                             <div className="flex items-center gap-2">
                                                                 <div className={`w-2 h-2 rounded-full ${server.status === 'active' ? 'bg-emerald-400 animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]' :
-                                                                    server.status === 'offline' ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.5)]' :
-                                                                        'bg-amber-400 animate-pulse'
+                                                                    server.status === 'online' ? 'bg-sky-400 animate-bounce' :
+                                                                        server.status === 'offline' ? 'bg-red-400 shadow-[0_0_15px_rgba(239,68,68,1)]' :
+                                                                            'bg-amber-400 animate-pulse'
                                                                     }`} />
-                                                                <span className="text-[10px] font-black uppercase tracking-widest">{server.status}</span>
+                                                                <span className="text-[10px] font-black uppercase tracking-widest">
+                                                                    {server.status === 'active' ? 'Agent Healthy' :
+                                                                        server.status === 'online' ? 'OS Online (No Agent)' :
+                                                                            server.status === 'offline' ? 'Server Down' :
+                                                                                server.status}
+                                                                </span>
                                                             </div>
                                                         </div>
                                                     </div>

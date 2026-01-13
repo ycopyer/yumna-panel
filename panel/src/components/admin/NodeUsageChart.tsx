@@ -28,18 +28,39 @@ const NodeUsageChart: React.FC<NodeUsageChartProps> = ({ serverId, userId }) => 
         setLoading(true);
         try {
             const res = await axios.get(`/api/analytics/node-usage/${serverId}`, {
-                headers: { 'x-user-id': userId }
+                headers: { 'x-user-id': userId },
+                params: { period: '24h' }
             });
 
-            // Format data for chart
-            const formatted = res.data.map((m: any) => ({
-                time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                cpu: Math.round(m.cpu_load * 100) / 100,
-                ram: Math.round(m.ram_used / 1024 / 1024 / 1024 * 100) / 100, // GB
-            }));
+            console.log('[NodeUsageChart] Raw API response:', res.data);
+
+            if (!res.data || res.data.length === 0) {
+                console.warn('[NodeUsageChart] No data received from API');
+                setData([]);
+                setLoading(false);
+                return;
+            }
+
+            // Format data for chart - API returns { time, cpu, ram, disk, net_rx, net_tx }
+            const formatted = res.data.map((m: any) => {
+                const cpuValue = parseFloat(m.cpu) || 0;
+                const ramValue = parseFloat(m.ram) || 0;
+
+                return {
+                    time: new Date(m.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    cpu: Math.round(cpuValue * 100) / 100,
+                    ram: Math.round(ramValue * 100) / 100,
+                };
+            });
+
+            console.log('[NodeUsageChart] Formatted data:', formatted);
             setData(formatted);
-        } catch (err) {
-            console.error('Failed to fetch node usage', err);
+        } catch (err: any) {
+            console.error('[NodeUsageChart] Failed to fetch node usage:', err.message);
+            if (err.response) {
+                console.error('[NodeUsageChart] Response error:', err.response.status, err.response.data);
+            }
+            setData([]);
         } finally {
             setLoading(false);
         }

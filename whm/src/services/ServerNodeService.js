@@ -13,21 +13,36 @@ class ServerNodeService {
 
     async start() {
         console.log('[SERVER-NODES] Starting Heartbeat Service...');
-        // Every 5 minutes
-        setInterval(() => this.checkNodes(), 300000);
-        // Run immediately after a short delay to let DB settle
-        setTimeout(() => this.checkNodes(), 5000);
+        this.statusHistory = new Map();
+        // Every 60 seconds
+        setInterval(() => this.checkNodes(), 60000);
+        // Run immediately after a short delay
+        setTimeout(() => this.checkNodes(), 3000);
     }
 
     async checkNodes() {
         try {
             const [servers] = await pool.promise().query('SELECT * FROM servers');
             for (const server of servers) {
+                const prevStatus = this.statusHistory.get(server.id) || server.status;
+                let currentStatus = 'unknown';
+
                 if (server.is_local) {
-                    await this.checkLocalAgent(server);
+                    currentStatus = await this.checkLocalAgent(server);
                 } else {
-                    await this.checkRemote(server);
+                    currentStatus = await this.checkRemote(server);
                 }
+
+                // Handle Notification on Status Change
+                if (currentStatus === 'offline' && prevStatus !== 'offline' && prevStatus !== 'unknown') {
+                    const { sendNotification } = require('./notification');
+                    sendNotification(`🚨 <b>SERVER DOWN:</b> ${server.name} (${server.ip})\nStatus changed from <i>${prevStatus}</i> to <b>OFFLINE</b>.`);
+                } else if (currentStatus === 'active' && prevStatus === 'offline') {
+                    const { sendNotification } = require('./notification');
+                    sendNotification(`✅ <b>SERVER RECOVERED:</b> ${server.name} (${server.ip})\nServer is back <b>ONLINE</b> and Agent is responding.`);
+                }
+
+                this.statusHistory.set(server.id, currentStatus);
             }
         } catch (error) {
             console.error('[SERVER-NODES] Heartbeat check failed:', error.message);
@@ -35,11 +50,11 @@ class ServerNodeService {
     }
 
     async checkLocalAgent(server) {
-        // In v3, "Local" means communicating with the local Agent on port 4001
         try {
-            // Call Agent API
-            const agentUrl = process.env.AGENT_URL || 'http://localhost:4001';
+            const agentUrl = process.env.AGENT_URL || 'http://127.0.0.1:4001';
             const agentSecret = process.env.AGENT_SECRET || 'insecure_default';
+
+            // console.log(`[DEBUG] Heartbeat request to ${agentUrl} with secret ${agentSecret.substring(0, 5)}...`);
 
             const response = await axios.get(`${agentUrl}/heartbeat`, {
                 timeout: 3000,
@@ -59,43 +74,43 @@ class ServerNodeService {
                      WHERE id = ?`,
                     [
                         metrics.cpu_load || 0,
-                        ((metrics.mem_used / metrics.mem_total) * 100) || 0,
+                        metrics.mem_total ? ((metrics.mem_used / metrics.mem_total) * 100) : 0,
                         metrics.storage?.use || 0,
                         metrics.uptime || 0,
                         server.id
                     ]
                 );
 
-                // Record Historical Usage
+                // Record Historial Usage
                 await pool.promise().query(
                     `INSERT INTO usage_metrics (serverId, cpu_load, ram_used, ram_total, disk_used, disk_total, net_rx, net_tx)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
                     [
                         server.id,
-                        metrics.cpu_load,
-                        metrics.mem_used,
-                        metrics.mem_total,
+                        metrics.cpu_load || 0,
+                        metrics.mem_used || 0,
+                        metrics.mem_total || 0,
                         metrics.storage?.used || 0,
                         metrics.storage?.size || 0,
                         metrics.network?.rx || 0,
                         metrics.network?.tx || 0
                     ]
                 );
-
-                console.log(`[SERVER-NODES] Local Agent ${server.hostname} OK.`);
+                return 'active';
             }
+            return 'unknown';
         } catch (e) {
-            console.error(`[SERVER-NODES] Failed to contact Local Agent: ${e.message}`);
-            await pool.promise().query(
-                `UPDATE servers SET status = 'connection_error' WHERE id = ?`,
-                [server.id]
-            );
+            console.error(`[SERVER-NODES] Heartbeat Error (${server.name}):`, e.message);
+            if (e.response) {
+                console.error(`[SERVER-NODES] Agent Response:`, e.response.status, e.response.data);
+            }
+            await pool.promise().query(`UPDATE servers SET status = 'connection_error' WHERE id = ?`, [server.id]);
+            return 'connection_error';
         }
     }
 
     async checkRemote(server) {
         if (!server.ssh_user || !server.ssh_password) {
-            // Fallback to simple ping if no SSH credentials
             return this.checkRemotePing(server);
         }
 
@@ -109,34 +124,19 @@ class ServerNodeService {
                 readyTimeout: 10000
             });
 
-            // Command to get CPU, RAM, Disk, Uptime in one go (Linux compatible)
-            // 1. Uptime (seconds)
-            // 2. CPU Idle from top (inverse is usage)
-            // 3. RAM Free/Total
-            // 4. Disk Usage / 
-
-            // Note: Parsing top output differs by version. vmstat might be better.
-            // Let's use a composite command.
-
-            // CPU: vmstat 1 2 | tail -1 | awk '{print $15}' (this is idle time)
-            // RAM: free -m | grep Mem | awk '{print $2,$3}' (total, used)
-            // Disk: df -h / | tail -1 | awk '{print $5}' (percentage)
-            // Uptime: cat /proc/uptime | awk '{print $1}'
-
             const cmd = `
-                cpu_idle=$(vmstat 1 2 | tail -1 | awk '{print $15}')
-                mem_stats=$(free -m | grep Mem | awk '{print $2,$3}')
-                disk_usage=$(df -h / | tail -1 | awk '{print $5}' | tr -d '%')
-                uptime_val=$(cat /proc/uptime | awk '{print $1}')
-                echo "$cpu_idle|$mem_stats|$disk_usage|$uptime_val"
+                cpu_idle=$(vmstat 1 2 | tail -1 | awk '{print $15}' || echo "100")
+                mem_stats=$(free -m | grep Mem | awk '{print $2,$3}' || echo "0 0")
+                disk_usage=$(df -h / | tail -1 | awk '{print $5}' | tr -d '%' || echo "0")
+                disk_stats=$(df -m / | tail -1 | awk '{print $2,$3}')
+                uptime_val=$(cat /proc/uptime | awk '{print $1}' || echo "0")
+                echo "$cpu_idle|$mem_stats|$disk_usage|$uptime_val|$disk_stats"
             `;
 
             const result = await ssh.execCommand(cmd);
-
-            // Also check if Agent Port (4001) is open
             const isAgentRunning = await this.pingPort(server.ip, 4001);
 
-            const [cpuIdle, memTotal, memUsed, diskUsage, uptime] = result.stdout.trim().split(/[\s|]+/);
+            const [cpuIdle, memTotal, memUsed, diskPct, uptime, diskTotal, diskUsed] = result.stdout.trim().split(/[\s|]+/);
 
             const cpuUsage = 100 - parseFloat(cpuIdle || 100);
             const ramUsage = (parseFloat(memUsed || 0) / parseFloat(memTotal || 1)) * 100;
@@ -151,19 +151,33 @@ class ServerNodeService {
                  uptime = ? 
                  WHERE id = ?`,
                 [
-                    isAgentRunning ? 'active' : 'online', // 'active' means Agent is likely there, 'online' just OS
+                    isAgentRunning ? 'active' : 'online',
                     isNaN(cpuUsage) ? 0 : cpuUsage,
                     isNaN(ramUsage) ? 0 : ramUsage,
-                    parseFloat(diskUsage) || 0,
+                    parseFloat(diskPct) || 0,
                     parseFloat(uptime) || 0,
                     server.id
                 ]
             );
 
+            // Record Historical Usage for Remote too
+            await pool.promise().query(
+                `INSERT INTO usage_metrics (serverId, cpu_load, ram_used, ram_total, disk_used, disk_total)
+                 VALUES (?, ?, ?, ?, ?, ?)`,
+                [
+                    server.id,
+                    isNaN(cpuUsage) ? 0 : cpuUsage,
+                    parseFloat(memUsed || 0) * 1024 * 1024, // Convert MB to Bytes for consistency
+                    parseFloat(memTotal || 0) * 1024 * 1024,
+                    parseFloat(diskUsed || 0) * 1024 * 1024,
+                    parseFloat(diskTotal || 0) * 1024 * 1024
+                ]
+            );
+
+            return isAgentRunning ? 'active' : 'online';
+
         } catch (e) {
-            console.error(`[SERVER-NODES] SSH Check failed for ${server.name}: ${e.message}`);
-            // Fallback to ping just to see if it's at least online
-            await this.checkRemotePing(server);
+            return this.checkRemotePing(server);
         } finally {
             ssh.dispose();
         }
@@ -171,18 +185,13 @@ class ServerNodeService {
 
     async checkRemotePing(server) {
         const isOnline = await this.pingPort(server.ip, server.ssh_port || 22);
+        const status = isOnline ? 'online' : 'offline';
 
-        if (isOnline) {
-            await pool.promise().query(
-                `UPDATE servers SET status = 'online', last_seen = NOW() WHERE id = ?`,
-                [server.id]
-            );
-        } else {
-            await pool.promise().query(
-                `UPDATE servers SET status = 'offline' WHERE id = ?`,
-                [server.id]
-            );
-        }
+        await pool.promise().query(
+            `UPDATE servers SET status = ?, last_seen = NOW() WHERE id = ?`,
+            [status, server.id]
+        );
+        return status;
     }
 
     pingPort(host, port) {
