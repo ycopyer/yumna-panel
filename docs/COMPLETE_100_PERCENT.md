@@ -122,7 +122,7 @@ npm run dev
 
 ### **2. Test via GUI:**
 ```
-http://localhost:3001
+http://localhost:3000
 → Any feature → Add New
 → Select server from dropdown
 → Fill form

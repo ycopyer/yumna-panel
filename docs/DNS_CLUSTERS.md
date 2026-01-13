@@ -125,7 +125,7 @@ Update `agent/.env`:
 ```env
 AGENT_ID=dns-node-1
 AGENT_SECRET=your_secure_secret
-AGENT_PORT=3001
+AGENT_PORT=3000
 DB_HOST=localhost
 DB_USER=yumna_user
 DB_PASSWORD=your_password
@@ -469,7 +469,7 @@ mysql -u yumna_user -p yumna_panel -e "SHOW TABLES;"
 
 2. **Verify agent connectivity**:
    ```bash
-   curl http://agent:3001/health \
+   curl http://agent:3000/health \
      -H "X-Agent-Secret: YOUR_SECRET"
    ```
 

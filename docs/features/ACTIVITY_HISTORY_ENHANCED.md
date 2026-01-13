@@ -154,13 +154,13 @@ Format breakdown:
 
 ### **Persiapan**:
 1. ✅ Server running di port 5000
-2. ✅ Client running di port 3001
+2. ✅ Client running di port 3000
 3. ✅ Login sebagai admin
 
 ### **Testing Steps**:
 
 #### **Step 1: Buka Activity History**
-1. Buka http://localhost:3001
+1. Buka http://localhost:3000
 2. Login dengan admin/admin
 3. Klik "Activity History" di sidebar kiri
 4. Modal Activity History akan muncul
@@ -399,7 +399,7 @@ Setelah testing, Anda harus melihat:
 
 ## 📞 **NEXT STEPS**
 
-1. ✅ Buka http://localhost:3001
+1. ✅ Buka http://localhost:3000
 2. ✅ Login sebagai admin
 3. ✅ Klik "Activity History"
 4. ✅ Verifikasi semua enhancement

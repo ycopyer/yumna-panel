@@ -155,7 +155,7 @@ npm run dev
 
 ### **2. Test via GUI**
 ```
-1. Open http://localhost:3001
+1. Open http://localhost:3000
 2. Login as admin
 3. Navigate to any feature:
    - Hosting → Websites → Add New Website

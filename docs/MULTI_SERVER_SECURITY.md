@@ -64,7 +64,7 @@ Fitur Security yang baru saja diimplementasikan (`security.js`) memungkinkan And
 *   **Local Rules**: Buka port 80/443 hanya di Web Server, buka port 3306 hanya di DB Server.
 
 **Contoh Strategi:**
-*   **WHM Server**: Buka port 3001 (Panel), 4000 (API). Tutup lainnya.
+*   **WHM Server**: Buka port 3000 (Panel), 4000 (API). Tutup lainnya.
 *   **Web Server**: Buka port 80, 443. Tutup 3306 (DB).
 *   **DB Server**: Buka port 3306 (Hanya dari IP Web Server). Tutup 80/443.
 

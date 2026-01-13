@@ -16,7 +16,7 @@ Yumna Panel v3.1 menggunakan arsitektur **WHM (Web Host Manager) + Agent** yang 
 ┌──────────────────────────────────────────────────────────────┐
 │  🖥️  CONTROL PLANE (WHM) - Server Utama                     │
 │  ┌────────────────────────────────────────────────────┐     │
-│  │  • Panel GUI (React) - Port 3001/5173              │     │
+│  │  • Panel GUI (React) - Port 3000/5173              │     │
 │  │  • WHM API (Node.js) - Port 4000                   │     │
 │  │  • Database (MariaDB) - Port 3306                  │     │
 │  │  • Agent Lokal - Port 4001                         │     │
@@ -68,7 +68,7 @@ Di **Server A** (yang akan menjadi Control Plane):
 ```bash
 # Cek status layanan
 netstat -ano | findstr ":4000"  # WHM API
-netstat -ano | findstr ":3001"  # Panel GUI
+netstat -ano | findstr ":3000"  # Panel GUI
 netstat -ano | findstr ":3306"  # MariaDB
 ```
 
@@ -126,7 +126,7 @@ curl -X POST http://localhost:4000/api/servers \
 ```
 
 **Via GUI (Panel):**
-1. Login ke Panel di `http://localhost:3001`
+1. Login ke Panel di `http://localhost:3000`
 2. Navigasi ke **System** → **Server Management**
 3. Klik **Add New Server**
 4. Isi form:

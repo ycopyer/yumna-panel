@@ -94,7 +94,7 @@
 
 ### **Via GUI (Websites, DNS, Databases)**
 ```
-1. Open http://localhost:3001
+1. Open http://localhost:3000
 2. Login as admin
 3. Navigate to feature
 4. Click "Add New [Feature]"

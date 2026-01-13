@@ -34,7 +34,7 @@ Sekarang: LOGIN • 👤 admin
 
 ### **1. Buka Activity History**
 ```
-1. http://localhost:3001
+1. http://localhost:3000
 2. Login: admin/admin
 3. Klik "Activity History" di sidebar
 ```

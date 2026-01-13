@@ -7,7 +7,7 @@ Yumna Panel v3.1 menggunakan arsitektur **1 WHM (Control Plane)** + **Multiple A
 ```
 ┌─────────────────────────────────────┐
 │  Panel GUI + WHM (Server Utama)     │  ← Satu dashboard untuk semua
-│  http://localhost:3001              │
+│  http://localhost:3000              │
 └──────────────┬──────────────────────┘
                │
        ┌───────┴───────┐
@@ -56,7 +56,7 @@ npm run dev
 
 **Opsi A: Via GUI (Mudah)**
 
-1. Buka Panel GUI: `http://localhost:3001`
+1. Buka Panel GUI: `http://localhost:3000`
 2. Login sebagai Admin
 3. Klik **System** → **Server Management**
 4. Klik **Provision Node**

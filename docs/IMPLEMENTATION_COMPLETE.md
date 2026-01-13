@@ -217,7 +217,7 @@ User dapat memilih server mana yang akan digunakan saat membuat:
 ### **1. Via GUI (Recommended)**
 
 ```
-1. Open Panel: http://localhost:3001
+1. Open Panel: http://localhost:3000
 2. Login as admin
 3. Navigate to feature (Hosting → Websites/DNS/Databases)
 4. Click "Add New [Feature]"
@@ -306,7 +306,7 @@ npm run dev
 
 ```bash
 # Via GUI
-1. http://localhost:3001
+1. http://localhost:3000
 2. Hosting → Websites → Add New Website
 3. Select server from dropdown
 4. Create website

@@ -10,7 +10,7 @@ Yumna Panel v3.1 mendukung **deployment website ke multiple servers**. Saat memb
 
 ### **1. Buka Panel GUI**
 ```
-http://localhost:3001
+http://localhost:3000
 ```
 
 ### **2. Navigasi ke Website Management**
