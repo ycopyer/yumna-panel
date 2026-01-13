@@ -28,7 +28,7 @@ Transform YumnaPanel into a world-class, open-source hosting control panel that 
 - ✅ Commercial Licensing & Support Engine
 - ✅ FraudGuard Service & IP Reputation Monitoring
 - ✅ Indonesia Tax Compliance (PPN 11%, NPWP)
-- ✅ Reseller Hierarchy & Sub-user Management (v3.0)
+- ✅ Reseller Hierarchy & Sub-user Management (v3.1)
 
 ---
 
@@ -91,12 +91,12 @@ This roadmap outlines the transformation of Yumna Panel into an enterprise-grade
 - [x] **Analytics**: Multi-node server pulse and activity tracking.
 
 ### STAGE 3 — COMMUNITY EDITION RELEASE (Month 3)
-**Goal**: Yumna Community v3.0 (Panel + WHM).
+**Goal**: Yumna Community v3.1 (Panel + WHM).
 - [x] **UI Implementation**:
   - [x] Panel: Dashboard, Service List (Websites), Billing History.
   - [x] WHM: Server Nodes, Website Control, Databases, DNS, SSL.
 - [x] **Infrastructure**: Docker/Systemd setup, Reverse Proxy configuration.
-- [x] **Release**: GitHub Repo, Open Source License, Documentation (v3.0.0-alpha Ready).
+- [x] **Release**: GitHub Repo, Open Source License, Documentation (v3.1.0-alpha Ready).
 
 ### STAGE 4 — DEMO & DOCS (Month 4)
 - [x] Public Demo Environment (Mocks Integrated).

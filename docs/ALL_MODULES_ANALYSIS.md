@@ -2,7 +2,7 @@
 
 ## Overview
 
-Analisis komprehensif status multi-server support untuk **SEMUA 26 modul** di Yumna Panel v3.0.
+Analisis komprehensif status multi-server support untuk **SEMUA 26 modul** di Yumna Panel v3.1.
 
 ---
 

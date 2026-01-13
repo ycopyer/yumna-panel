@@ -30,6 +30,7 @@ app.use('/api/ftp', require('./routes/ftp'));
 app.use('/api/cron', require('./routes/cron'));
 app.use('/api/docker', require('./routes/docker'));
 app.use('/api/backups', require('./routes/backups'));
+app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api', require('./routes/files'));
 app.use('/api', require('./routes/security'));
 app.use('/api/ssl', require('./routes/ssl'));

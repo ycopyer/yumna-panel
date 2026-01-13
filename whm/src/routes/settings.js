@@ -22,7 +22,7 @@ router.get('/settings-site', (req, res) => {
             });
         }
 
-        settings.panel_version = 'v3.0.0-production';
+        settings.panel_version = 'v3.1.0-production';
         res.json(settings);
     });
 });

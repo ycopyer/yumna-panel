@@ -5,7 +5,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const axios = require('axios');
 
 const AGENT_URL = process.env.AGENT_URL || 'http://localhost:4001';
-const AGENT_SECRET = process.env.AGENT_SECRET;
+const AGENT_SECRET = process.env.AGENT_SECRET || 'insecure_default';
 
 const agentApi = axios.create({
     baseURL: AGENT_URL,

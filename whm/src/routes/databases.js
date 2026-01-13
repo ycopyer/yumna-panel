@@ -53,7 +53,7 @@ router.get('/', requireAuth, async (req, res) => {
 
                 const agentClient = axios.create({
                     baseURL: agentUrl,
-                    headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+                    headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
                     timeout: 5000
                 });
 
@@ -113,7 +113,7 @@ router.post('/', requireAuth, async (req, res) => {
 
         const agentClient = axios.create({
             baseURL: agentUrl,
-            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
             timeout: 10000
         });
 
@@ -170,7 +170,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
             const agentClient = axios.create({
                 baseURL: agentUrl,
-                headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+                headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
                 timeout: 10000
             });
 
@@ -217,7 +217,7 @@ router.post('/:id/clone', requireAuth, async (req, res) => {
 
         const agentClient = axios.create({
             baseURL: agentUrl,
-            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
             timeout: 30000 // Clone might take longer
         });
 

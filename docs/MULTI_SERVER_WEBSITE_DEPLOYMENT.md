@@ -2,7 +2,7 @@
 
 ## Fitur Server Selection saat Membuat Website
 
-Yumna Panel v3.0 mendukung **deployment website ke multiple servers**. Saat membuat website baru, Anda bisa memilih server mana yang akan digunakan untuk hosting.
+Yumna Panel v3.1 mendukung **deployment website ke multiple servers**. Saat membuat website baru, Anda bisa memilih server mana yang akan digunakan untuk hosting.
 
 ---
 

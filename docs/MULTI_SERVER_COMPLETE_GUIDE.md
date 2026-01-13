@@ -2,7 +2,7 @@
 
 ## Overview
 
-Yumna Panel v3.0 mendukung **multi-server deployment** untuk semua fitur utama. Anda bisa memilih server mana yang akan digunakan saat membuat:
+Yumna Panel v3.1 mendukung **multi-server deployment** untuk semua fitur utama. Anda bisa memilih server mana yang akan digunakan saat membuat:
 
 - ✅ **Websites** - Virtual hosts & web applications
 - ✅ **DNS Zones** - Domain name system records

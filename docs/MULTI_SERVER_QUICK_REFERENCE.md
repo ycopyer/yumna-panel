@@ -2,7 +2,7 @@
 
 ## ⚡ TL;DR
 
-**Yumna Panel v3.0 sekarang support multi-server deployment!**
+**Yumna Panel v3.1 sekarang support multi-server deployment!**
 
 User bisa pilih server mana yang akan digunakan saat membuat:
 - ✅ Websites

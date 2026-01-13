@@ -54,7 +54,7 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 - ✅ **Cloudflare Sync** - One-click synchronization with Cloudflare CDN.
 - ✅ **TTL & Clustering** - Customizable TTL/SOA settings and DNS Cluster support.
 
-### 🌐 Live DNS Server Clusters (v3.0)
+### 🌐 Live DNS Server Clusters (v3.1)
 - ✅ **PowerDNS Integration** - Real DNS server with MySQL backend.
 - ✅ **Multi-Node Clustering** - Distribute DNS across multiple servers for high availability.
 - ✅ **Automatic Zone Sync** - Zones automatically replicate to all cluster nodes.
@@ -92,7 +92,7 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 - ✅ **Environment Variables** - Set custom environment variables for containers.
 - ✅ **Daemon Status** - Monitor Docker engine availability with graceful offline handling.
 
-### ⛓️ Distributed Architecture (v3.0.0)
+### ⛓️ Distributed Architecture (v3.1.0)
 - ✅ **Distributed Control Plane (WHM)** - Centralized management for unlimited server nodes.
 - ✅ **Lightweight Agents** - High-performance Node.js agents for target server orchestration.
 - ✅ **Unified Dashboard** - Manage multiple servers from a single glassmorphism interface.
@@ -119,7 +119,7 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 **📖 Quick Start**: See [Multi-Server Integration Guide](docs/QUICK_START_MULTI_SERVER.md) to combine 2+ panels into one.
 **📖 Complete Guide**: See [Multi-Server Final Summary](docs/MULTI_SERVER_FINAL_SUMMARY.md) for full documentation.
 
-### 💼 Enterprise & Reseller Features (v3.0)
+### 💼 Enterprise & Reseller Features (v3.1)
 - ✅ **Reseller Hierarchy** - Multi-tier reseller system with parent-child relationships.
 - ✅ **Custom Product Pricing** - Resellers can create and price their own hosting plans.
 - ✅ **Indonesia Tax Compliance** - Automatic PPN 11% calculation with NPWP support.
@@ -127,7 +127,7 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 - ✅ **SLA Monitoring** - Automated uptime tracking and violation alerts.
 - ✅ **Commercial Licensing** - Enterprise key verification system.
 
-### 💳 Payment Gateway Integration (v3.0)
+### 💳 Payment Gateway Integration (v3.1)
 - ✅ **Stripe Integration** - Full credit/debit card payment support with Checkout Sessions.
 - ✅ **PayPal Integration** - PayPal account payments with REST API v2.
 - ✅ **Manual Payments** - Bank transfer and custom payment method support.
@@ -137,7 +137,7 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 - ✅ **Multi-Currency Support** - USD, EUR, GBP, IDR, SGD, MYR support.
 - ✅ **Sandbox Mode** - Test mode for development and testing.
 
-### 🔌 Developer SDK (v3.0)
+### 🔌 Developer SDK (v3.1)
 - ✅ **Plugin Framework** - Comprehensive SDK for building Yumna Panel plugins.
 - ✅ **Hook System** - 30+ hooks for extending core functionality.
 - ✅ **CLI Tools** - Command-line tools for creating, validating, and building plugins.
@@ -147,25 +147,25 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 - ✅ **Utilities** - Validation, versioning, logging, and API helpers.
 - ✅ **Example Plugins** - Ready-to-use examples (Slack notifications, analytics, etc.).
 
-### 🛡️ Fraud Detection & Security (v3.0)
+### 🛡️ Fraud Detection & Security (v3.1)
 - ✅ **FraudGuard Engine** - Real-time velocity checks and IP reputation scoring.
 - ✅ **Automated IP Blacklisting** - Auto-ban suspicious IPs based on behavior patterns.
 - ✅ **Admin Fraud Monitor** - Dashboard for viewing detection logs and managing blacklists.
 - ✅ **Transaction Protection** - Pre-order fraud analysis for billing operations.
 
-### 🤖 AI-Powered Operations (v3.0)
+### 🤖 AI-Powered Operations (v3.1)
 - ✅ **Gemini AI Assistant** - Interactive chat bot for server troubleshooting.
 - ✅ **Smart Code Review** - Automated security scanning for Git deployments.
 - ✅ **Heuristic Scaling** - AI-driven resource allocation predictions.
 - ✅ **Threat Prediction** - AI-enhanced firewall with FraudGuard integration.
 
-### ☁️ Cloud Virtualization (v3.0)
+### ☁️ Cloud Virtualization (v3.1)
 - ✅ **Proxmox/KVM Integration** - Full VPS lifecycle management (create, start, stop, reboot).
 - ✅ **Cloud Dashboard** - Visual interface for container and VM monitoring.
 - ✅ **SDN Foundation** - Software-defined networking for private VPC setup.
 - ✅ **Unified Management** - Manage VPS alongside traditional shared hosting.
 
-### 🔌 Plugin Marketplace (v3.0)
+### 🔌 Plugin Marketplace (v3.1)
 - ✅ **Hook System** - Event-driven architecture for 3rd party developers.
 - ✅ **Plugin Manager UI** - Install/uninstall plugins from the admin panel.
 - ✅ **Curated Catalog** - phpMyAdmin, Roundcube, Docker UI, and more.
@@ -177,7 +177,7 @@ Modern, distributed, and highly scalable Hosting & Infrastructure Management Pan
 
 See our [ROADMAP.md](docs/ROADMAP.md) for the complete development journey.
 
-**Current Status**: v3.0.0-final (Enterprise Edition)
+**Current Status**: v3.1.0-final (Enterprise Edition)
 
 **Recently Completed** (January 2026):
 - ✅ Cloud Virtualization & VPS Management (KVM/Proxmox)

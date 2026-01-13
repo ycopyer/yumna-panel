@@ -101,5 +101,5 @@ File Preview/Editor Testing:
 
 ---
 
-**Status**: ✅ PRODUCTION READY (v3.0.0)  
+**Status**: ✅ PRODUCTION READY (v3.1.0)  
 **Main Docs**: `FILE_PREVIEW_FEATURE.md`

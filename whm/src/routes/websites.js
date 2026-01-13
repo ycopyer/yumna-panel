@@ -4,20 +4,38 @@ const pool = require('../config/db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const axios = require('axios');
 
-// Configure Agent
-const AGENT_URL = process.env.AGENT_URL || 'http://localhost:4001';
-const AGENT_SECRET = process.env.AGENT_SECRET;
+// Helper to get Agent Client for a specific server or website
+async function getAgentClient(serverId) {
+    const [rows] = await pool.promise().query('SELECT * FROM servers WHERE id = ?', [serverId]);
+    if (rows.length === 0) throw new Error('Server not found');
+    const server = rows[0];
 
-const agentApi = axios.create({
-    baseURL: AGENT_URL,
-    headers: { 'X-Agent-Secret': AGENT_SECRET }
-});
+    const agentUrl = server.is_local
+        ? (process.env.AGENT_URL || 'http://localhost:4001')
+        : `http://${server.ip}:4001`;
+
+    return axios.create({
+        baseURL: agentUrl,
+        headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
+        timeout: 10000
+    });
+}
 
 // GET /api/websites/defaults
-router.get('/defaults', (req, res) => {
-    const isWin = process.platform === 'win32';
-    const baseDir = isWin ? 'C:/YumnaPanel/www' : '/var/www';
-    res.json({ baseDir });
+router.get('/defaults', async (req, res) => {
+    const { serverId } = req.query;
+    try {
+        const [rows] = await pool.promise().query('SELECT * FROM servers WHERE id = ?', [serverId || 1]);
+        if (rows.length === 0) {
+            const isWin = process.platform === 'win32';
+            return res.json({ baseDir: isWin ? 'C:/YumnaPanel/www' : '/var/www' });
+        }
+        const server = rows[0];
+        const isWin = server.is_local ? (process.platform === 'win32') : (server.os_type === 'windows');
+        res.json({ baseDir: isWin ? 'C:/YumnaPanel/www' : '/var/www' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // GET /api/websites/servers - Get available servers for deployment
@@ -64,17 +82,14 @@ router.post('/', requireAuth, async (req, res) => {
 
     if (!domain) return res.status(400).json({ error: 'Domain is required' });
 
-    // Sanitize domain
     domain = domain.toLowerCase().trim();
-
-    // Default to server 1 (local) if not specified
     if (!serverId) serverId = 1;
 
     const connection = await pool.promise().getConnection();
     try {
         await connection.beginTransaction();
 
-        // Check Quota (Skip for Admin)
+        // Check Quota
         if (!isAdmin) {
             const [userRows] = await connection.query('SELECT max_websites FROM users WHERE id = ?', [userId]);
             const maxWebsites = userRows[0]?.max_websites ?? 3;
@@ -84,58 +99,41 @@ router.post('/', requireAuth, async (req, res) => {
             }
         }
 
-        // Validate Server Exists
+        // Validate Server
         const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [serverId]);
-        if (serverRows.length === 0) {
-            throw new Error('Selected server not found');
-        }
+        if (serverRows.length === 0) throw new Error('Selected server not found');
         const selectedServer = serverRows[0];
 
-        // Check Server Status
         if (selectedServer.status !== 'active') {
-            throw new Error(`Server "${selectedServer.name}" is not active (status: ${selectedServer.status})`);
+            throw new Error(`Server "${selectedServer.name}" is not active`);
         }
 
         // Check Duplicates
         const [existing] = await connection.query('SELECT id FROM websites WHERE domain = ?', [domain]);
         if (existing.length > 0) throw new Error('Domain already exists');
 
-        // Auto-generate rootPath based on server OS if not provided
+        // Auto-generate rootPath
         if (!rootPath) {
-            // For remote servers, we might need to query their OS, but for now assume Linux for remote
-            const isWin = selectedServer.is_local && process.platform === 'win32';
+            const isWin = selectedServer.is_local ? (process.platform === 'win32') : (selectedServer.os_type === 'windows');
             rootPath = isWin ? `C:/YumnaPanel/www/${domain}` : `/var/www/${domain}`;
         }
 
-        // Insert Website with serverId
+        // Insert Website
         const [webResult] = await connection.query(
             'INSERT INTO websites (userId, domain, serverId, rootPath, phpVersion, status, webStack) VALUES (?, ?, ?, ?, ?, ?, ?)',
             [userId, domain, serverId, rootPath, phpVersion || '8.2', 'active', webStack || 'nginx']
         );
         const websiteId = webResult.insertId;
 
-        // Insert DNS Zone (Mock/Simple)
+        // Insert DNS Zone
         const [zoneRows] = await connection.query('SELECT id FROM dns_zones WHERE domain = ?', [domain]);
         if (zoneRows.length === 0) {
             await connection.query('INSERT INTO dns_zones (userId, domain, serverId) VALUES (?, ?, ?)', [userId, domain, serverId]);
         }
 
-        // Determine Agent URL based on server
-        let agentUrl;
-        if (selectedServer.is_local) {
-            agentUrl = process.env.AGENT_URL || 'http://localhost:4001';
-        } else {
-            agentUrl = `http://${selectedServer.ip}:4001`;
-        }
-
-        // Call Agent to Create VHost & FS
+        // Call Agent
         try {
-            const agentClient = axios.create({
-                baseURL: agentUrl,
-                headers: { 'X-Agent-Secret': AGENT_SECRET },
-                timeout: 10000
-            });
-
+            const agentClient = await getAgentClient(serverId);
             await agentClient.post('/web/vhost', {
                 domain,
                 rootPath,
@@ -143,12 +141,8 @@ router.post('/', requireAuth, async (req, res) => {
                 stack: webStack,
                 ssl: false
             });
-
-            console.log(`[WHM] Website "${domain}" created on server "${selectedServer.name}" (${agentUrl})`);
         } catch (agentErr) {
             console.error('[WHM] Agent VHost creation failed:', agentErr.message);
-            // Log but don't fail the transaction - website is created in DB
-            // Admin can manually sync later
         }
 
         await connection.commit();
@@ -162,7 +156,7 @@ router.post('/', requireAuth, async (req, res) => {
             }
         });
     } catch (err) {
-        await connection.rollback();
+        if (connection) await connection.rollback();
         res.status(500).json({ error: err.message });
     } finally {
         connection.release();
@@ -179,19 +173,19 @@ router.delete('/:id', requireAuth, async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // Check Ownership
-        const [rows] = await connection.query('SELECT userId, domain FROM websites WHERE id = ?', [websiteId]);
+        const [rows] = await connection.query('SELECT * FROM websites WHERE id = ?', [websiteId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Website not found' });
         if (!isAdmin && rows[0].userId != userId) return res.status(403).json({ error: 'Access denied' });
 
-        const domain = rows[0].domain;
+        const website = rows[0];
 
         // Delete from DB
         await connection.query('DELETE FROM websites WHERE id = ?', [websiteId]);
 
-        // Call Agent to Remove VHost
+        // Call Agent
         try {
-            await agentApi.delete(`/web/vhost/${domain}`);
+            const agentClient = await getAgentClient(website.serverId);
+            await agentClient.delete(`/web/vhost/${website.domain}`);
         } catch (agentErr) {
             console.error('[WHM] Agent VHost removal failed:', agentErr.message);
         }
@@ -213,24 +207,22 @@ router.put('/:id', requireAuth, async (req, res) => {
     const userId = req.userId;
     const isAdmin = req.userRole === 'admin';
 
-    const connection = await pool.promise().getConnection();
     try {
-        // Check Ownership
-        const [rows] = await connection.query('SELECT * FROM websites WHERE id = ?', [websiteId]);
+        const [rows] = await pool.promise().query('SELECT * FROM websites WHERE id = ?', [websiteId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Website not found' });
         if (!isAdmin && rows[0].userId != userId) return res.status(403).json({ error: 'Access denied' });
 
         const website = rows[0];
 
-        // Update DB
-        await connection.query(
+        await pool.promise().query(
             'UPDATE websites SET rootPath = ?, phpVersion = ?, webStack = ?, sslEnabled = ? WHERE id = ?',
             [rootPath, phpVersion, webStack, sslEnabled ? 1 : 0, websiteId]
         );
 
         // Notify Agent
         try {
-            await agentApi.post('/web/vhost', {
+            const agentClient = await getAgentClient(website.serverId);
+            await agentClient.post('/web/vhost', {
                 domain: website.domain,
                 rootPath,
                 phpVersion,
@@ -244,57 +236,25 @@ router.put('/:id', requireAuth, async (req, res) => {
         res.json({ message: 'Website updated successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
-    } finally {
-        connection.release();
     }
 });
 
-// PUT /api/websites/:id/status - Update Status (Suspend/Active)
-router.put('/:id/status', requireAuth, requireAdmin, async (req, res) => {
-    const { status } = req.body;
-    const websiteId = req.params.id;
-
-    const connection = await pool.promise().getConnection();
-    try {
-        await connection.query('UPDATE websites SET status = ? WHERE id = ?', [status, websiteId]);
-
-        // If suspended, we might want to redirect Nginx, but for now simple DB status update
-        // is enough as Nginx config can be re-rendered to point to a suspended page if we want.
-        // We'll leave that logic for "update" or background sync.
-
-        // Trigger update to ensure config reflects status (e.g. suspended page)
-        const [rows] = await connection.query('SELECT * FROM websites WHERE id = ?', [websiteId]);
-        if (rows.length > 0) {
-            const website = rows[0];
-            // If status is suspended, maybe we want to force "yumna_blocked.html" or similar?
-            // Not implementing full suspend logic on Agent yet, just DB.
-        }
-
-        res.json({ message: 'Website status updated' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        connection.release();
-    }
-});
-
-// PUT /api/websites/:id/maintenance - Toggle Maintenance
+// PUT /api/websites/:id/maintenance
 router.put('/:id/maintenance', requireAuth, async (req, res) => {
     const { enabled } = req.body;
     const websiteId = req.params.id;
     const userId = req.userId;
     const isAdmin = req.userRole === 'admin';
 
-    const connection = await pool.promise().getConnection();
     try {
-        const [rows] = await connection.query('SELECT * FROM websites WHERE id = ?', [websiteId]);
+        const [rows] = await pool.promise().query('SELECT * FROM websites WHERE id = ?', [websiteId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Website not found' });
         if (!isAdmin && rows[0].userId != userId) return res.status(403).json({ error: 'Access denied' });
 
         const website = rows[0];
 
-        // Call Agent
-        await agentApi.post('/web/maintenance', {
+        const agentClient = await getAgentClient(website.serverId);
+        await agentClient.post('/web/maintenance', {
             rootPath: website.rootPath,
             enabled
         });
@@ -302,56 +262,45 @@ router.put('/:id/maintenance', requireAuth, async (req, res) => {
         res.json({ message: `Maintenance mode ${enabled ? 'enabled' : 'disabled'} successully` });
     } catch (err) {
         res.status(500).json({ error: err.message });
-    } finally {
-        connection.release();
     }
 });
 
-// POST /api/websites/:id/install - One-Click Installer
+// POST /api/websites/:id/install
 router.post('/:id/install', requireAuth, async (req, res) => {
-    const { appType } = req.body; // 'WordPress', 'Laravel'
+    const { appType } = req.body;
     const websiteId = req.params.id;
     const userId = req.userId;
     const isAdmin = req.userRole === 'admin';
     const crypto = require('crypto');
 
-    const connection = await pool.promise().getConnection();
     try {
-        // 1. Validate
-        const [rows] = await connection.query('SELECT * FROM websites WHERE id = ?', [websiteId]);
+        const [rows] = await pool.promise().query('SELECT * FROM websites WHERE id = ?', [websiteId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Website not found' });
         if (!isAdmin && rows[0].userId != userId) return res.status(403).json({ error: 'Access denied' });
 
         const website = rows[0];
+        const agentClient = await getAgentClient(website.serverId);
 
-        // 2. Create DB via Agent
         const dbSuffix = crypto.randomBytes(3).toString('hex');
-        const newDbName = `wp_${dbSuffix}`;
-        const newDbUser = `u_${dbSuffix}`;
-        const newDbPass = crypto.randomBytes(8).toString('hex') + 'Aa1!';
+        const dbName = `wp_${dbSuffix}`;
+        const dbUser = `u_${dbSuffix}`;
+        const dbPass = crypto.randomBytes(8).toString('hex') + 'Aa1!';
 
-        await agentApi.post('/db/create', {
-            name: newDbName,
-            user: newDbUser,
-            password: newDbPass
-        });
-
-        // record db in panel
-        await connection.query(
-            'INSERT INTO `databases` (userId, name, user, password) VALUES (?, ?, ?, ?)',
-            [website.userId, newDbName, newDbUser, newDbPass]
+        await agentClient.post('/db/create', { name: dbName, user: dbUser, password: dbPass });
+        await pool.promise().query(
+            'INSERT INTO `databases` (userId, serverId, name, user, password) VALUES (?, ?, ?, ?, ?)',
+            [website.userId, website.serverId, dbName, dbUser, dbPass]
         );
 
-        // 3. Trigger Agent
-        const response = await agentApi.post('/web/app/install', {
+        const response = await agentClient.post('/web/app/install', {
             appType,
             domain: website.domain,
             rootPath: website.rootPath,
             phpVersion: website.phpVersion,
             dbConfig: {
-                name: newDbName,
-                user: newDbUser,
-                password: newDbPass,
+                name: dbName,
+                user: dbUser,
+                password: dbPass,
                 host: 'localhost'
             }
         });
@@ -359,72 +308,66 @@ router.post('/:id/install', requireAuth, async (req, res) => {
         res.json({ message: `${appType} installation started`, jobId: response.data.jobId });
     } catch (err) {
         res.status(500).json({ error: err.message });
-    } finally {
-        connection.release();
-    }
-});
-
-// GET /api/websites/:id/install/logs - Poll installation progress
-router.get('/:id/install/logs', requireAuth, async (req, res) => {
-    const { jobId } = req.query;
-    if (!jobId) return res.status(400).json({ error: 'jobId is required' });
-
-    try {
-        const response = await agentApi.get(`/task/${jobId}`);
-        res.json(response.data);
-    } catch (err) {
-        res.status(err.response?.status || 500).json({ error: 'Failed to fetch logs' });
     }
 });
 
 // GET /api/websites/:id/config
 router.get('/:id/config', requireAuth, async (req, res) => {
     const websiteId = req.params.id;
-    const connection = await pool.promise().getConnection();
     try {
-        const [rows] = await connection.query('SELECT domain, webStack FROM websites WHERE id = ?', [websiteId]);
+        const [rows] = await pool.promise().query('SELECT * FROM websites WHERE id = ?', [websiteId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const website = rows[0];
 
-        const { domain, webStack } = rows[0];
-        const result = await agentApi.get('/web/config', { params: { domain, stack: webStack } });
+        const agentClient = await getAgentClient(website.serverId);
+        const result = await agentClient.get('/web/config', {
+            params: { domain: website.domain, stack: website.webStack }
+        });
         res.json(result.data);
     } catch (err) {
         res.status(500).json({ error: err.message });
-    } finally { connection.release(); }
+    }
 });
 
 // PUT /api/websites/:id/config
 router.put('/:id/config', requireAuth, requireAdmin, async (req, res) => {
     const websiteId = req.params.id;
     const { config } = req.body;
-    const connection = await pool.promise().getConnection();
     try {
-        const [rows] = await connection.query('SELECT domain, webStack FROM websites WHERE id = ?', [websiteId]);
+        const [rows] = await pool.promise().query('SELECT * FROM websites WHERE id = ?', [websiteId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const website = rows[0];
 
-        const { domain, webStack } = rows[0];
-        const result = await agentApi.put('/web/config', { domain, stack: webStack, content: config });
+        const agentClient = await getAgentClient(website.serverId);
+        const result = await agentClient.put('/web/config', {
+            domain: website.domain,
+            stack: website.webStack,
+            content: config
+        });
         res.json(result.data);
     } catch (err) {
         res.status(500).json({ error: err.message });
-    } finally { connection.release(); }
+    }
 });
 
 // GET /api/websites/:id/logs
 router.get('/:id/logs', requireAuth, async (req, res) => {
     const websiteId = req.params.id;
     const { logType } = req.query;
-    const connection = await pool.promise().getConnection();
     try {
-        const [rows] = await connection.query('SELECT domain FROM websites WHERE id = ?', [websiteId]);
+        const [rows] = await pool.promise().query('SELECT * FROM websites WHERE id = ?', [websiteId]);
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
+        const website = rows[0];
 
-        const { domain } = rows[0];
-        const result = await agentApi.get('/web/logs', { params: { domain, type: logType } });
+        const agentClient = await getAgentClient(website.serverId);
+        const result = await agentClient.get('/web/logs', {
+            params: { domain: website.domain, type: logType }
+        });
         res.json(result.data);
     } catch (err) {
         res.status(500).json({ error: err.message });
-    } finally { connection.release(); }
+    }
 });
 
 module.exports = router;
+

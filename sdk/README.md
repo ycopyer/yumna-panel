@@ -1,6 +1,6 @@
 # 🔌 Yumna Panel Plugin SDK
 
-Official SDK for developing plugins for Yumna Panel v3.0+
+Official SDK for developing plugins for Yumna Panel v3.1+
 
 ## Installation
 
@@ -740,4 +740,4 @@ MIT
 
 **Last Updated**: January 11, 2026  
 **SDK Version**: 3.0.0  
-**Compatible with**: Yumna Panel v3.0.0+
+**Compatible with**: Yumna Panel v3.1.0+

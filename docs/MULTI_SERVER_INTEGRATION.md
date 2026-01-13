@@ -1,7 +1,7 @@
 # 🌐 Multi-Server Integration Guide
 ## Menggabungkan 2 Panel (atau lebih) Menjadi Satu Dashboard Terpusat
 
-Yumna Panel v3.0 menggunakan arsitektur **WHM (Web Host Manager) + Agent** yang memungkinkan Anda mengelola **unlimited servers** dari satu dashboard terpusat.
+Yumna Panel v3.1 menggunakan arsitektur **WHM (Web Host Manager) + Agent** yang memungkinkan Anda mengelola **unlimited servers** dari satu dashboard terpusat.
 
 ---
 
@@ -9,7 +9,7 @@ Yumna Panel v3.0 menggunakan arsitektur **WHM (Web Host Manager) + Agent** yang 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    YUMNA PANEL v3.0                         │
+│                    YUMNA PANEL v3.1                         │
 │                  (Distributed Architecture)                  │
 └─────────────────────────────────────────────────────────────┘
 

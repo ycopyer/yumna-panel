@@ -102,4 +102,59 @@ router.delete('/:id', requirePrivileged, async (req, res) => {
     }
 });
 
+// Get Current User Usage Stats
+router.get('/me/usage', requireAuth, async (req, res) => {
+    try {
+        const [user] = await pool.promise().query('SELECT max_websites, max_databases FROM users WHERE id = ?', [req.userId]);
+        const limits = user[0] || { max_websites: 0, max_databases: 0 };
+
+        const [websites] = await pool.promise().query('SELECT COUNT(*) as count FROM websites WHERE userId = ?', [req.userId]);
+        const [databases] = await pool.promise().query('SELECT COUNT(*) as count FROM `databases` WHERE userId = ?', [req.userId]);
+
+        // Mock storage for now in v3 (distributed storage stats are complex)
+        // In a real scenario, we would aggregate from all nodes the user has data on.
+        res.json({
+            storage: { used: 0, limit: 1024 * 1024 * 1024 }, // 1GB
+            websites: { used: websites[0].count, limit: limits.max_websites },
+            subdomains: { used: 0, limit: 10 },
+            databases: { used: databases[0].count, limit: limits.max_databases },
+            emails: { used: 0, limit: 10 },
+            dns: { used: 0, limit: 10 },
+            ssh: { used: 0, limit: 1 }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Get user profile
+router.get('/:id/profile', requireAuth, async (req, res) => {
+    try {
+        const targetId = req.params.id === 'me' ? req.userId : req.params.id;
+        if (req.userRole !== 'admin' && targetId != req.userId) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        const [rows] = await pool.promise().query(
+            'SELECT id, username, email, role, status, two_factor_enabled, createdAt FROM users WHERE id = ?',
+            [targetId]
+        );
+        if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+        res.json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Toggle 2FA
+router.post('/toggle-2fa', requireAuth, async (req, res) => {
+    const { enabled } = req.body;
+    try {
+        await pool.promise().query('UPDATE users SET two_factor_enabled = ? WHERE id = ?', [enabled ? 1 : 0, req.userId]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
+

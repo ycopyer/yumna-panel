@@ -12,7 +12,7 @@ const getAgentClient = (server) => {
 
     return axios.create({
         baseURL: agentUrl,
-        headers: { 'X-Agent-Secret': process.env.AGENT_SECRET },
+        headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
         timeout: 5000
     });
 };

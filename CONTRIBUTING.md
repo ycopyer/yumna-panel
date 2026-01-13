@@ -457,8 +457,8 @@ We follow **Semantic Versioning** (SemVer):
 2. Update `CHANGELOG.md`
 3. Create a git tag:
 ```bash
-git tag -a v3.0.0 -m "Release v3.0.0"
-git push origin v3.0.0
+git tag -a v3.1.0 -m "Release v3.1.0"
+git push origin v3.1.0
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 ## 🎉 Executive Summary
 
-**Yumna Panel v3.0 Multi-Server Support is NOW FULLY IMPLEMENTED!**
+**Yumna Panel v3.1 Multi-Server Support is NOW FULLY IMPLEMENTED!**
 
 User dapat memilih server mana yang akan digunakan saat membuat:
 - ✅ **Websites**
@@ -542,7 +542,7 @@ Copy the pattern from Databases to implement:
 
 ## 🚀 Ready to Deploy!
 
-Your Yumna Panel v3.0 now supports:
+Your Yumna Panel v3.1 now supports:
 - ✅ **Unlimited Servers** - Add as many as you need
 - ✅ **Smart Routing** - Automatic Agent selection
 - ✅ **Visual Metrics** - See server load before deploying

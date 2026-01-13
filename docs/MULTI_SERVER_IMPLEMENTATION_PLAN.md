@@ -1,7 +1,7 @@
 # 🌐 Multi-Server Support Implementation Plan
 
 ## Overview
-Implementasi server selection untuk semua fitur utama Yumna Panel v3.0
+Implementasi server selection untuk semua fitur utama Yumna Panel v3.1
 
 ---
 

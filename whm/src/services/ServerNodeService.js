@@ -39,7 +39,7 @@ class ServerNodeService {
         try {
             // Call Agent API
             const agentUrl = process.env.AGENT_URL || 'http://localhost:4001';
-            const agentSecret = process.env.AGENT_SECRET;
+            const agentSecret = process.env.AGENT_SECRET || 'insecure_default';
 
             const response = await axios.get(`${agentUrl}/heartbeat`, {
                 timeout: 3000,
@@ -133,10 +133,8 @@ class ServerNodeService {
 
             const result = await ssh.execCommand(cmd);
 
-            if (result.stderr) {
-                // If complex command fails, might be non-standard shell, fallback to ping or partial
-                console.warn(`[SERVER-NODES] Remote script stderr for ${server.name}: ${result.stderr}`);
-            }
+            // Also check if Agent Port (4001) is open
+            const isAgentRunning = await this.pingPort(server.ip, 4001);
 
             const [cpuIdle, memTotal, memUsed, diskUsage, uptime] = result.stdout.trim().split(/[\s|]+/);
 
@@ -145,7 +143,7 @@ class ServerNodeService {
 
             await pool.promise().query(
                 `UPDATE servers SET 
-                 status = 'active', 
+                 status = ?, 
                  last_seen = NOW(), 
                  cpu_usage = ?, 
                  ram_usage = ?, 
@@ -153,6 +151,7 @@ class ServerNodeService {
                  uptime = ? 
                  WHERE id = ?`,
                 [
+                    isAgentRunning ? 'active' : 'online', // 'active' means Agent is likely there, 'online' just OS
                     isNaN(cpuUsage) ? 0 : cpuUsage,
                     isNaN(ramUsage) ? 0 : ramUsage,
                     parseFloat(diskUsage) || 0,
@@ -175,7 +174,7 @@ class ServerNodeService {
 
         if (isOnline) {
             await pool.promise().query(
-                `UPDATE servers SET status = 'active', last_seen = NOW() WHERE id = ?`,
+                `UPDATE servers SET status = 'online', last_seen = NOW() WHERE id = ?`,
                 [server.id]
             );
         } else {

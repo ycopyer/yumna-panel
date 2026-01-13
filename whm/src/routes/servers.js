@@ -67,6 +67,31 @@ router.post('/', requireAdmin, async (req, res) => {
     }
 });
 
+// Update server
+router.put('/:id', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, hostname, ip, ssh_user, ssh_password, ssh_port, status } = req.body;
+
+    try {
+        let query = 'UPDATE servers SET name = ?, hostname = ?, ip = ?, ssh_user = ?, ssh_port = ?, status = ?';
+        let params = [name, hostname, ip, ssh_user, ssh_port, status];
+
+        if (ssh_password) {
+            query += ', ssh_password = ?';
+            params.push(encrypt(ssh_password));
+        }
+
+        query += ' WHERE id = ?';
+        params.push(id);
+
+        await pool.promise().query(query, params);
+        res.json({ message: 'Server updated successfully' });
+    } catch (error) {
+        console.error('Update server error:', error);
+        res.status(500).json({ error: 'Failed to update server' });
+    }
+});
+
 // Remove server
 router.delete('/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
@@ -139,6 +164,27 @@ router.get('/:id/logs', requireAdmin, async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+const agentDeploymentService = require('../services/AgentDeploymentService');
+
+// Deploy Agent to Remote Server
+router.post('/:id/deploy-agent', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { dbConfig } = req.body;
+    try {
+        const result = await agentDeploymentService.deploy(id, dbConfig);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Check Deployment Status
+router.get('/:id/deploy-status', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    const status = agentDeploymentService.getDeploymentStatus(id);
+    res.json({ status });
 });
 
 module.exports = router;

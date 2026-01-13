@@ -2,7 +2,7 @@
 
 ## 🎉 FINAL STATUS
 
-**Multi-Server Support untuk Yumna Panel v3.0 telah SELESAI DIIMPLEMENTASIKAN!**
+**Multi-Server Support untuk Yumna Panel v3.1 telah SELESAI DIIMPLEMENTASIKAN!**
 
 ---
 

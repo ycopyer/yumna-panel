@@ -2,7 +2,7 @@
 
 ## 📋 Ringkasan
 
-Yumna Panel v3.0 menggunakan arsitektur **1 WHM (Control Plane)** + **Multiple Agents (Workers)**.
+Yumna Panel v3.1 menggunakan arsitektur **1 WHM (Control Plane)** + **Multiple Agents (Workers)**.
 
 ```
 ┌─────────────────────────────────────┐
@@ -112,7 +112,7 @@ Lihat: `docs/MULTI_SERVER_INTEGRATION.md`
 **A:** Tidak! Cukup 1 Panel GUI untuk mengontrol semua server.
 
 **Q: Berapa banyak server yang bisa diintegrasikan?**
-**A:** Unlimited! Yumna Panel v3.0 dirancang untuk distributed architecture.
+**A:** Unlimited! Yumna Panel v3.1 dirancang untuk distributed architecture.
 
 **Q: Apakah Agent harus di server yang berbeda?**
 **A:** Tidak harus. Anda bisa menjalankan multiple Agents di 1 server (untuk testing).

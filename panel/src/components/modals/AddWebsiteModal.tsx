@@ -37,16 +37,10 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
     const [defaultBaseDir, setDefaultBaseDir] = useState('');
 
     React.useEffect(() => {
-        // Fetch server defaults
-        axios.get('/api/websites/defaults')
-            .then(res => setDefaultBaseDir(res.data.baseDir))
-            .catch(err => console.error('Failed to fetch defaults', err));
-
         // Fetch available servers
         axios.get('/api/websites/servers', { headers: { 'x-user-id': userId } })
             .then(res => {
                 setServers(res.data);
-                // Set default to first server (usually local)
                 if (res.data.length > 0) {
                     setServerId(res.data[0].id);
                 }
@@ -59,6 +53,21 @@ const AddWebsiteModal: React.FC<AddWebsiteModalProps> = ({ userId, userRole, onC
                 .catch(err => console.error('Failed to fetch users', err));
         }
     }, [isAdmin, userId]);
+
+    // Fetch defaults when serverId changes
+    React.useEffect(() => {
+        if (!serverId) return;
+        axios.get(`/api/websites/defaults?serverId=${serverId}`)
+            .then(res => {
+                setDefaultBaseDir(res.data.baseDir);
+                if (domain) {
+                    setRootPath(`${res.data.baseDir}/${domain}`);
+                } else if (!rootPath) {
+                    setRootPath(res.data.baseDir);
+                }
+            })
+            .catch(err => console.error('Failed to fetch defaults', err));
+    }, [serverId, domain]);
 
 
 

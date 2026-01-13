@@ -99,6 +99,41 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
     const [sshPort, setSshPort] = useState(22);
     const [status, setStatus] = useState<'active' | 'offline' | 'maintenance'>('active');
 
+    const [deployingIds, setDeployingIds] = useState<number[]>([]);
+
+    // Deploy Auth/DB states
+    const [showDeployModal, setShowDeployModal] = useState<number | null>(null);
+    const [deployDbHost, setDeployDbHost] = useState('localhost');
+    const [deployDbUser, setDeployDbUser] = useState('yumna_agent');
+    const [deployDbPass, setDeployDbPass] = useState('yumna_password');
+
+    const handleDeploy = async (id: number) => {
+        setDeployingIds(prev => [...prev, id]);
+        setShowDeployModal(null);
+        try {
+            const dbConfig = {
+                db_host: deployDbHost,
+                db_user: deployDbUser,
+                db_pass: deployDbPass
+            };
+            await axios.post(`/api/servers/${id}/deploy-agent`, { dbConfig }, { headers: { 'x-user-id': userId } });
+            alert('Deployment started in background. Please wait a few minutes.');
+
+            // Start polling status
+            const poll = setInterval(async () => {
+                const res = await axios.get(`/api/servers/${id}/deploy-status`, { headers: { 'x-user-id': userId } });
+                if (res.data.status === 'success' || res.data.status === 'failed') {
+                    clearInterval(poll);
+                    setDeployingIds(prev => prev.filter(p => p !== id));
+                    fetchServers();
+                }
+            }, 5000);
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Deployment failed to start');
+            setDeployingIds(prev => prev.filter(p => p !== id));
+        }
+    };
+
     useEffect(() => {
         fetchServers();
         const interval = setInterval(fetchServers, 30000); // Poll every 30s
@@ -164,12 +199,12 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
 
     const startEdit = (server: ServerNode) => {
         setEditingServer(server);
-        setName(server.name);
-        setHostname(server.hostname);
-        setIp(server.ip);
-        setSshUser(server.ssh_user);
-        setSshPort(server.ssh_port);
-        setStatus(server.status);
+        setName(server.name || '');
+        setHostname(server.hostname || '');
+        setIp(server.ip || '');
+        setSshUser(server.ssh_user || 'root');
+        setSshPort(server.ssh_port || 22);
+        setStatus(server.status || 'active');
         setSshPass('');
         setIsAdding(true);
     };
@@ -450,6 +485,21 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                         </div>
 
                                                         <div className="flex gap-2">
+                                                            {!server.is_local && (
+                                                                <button
+                                                                    onClick={() => setShowDeployModal(server.id)}
+                                                                    disabled={deployingIds.includes(server.id)}
+                                                                    className={`p-3 bg-indigo-500/10 hover:bg-indigo-500 hover:text-white text-indigo-400 rounded-xl transition-all border border-indigo-500/20 hover:scale-110 active:scale-95 hover:shadow-lg hover:shadow-indigo-500/20 flex items-center gap-2 ${deployingIds.includes(server.id) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                    title="Re-install/Deploy Agent via SSH"
+                                                                >
+                                                                    {deployingIds.includes(server.id) ? (
+                                                                        <Loader2 size={16} className="animate-spin" />
+                                                                    ) : (
+                                                                        <Zap size={16} />
+                                                                    )}
+                                                                    <span className="text-[9px] font-black uppercase">Deploy Agent</span>
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 onClick={() => handleSync(server.id)}
                                                                 className="p-3 bg-white/5 hover:bg-blue-500 hover:text-white text-blue-400/60 rounded-xl transition-all border border-white/5 hover:border-blue-500 hover:scale-110 active:scale-95 hover:shadow-lg hover:shadow-blue-500/20"
@@ -497,6 +547,82 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                     )}
                 </AnimatePresence>
             </div>
+            {/* Deployment Config Modal */}
+            <AnimatePresence>
+                {showDeployModal && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setShowDeployModal(null)}
+                            className="absolute inset-0 bg-black/80 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            className="relative w-full max-w-lg bg-gray-950 border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden p-8"
+                        >
+                            <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+
+                            <h3 className="text-2xl font-black text-white mb-2 flex items-center gap-3">
+                                <Zap className="text-indigo-400" size={24} />
+                                Deploy Agent Configuration
+                            </h3>
+                            <p className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em] mb-8 border-b border-white/5 pb-6">
+                                Set credentials for the remote agent database
+                            </p>
+
+                            <div className="space-y-6 mb-10">
+                                <div>
+                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block">Agent Database Host</label>
+                                    <input
+                                        value={deployDbHost}
+                                        onChange={e => setDeployDbHost(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:border-indigo-500/50"
+                                        placeholder="localhost"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block">Agent Database User</label>
+                                    <input
+                                        value={deployDbUser}
+                                        onChange={e => setDeployDbUser(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:border-indigo-500/50"
+                                        placeholder="yumna_agent"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block">Agent Database Password</label>
+                                    <input
+                                        type="password"
+                                        value={deployDbPass}
+                                        onChange={e => setDeployDbPass(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white font-bold focus:outline-none focus:border-indigo-500/50"
+                                        placeholder="yumna_password"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button
+                                    onClick={() => setShowDeployModal(null)}
+                                    className="flex-1 px-6 py-4 bg-white/5 hover:bg-white/10 text-white/60 hover:text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleDeploy(showDeployModal)}
+                                    className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl py-4 text-[11px] font-black uppercase tracking-widest shadow-xl shadow-indigo-600/20 transition-all transform active:scale-95"
+                                >
+                                    Start Deployment
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

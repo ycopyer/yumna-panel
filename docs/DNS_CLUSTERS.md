@@ -2,7 +2,7 @@
 
 ## Overview
 
-Yumna Panel v3.0 includes comprehensive DNS server clustering with PowerDNS integration, enabling true DNS hosting with high availability, automatic zone synchronization, and DNSSEC support.
+Yumna Panel v3.1 includes comprehensive DNS server clustering with PowerDNS integration, enabling true DNS hosting with high availability, automatic zone synchronization, and DNSSEC support.
 
 ## Features
 

@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Yumna Panel v3.0 sekarang mendukung **multi-server deployment** untuk semua fitur utama. User dapat memilih server mana yang akan digunakan saat membuat resources.
+Yumna Panel v3.1 sekarang mendukung **multi-server deployment** untuk semua fitur utama. User dapat memilih server mana yang akan digunakan saat membuat resources.
 
 ---
 

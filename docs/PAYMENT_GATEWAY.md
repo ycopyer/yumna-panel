@@ -2,7 +2,7 @@
 
 ## Overview
 
-Yumna Panel v3.0 includes comprehensive payment gateway integration supporting multiple payment providers including Stripe, PayPal, and manual payment methods. This guide covers setup, configuration, and usage.
+Yumna Panel v3.1 includes comprehensive payment gateway integration supporting multiple payment providers including Stripe, PayPal, and manual payment methods. This guide covers setup, configuration, and usage.
 
 ## Supported Payment Gateways
 

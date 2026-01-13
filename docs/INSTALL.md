@@ -1,4 +1,4 @@
-# 🛠️ Yumna Panel v3.0 - Installation Guide
+# 🛠️ Yumna Panel v3.1 - Installation Guide
 
 ## 📋 System Requirements
 
@@ -9,7 +9,7 @@
 - **Network**: Public IP Address
 
 ### OS Support (Universal)
-Yumna Panel v3.0 features a universal installer that automatically detects your OS:
+Yumna Panel v3.1 features a universal installer that automatically detects your OS:
 
 **🐧 Linux**
 - **Debian Family**: Ubuntu 20.04+, Debian 11+ (Uses `apt`)
