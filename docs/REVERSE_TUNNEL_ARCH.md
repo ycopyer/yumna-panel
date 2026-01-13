@@ -113,7 +113,7 @@ Keamanan adalah prioritas utama karena kita membuka jalan masuk ke server privat
 ### Milestone 2: Command Routing (Minggu 2)
 - [x] Routing Heartbeat via Tunnel.
 - [x] Routing Server Stats via Tunnel.
-- [ ] Tampilan indikator "Tunnel Active" di Dashboard Node Orchestration.
+- [x] Tampilan indikator "Tunnel Active" di Dashboard Node Orchestration.
 
 ### Milestone 3: Advanced Features (Minggu 3) (Next Step)
 - [ ] Remote Shell / Terminal via Tunnel (WebSSH lewat Tunnel).
