@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Server, Plus, Trash2, Edit2, Shield, Activity, X, Save, Loader2, Globe, Cpu, HardDrive, RefreshCw, Zap, Clock, Wifi, ChevronDown, ChevronUp, Link2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NodeUsageChart from './NodeUsageChart';
+import TunnelTerminal from './TunnelTerminal';
 
 interface ServerNode {
     id: number;
@@ -100,6 +101,7 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
 
     // Deploy Auth/DB states
     const [showDeployModal, setShowDeployModal] = useState<number | null>(null);
+    const [showTerminal, setShowTerminal] = useState<number | null>(null); // New Terminal State
     const [deployDbHost, setDeployDbHost] = useState('localhost');
     const [deployDbUser, setDeployDbUser] = useState('yumna_agent');
     const [deployDbPass, setDeployDbPass] = useState('yumna_password');
@@ -484,6 +486,19 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                         </div>
 
                                                         <div className="flex gap-2">
+                                                            {server.connection_type === 'tunnel' && (
+                                                                <button
+                                                                    onClick={() => setShowTerminal(server.id)}
+                                                                    className="p-3 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-400 rounded-xl transition-all border border-emerald-500/20 hover:scale-110 active:scale-95 hover:shadow-lg hover:shadow-emerald-500/20 flex items-center gap-2"
+                                                                    title="Open Remote Tunnel Shell"
+                                                                >
+                                                                    <div className="relative">
+                                                                        <Server size={16} />
+                                                                        <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                                                                    </div>
+                                                                    <span className="text-[9px] font-black uppercase hidden 2xl:block">Shell</span>
+                                                                </button>
+                                                            )}
                                                             {!server.is_local && (
                                                                 <button
                                                                     onClick={() => setShowDeployModal(server.id)}
@@ -547,6 +562,13 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                 </AnimatePresence>
             </div>
             <AnimatePresence>
+                {showTerminal && (
+                    <TunnelTerminal
+                        serverId={showTerminal}
+                        userId={userId}
+                        onClose={() => setShowTerminal(null)}
+                    />
+                )}
                 {showDeployModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                         <motion.div

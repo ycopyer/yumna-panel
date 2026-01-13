@@ -1,13 +1,15 @@
 const WebSocket = require('ws');
 const StatsService = require('./StatsService');
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
 
 class TunnelClientService {
     constructor() {
         this.ws = null;
         this.reconnectTimeout = null;
         this.isConnected = false;
+        this.isConnected = false;
         this.config = {};
+        this.shellSessions = new Map(); // shellId -> process
     }
 
     start() {
@@ -84,6 +86,10 @@ class TunnelClientService {
         if (payload.type === 'EXEC_COMMAND') {
             this.executeCommand(payload);
         }
+
+        if (payload.type === 'START_SHELL') this.startShell(payload);
+        if (payload.type === 'SHELL_INPUT') this.inputShell(payload);
+        if (payload.type === 'KILL_SHELL') this.killShell(payload);
     }
 
     async executeCommand(payload) {
@@ -114,6 +120,82 @@ class TunnelClientService {
         }
 
         this.sendError(requestId, 'Unknown command service');
+    }
+
+    startShell({ requestId, data }) {
+        const shellId = data.shellId || requestId;
+        // Detect shell: PowerShell on Windows, bash on Linux
+        const shellCmd = process.platform === 'win32' ? 'powershell.exe' : '/bin/bash';
+
+        console.log(`[TUNNEL] Spawning shell [${shellId}]: ${shellCmd}`);
+
+        try {
+            const p = spawn(shellCmd, [], {
+                cwd: process.cwd(),
+                stdio: ['pipe', 'pipe', 'pipe']
+            });
+
+            this.shellSessions.set(shellId, p);
+
+            p.stdout.on('data', (chunk) => {
+                this.sendShellData(shellId, 'stdout', chunk);
+            });
+
+            p.stderr.on('data', (chunk) => {
+                this.sendShellData(shellId, 'stderr', chunk);
+            });
+
+            p.on('close', (code) => {
+                console.log(`[TUNNEL] Shell [${shellId}] exited with code ${code}`);
+                if (this.ws && this.isConnected) {
+                    this.ws.send(JSON.stringify({
+                        type: 'SHELL_EXIT',
+                        shellId,
+                        code
+                    }));
+                }
+                this.shellSessions.delete(shellId);
+            });
+
+            p.on('error', (err) => {
+                this.sendError(requestId, `Failed to spawn shell: ${err.message}`);
+            });
+
+            this.sendResponse(requestId, { shellId, status: 'started' });
+        } catch (e) {
+            this.sendError(requestId, `Exception spawning shell: ${e.message}`);
+        }
+    }
+
+    inputShell({ data }) { // data: { shellId, input (base64) }
+        const p = this.shellSessions.get(data.shellId);
+        if (p && data.input) {
+            try {
+                const buf = Buffer.from(data.input, 'base64');
+                p.stdin.write(buf);
+            } catch (e) {
+                console.error(`[TUNNEL] Input error for ${data.shellId}:`, e);
+            }
+        }
+    }
+
+    killShell({ data }) {
+        const p = this.shellSessions.get(data.shellId);
+        if (p) {
+            p.kill();
+            this.shellSessions.delete(data.shellId);
+            console.log(`[TUNNEL] Killed shell [${data.shellId}]`);
+        }
+    }
+
+    sendShellData(shellId, stream, buffer) {
+        if (!this.ws || !this.isConnected) return;
+        this.ws.send(JSON.stringify({
+            type: 'SHELL_OUTPUT',
+            shellId,
+            stream,
+            data: buffer.toString('base64')
+        }));
     }
 
     sendResponse(requestId, data) {

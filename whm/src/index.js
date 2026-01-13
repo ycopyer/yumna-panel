@@ -41,6 +41,7 @@ app.use('/api/plugins', require('./routes/plugins'));
 app.use('/api/analytics', require('./routes/analytics'));
 app.use('/api/git', require('./routes/git'));
 app.use('/api/task', require('./routes/tasks'));
+app.use('/api/terminal', require('./routes/terminal'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/cloud', require('./routes/cloud'));
 app.use('/api/commercial', require('./routes/commercial'));

@@ -7,6 +7,7 @@ class TunnelManagerService {
         this.wss = null;
         this.activeTunnels = new Map(); // Map<agentId, WebSocket>
         this.pendingRequests = new Map(); // Map<requestId, {resolve, reject, timeout}>
+        this.shellBuffers = new Map(); // shellId -> Array<{stream, data}>
     }
 
     /**
@@ -127,10 +128,46 @@ class TunnelManagerService {
         }
 
         // 2. Is it a heartbeat push?
+        // 2. Is it a heartbeat push?
         if (payload.type === 'HEARTBEAT') {
             this.handleHeartbeat(agentId, payload.data);
             return;
         }
+
+        // 3. Shell Output
+        if (payload.type === 'SHELL_OUTPUT') {
+            this.handleShellOutput(agentId, payload);
+            return;
+        }
+
+        if (payload.type === 'SHELL_EXIT') {
+            // Maybe notify frontend or close buffer
+            this.handleShellOutput(agentId, { ...payload, stream: 'system', data: btoa(`Exited with code ${payload.code}`) });
+            return;
+        }
+    }
+
+    handleShellOutput(agentId, { shellId, stream, data }) {
+        if (!this.shellBuffers.has(shellId)) {
+            this.shellBuffers.set(shellId, []);
+        }
+
+        // Data comes as base64 from agent
+        this.shellBuffers.get(shellId).push({ stream, data, timestamp: Date.now() });
+
+        // Limit buffer size to prevent memory leaks
+        const buf = this.shellBuffers.get(shellId);
+        if (buf.length > 2000) buf.shift(); // overflow
+    }
+
+    /**
+     * Consume buffered output for a shell session
+     */
+    consumeShellBuffer(shellId) {
+        if (!this.shellBuffers.has(shellId)) return [];
+        const data = this.shellBuffers.get(shellId);
+        this.shellBuffers.set(shellId, []); // clear
+        return data;
     }
 
     async handleHeartbeat(agentId, data) {

@@ -116,7 +116,7 @@ Keamanan adalah prioritas utama karena kita membuka jalan masuk ke server privat
 - [x] Tampilan indikator "Tunnel Active" di Dashboard Node Orchestration.
 
 ### Milestone 3: Advanced Features (Minggu 3) (Next Step)
-- [ ] Remote Shell / Terminal via Tunnel (WebSSH lewat Tunnel).
+- [x] Remote Shell / Terminal via Tunnel (WebSSH lewat Tunnel).
 - [ ] File Transfer via Tunnel (Chunked Binary Transfer).
 
 ## 7. Configuration Example
