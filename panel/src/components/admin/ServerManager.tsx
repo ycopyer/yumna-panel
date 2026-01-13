@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Server, Plus, Trash2, Edit2, Shield, Activity, X, Save, Loader2, Globe, Cpu, HardDrive, RefreshCw, Zap, Clock, Wifi, ChevronDown, ChevronUp, Link2 } from 'lucide-react';
+import { Server, Plus, Trash2, Edit2, Shield, Activity, X, Save, Loader2, Globe, Cpu, HardDrive, RefreshCw, Zap, Clock, Wifi, ChevronDown, ChevronUp, Link2, Copy, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import NodeUsageChart from './NodeUsageChart';
 import TunnelTerminal from './TunnelTerminal';
@@ -97,6 +97,13 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
     const [sshPort, setSshPort] = useState(22);
     const [status, setStatus] = useState<'active' | 'offline' | 'maintenance' | 'online' | 'connection_error'>('active');
 
+    // Tunnel & Provisioning States
+    const [connectionType, setConnectionType] = useState<'direct' | 'tunnel'>('direct');
+    const [agentId, setAgentId] = useState('');
+    const [agentSecret, setAgentSecret] = useState('');
+    const [installCommand, setInstallCommand] = useState<string | null>(null);
+    const [copied, setCopied] = useState(false);
+
     const [deployingIds, setDeployingIds] = useState<number[]>([]);
 
     // Deploy Auth/DB states
@@ -166,16 +173,26 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            const data = { name, hostname, ip, ssh_user: sshUser, ssh_password: sshPass || undefined, ssh_port: sshPort, status };
-            if (editingServer) {
-                await axios.put(`/api/servers/${editingServer.id}`, data, { headers: { 'x-user-id': userId } });
+            if (connectionType === 'tunnel' && !editingServer) {
+                const res = await axios.post('/api/servers/tunnel', { name, agentId, agentSecret }, { headers: { 'x-user-id': userId } });
+                setInstallCommand(res.data.installCommand);
+                fetchServers();
+                // Don't reset form yet
             } else {
-                await axios.post('/api/servers', data, { headers: { 'x-user-id': userId } });
+                const data = {
+                    name, hostname, ip, ssh_user: sshUser, ssh_password: sshPass || undefined, ssh_port: sshPort, status,
+                    connection_type: connectionType
+                };
+                if (editingServer) {
+                    await axios.put(`/api/servers/${editingServer.id}`, data, { headers: { 'x-user-id': userId } });
+                } else {
+                    await axios.post('/api/servers', data, { headers: { 'x-user-id': userId } });
+                    resetForm();
+                }
+                fetchServers();
             }
-            fetchServers();
-            resetForm();
-        } catch (err) {
-            alert('Operation failed');
+        } catch (err: any) {
+            alert(err.response?.data?.error || 'Operation failed');
         } finally {
             setSubmitting(false);
         }
@@ -191,6 +208,11 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
         setStatus('active');
         setIsAdding(false);
         setEditingServer(null);
+        setConnectionType('direct');
+        setAgentId('');
+        setAgentSecret('');
+        setInstallCommand(null);
+        setCopied(false);
     };
 
     const startEdit = (server: ServerNode) => {
@@ -202,6 +224,8 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
         setSshPort(server.ssh_port || 22);
         setStatus(server.status || 'active');
         setSshPass('');
+        setConnectionType(server.connection_type || 'direct');
+        setAgentId(server.agent_id || '');
         setIsAdding(true);
     };
 
@@ -274,60 +298,102 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                     <div className="absolute -top-32 -right-32 w-96 h-96 bg-indigo-500/10 rounded-full blur-[100px] pointer-events-none" />
 
                                     <div className="relative z-10">
-                                        <h3 className="text-2xl font-black text-white mb-10 flex items-center gap-4 border-b border-white/5 pb-6">
+                                        <h3 className="text-2xl font-black text-white mb-6 flex items-center gap-4 border-b border-white/5 pb-6">
                                             {editingServer ? <Edit2 className="text-indigo-400" /> : <Plus className="text-indigo-400" />}
                                             {editingServer ? `Configuration: ${editingServer.name}` : 'New Node Provisioning'}
                                         </h3>
 
-                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-                                            <div className="space-y-8">
-                                                <div className="group">
-                                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Display Name</label>
-                                                    <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="e.g. Frankfurt-Node-01" required />
-                                                </div>
-                                                <div className="group">
-                                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Hostname / Domain</label>
-                                                    <input value={hostname} onChange={e => setHostname(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg text-mono" placeholder="node1.yumnapanel.com" required />
-                                                </div>
-                                                <div className="group">
-                                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">IP Address</label>
-                                                    <input value={ip} onChange={e => setIp(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg text-mono" placeholder="1.2.3.4" required />
-                                                </div>
+                                        {!editingServer && (
+                                            <div className="flex bg-black/40 p-1 rounded-xl mb-8 border border-white/10 w-fit">
+                                                <button type="button" onClick={() => setConnectionType('direct')} className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${connectionType === 'direct' ? 'bg-indigo-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}><Globe size={14} /> Direct SSH</button>
+                                                <button type="button" onClick={() => setConnectionType('tunnel')} className={`px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${connectionType === 'tunnel' ? 'bg-emerald-600 text-white shadow-lg' : 'text-white/40 hover:text-white/70'}`}><Link2 size={14} /> Reverse Tunnel</button>
                                             </div>
+                                        )}
 
-                                            <div className="space-y-8">
-                                                <div className="grid grid-cols-2 gap-6">
-                                                    <div>
-                                                        <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">SSH User</label>
-                                                        <input value={sshUser} onChange={e => setSshUser(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="root" />
+                                        {installCommand ? (
+                                            <div className="space-y-6 animate-fade">
+                                                <div className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-2xl">
+                                                    <div className="flex items-center gap-3 mb-4 text-emerald-400">
+                                                        <Check size={24} className="animate-bounce" />
+                                                        <h4 className="text-lg font-bold">Tunnel Server Created!</h4>
                                                     </div>
-                                                    <div>
-                                                        <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">SSH Port</label>
-                                                        <input type="number" value={sshPort} onChange={e => setSshPort(Number(e.target.value))} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="22" />
+                                                    <p className="text-white/60 mb-6 text-sm">Run this command on your remote server to install the agent and connect automatically.</p>
+                                                    <div className="relative group">
+                                                        <pre className="bg-black/50 border border-white/10 p-4 rounded-xl text-emerald-400 font-mono text-xs break-all whitespace-pre-wrap selection:bg-emerald-500/30">{installCommand}</pre>
+                                                        <button type="button" onClick={() => { navigator.clipboard.writeText(installCommand); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="absolute top-2 right-2 p-2 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all">{copied ? <Check size={14} /> : <Copy size={14} />}</button>
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">SSH Password {editingServer && '(Empty to retain)'}</label>
-                                                    <input type="password" value={sshPass} onChange={e => setSshPass(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="••••••••" required={!editingServer} />
+                                                <button type="button" onClick={resetForm} className="w-full py-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-white uppercase text-xs tracking-widest transition-all">Done</button>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                                                <div className="space-y-8">
+                                                    <div className="group">
+                                                        <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Display Name</label>
+                                                        <input value={name} onChange={e => setName(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="e.g. Node-01" required />
+                                                    </div>
+                                                    {connectionType === 'direct' ? (
+                                                        <>
+                                                            <div className="group">
+                                                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Hostname / Domain</label>
+                                                                <input value={hostname} onChange={e => setHostname(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg text-mono" placeholder="node1.yumnapanel.com" required />
+                                                            </div>
+                                                            <div className="group">
+                                                                <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">IP Address</label>
+                                                                <input value={ip} onChange={e => setIp(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg text-mono" placeholder="1.2.3.4" required />
+                                                            </div>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <div className="group">
+                                                                <label className="text-[10px] font-black text-emerald-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Agent ID (Optional)</label>
+                                                                <input value={agentId} onChange={e => setAgentId(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-emerald-400 placeholder-white/20 focus:outline-none focus:border-emerald-500/50 focus:bg-emerald-500/5 transition-all font-bold text-lg text-mono" placeholder="Auto-generated if empty" />
+                                                            </div>
+                                                            <div className="group">
+                                                                <label className="text-[10px] font-black text-emerald-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Agent Secret (Optional)</label>
+                                                                <input value={agentSecret} onChange={e => setAgentSecret(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-emerald-400 placeholder-white/20 focus:outline-none focus:border-emerald-500/50 focus:bg-emerald-500/5 transition-all font-bold text-lg text-mono" placeholder="Auto-generated if empty" />
+                                                            </div>
+                                                        </>
+                                                    )}
                                                 </div>
-                                                <div>
-                                                    <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Node Status</label>
-                                                    <select value={status} onChange={e => setStatus(e.target.value as any)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg appearance-none">
-                                                        <option value="active" className="bg-gray-900">Active</option>
-                                                        <option value="offline" className="bg-gray-900">Offline</option>
-                                                        <option value="maintenance" className="bg-gray-900">Maintenance</option>
-                                                    </select>
+
+                                                <div className="space-y-8">
+                                                    {connectionType === 'direct' ? (
+                                                        <>
+                                                            <div className="grid grid-cols-2 gap-6">
+                                                                <div><label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">SSH User</label><input value={sshUser} onChange={e => setSshUser(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="root" /></div>
+                                                                <div><label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">SSH Port</label><input type="number" value={sshPort} onChange={e => setSshPort(Number(e.target.value))} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="22" /></div>
+                                                            </div>
+                                                            <div><label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">SSH Password {editingServer && '(Empty to retain)'}</label><input type="password" value={sshPass} onChange={e => setSshPass(e.target.value)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder-white/20 focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg" placeholder="••••••••" required={!editingServer} /></div>
+                                                        </>
+                                                    ) : (
+                                                        <div className="bg-emerald-500/5 border border-emerald-500/10 p-8 rounded-3xl flex flex-col justify-center h-full">
+                                                            <Activity className="text-emerald-500 mb-4" size={48} />
+                                                            <h4 className="text-xl font-black text-emerald-400 mb-2">Reverse Tunnel Mode</h4>
+                                                            <p className="text-xs text-emerald-300/60 leading-relaxed">The connection will be initiated by the Agent (Outbound) to the Master Panel. No inbound ports required on the agent side. Perfect for NAT/Firewall environments.</p>
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <label className="text-[10px] font-black text-indigo-400 uppercase tracking-widest ml-1 mb-3 block font-mono">Node Status</label>
+                                                        <select value={status} onChange={e => setStatus(e.target.value as any)} className="w-full bg-black/20 border border-white/10 rounded-2xl px-6 py-4 text-white focus:outline-none focus:border-indigo-500/50 focus:bg-indigo-500/5 transition-all font-bold text-lg appearance-none">
+                                                            <option value="active" className="bg-gray-900">Active</option>
+                                                            <option value="offline" className="bg-gray-900">Offline</option>
+                                                            <option value="maintenance" className="bg-gray-900">Maintenance</option>
+                                                        </select>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </div>
                                 </div>
 
-                                <div className="flex gap-4">
-                                    <button type="submit" disabled={submitting} className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-2xl py-6 text-xs font-black uppercase tracking-widest shadow-2xl shadow-indigo-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-3 transform active:scale-95">
-                                        {submitting ? <Loader2 className="animate-spin" /> : <><Save size={18} /> {editingServer ? 'Update Configuration' : 'Initialize Provisioning'}</>}
-                                    </button>
-                                </div>
+                                {!installCommand && (
+                                    <div className="flex gap-4">
+                                        <button type="submit" disabled={submitting} className="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white rounded-2xl py-6 text-xs font-black uppercase tracking-widest shadow-2xl shadow-indigo-600/20 transition-all disabled:opacity-50 flex items-center justify-center gap-3 transform active:scale-95">
+                                            {submitting ? <Loader2 className="animate-spin" /> : <><Save size={18} /> {editingServer ? 'Update Configuration' : 'Initialize Provisioning'}</>}
+                                        </button>
+                                    </div>
+                                )}
                             </form>
                         </motion.div>
                     ) : (
