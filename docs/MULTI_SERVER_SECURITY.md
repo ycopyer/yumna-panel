@@ -102,7 +102,13 @@ ufw enable
 ### **3. SSL for Agent**
 Jangan jalankan Agent via HTTP di public network. Gunakan Reverse Proxy (Nginx) di depan Agent untuk handle SSL, atau setup Stunnel.
 
-### **4. Database Access**
+### **4. Centralized SSL Management Security**
+Mulai v3.1, seluruh private key dan sertifikat dikelola secara terpusat oleh WHM (Master Node).
+*   **Zero Certbot on Agent**: Tidak perlu menginstal Certbot atau ACME client di node Agent, meminimalkan attack surface.
+*   **SSH Tunneling**: Sertifikat dikirimkan dari Master ke Agent melalui koneksi SSH terenkripsi (`putFile`), memastikan key tidak pernah terekspos di jaringan publik.
+*   **Encrypted Storage**: Seluruh sertifikat disimpan dalam folder terproteksi di Master Node.
+
+### **5. Database Access**
 Jangan gunakan `root` user untuk koneksi aplikasi. Buat user spesifik per database.
 
 ---

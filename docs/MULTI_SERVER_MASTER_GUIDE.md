@@ -44,7 +44,7 @@ Semua modul utama Yumna Panel kini mendukung pemilihan server secara dinamis:
 *   **FTP Accounts**: Kelola akses file antar server.
 *   **Email Accounts**: Setup mailbox di node yang diinginkan.
 *   **DNS Zones**: Sinkronisasi zona DNS ke PowerDNS cluster.
-*   **SSL Certificates**: Penerbitan sertifikat Let's Encrypt per server.
+*   **SSL Certificates**: Penerbitan sertifikat Let's Encrypt terpusat di Master Node dan disinkronkan otomatis ke node tujuan (Agent tidak butuh Certbot).
 *   **Cron Jobs**: Penjadwalan tugas di server worker tertentu.
 
 ---
@@ -58,9 +58,10 @@ Salah satu fitur unggulan v3.1 adalah kemudahan dalam menambah server baru. Anda
 3.  Simpan, lalu klik ikon **Deploy Agent** (⚡).
 4.  **Flexible Database Backbone**: Sebuah modal premium akan muncul memungkinkan Anda menghubungkan Agent ke host database mana pun (Lokal, Remote, atau Cloud DB) dengan kredensial kustom sesuai infrastruktur Anda.
 5.  Sistem akan otomatis:
-    *   Menginstal Node.js & MariaDB.
+    *   Menginstal Node.js, MariaDB, Nginx, & Apache2 secara otomatis.
+    *   Mentransfer asset sistem (maintenance pages, dll) ke `/opt/yumnapanel/etc/nginx/html`.
     *   Mengunggah file Agent ke `/opt/yumnapanel/agent`.
-    *   Membuat file `.env` yang lengkap.
+    *   Membuat file `.env` yang lengkap dengan konfigurasi otomatis.
     *   Menjalankan Agent sebagai **Systemd Service** (Linux) agar menyala otomatis saat reboot.
 
 ---

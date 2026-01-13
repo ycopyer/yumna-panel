@@ -43,7 +43,8 @@ Di form "Add New Website", Anda akan melihat dropdown **"Deploy to Server"**:
 - **Domain Name**: `example.com`
 - **Document Root**: Auto-generated berdasarkan server
 - **PHP Version**: Pilih versi PHP (7.4 - 8.3)
-- **Web Server Stack**: Nginx / Apache / Hybrid
+- **Web Server Stack**: Pilih stack yang diinginkan (Nginx Standalone / Apache / Hybrid Proxy).
+- **SSL Certificates**: Aktivasi SSL terpusat (Master menerbitkan dan mengirim cert ke Agent).
 - **Deploy to Server**: **Pilih server yang diinginkan** ⭐
 
 ### **5. Klik "Create Website"**
@@ -55,6 +56,7 @@ Sistem akan:
 4. ✅ Agent membuat VHost configuration
 5. ✅ Agent membuat directory website
 6. ✅ Menampilkan konfirmasi: *"Website created successfully on Server B (192.168.1.101)!"*
+7. ✅ Sinkronisasi SSL (Opsional): Master menerbitkan cert dan menaruhnya di `/opt/yumnapanel/etc/ssl` (Linux) atau `C:/YumnaPanel/etc/ssl` (Windows) pada server tujuan.
 
 ---
 
@@ -343,5 +345,5 @@ Fitur yang akan datang:
 ---
 
 **Made with ❤️ by Yumna Panel Team**
-**Version**: 3.0.0
-**Last Updated**: 2026-01-12
+**Version**: 3.1.0
+**Last Updated**: 2026-01-13

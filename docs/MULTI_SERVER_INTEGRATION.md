@@ -92,7 +92,14 @@ Di **Server A** (Control Plane), Anda sekarang dapat menginstal Agent ke **Serve
 3.  Klik **Add Server**.
 4.  Pada list server, klik tombol **"Deploy Agent"** (Ikon ⚡).
 5.  **Konfigurasi Database**: Masukkan kredensial database untuk Agent di modal yang muncul.
-6.  Sistem akan melakukan koneksi SSH, menginstal Node.js, mentransfer file, dan menjalankan service Agent secara otomatis.
+6.  Sistem akan otomatis:
+    *   Melakukan koneksi SSH.
+    *   Menginstal **Node.js, MariaDB, Nginx, dan Apache2**.
+    *   Menyesuaikan path secara otomatis (Format Windows `C:/` atau Linux `/opt/yumnapanel`).
+    *   Mentransfer asset sistem (Maintenance pages, dll).
+    *   Menjalankan service Agent secara otomatis.
+
+> 💡 **Tip SSL**: Dengan v3.1, Anda tidak perlu menginstal Certbot di Server B. Seluruh sertifikat diterbitkan di Server A (Master) dan disinkronkan secara aman ke Server B melalui jalur SSH terenkripsi.
 
 #### **Step 3: Verifikasi via Dashboard**
 
