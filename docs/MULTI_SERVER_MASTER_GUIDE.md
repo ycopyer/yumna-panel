@@ -3,7 +3,8 @@
 ## 🚀 Overview
 Yumna Panel v3.1 memperkenalkan arsitektur **WHM (Web Host Manager) + Agent** yang revolusioner. Dengan arsitektur terdistribusi ini, Anda dapat mengelola puluhan hingga ratusan server dari satu dashboard terpusat tanpa perlu login ke masing-masing server secara manual.
 
-### 🏗️ Arsitektur Sistem
+### 🏗️ Arsitektur Sistem (Flexible & Scalable)
+Arsitektur ini didesain agar sepenuhnya fleksibel; baik database pusat maupun database pada setiap node agent dapat dikonfigurasi secara kustom (lokal maupun remote cluster).
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    YUMNA PANEL v3.1                         │
@@ -15,7 +16,7 @@ Yumna Panel v3.1 memperkenalkan arsitektur **WHM (Web Host Manager) + Agent** ya
 │  ┌────────────────────────────────────────────────────┐     │
 │  │  • Panel GUI (React) - Monitoring & Management     │     │
 │  │  • WHM API (Node.js) - Orchestration Engine        │     │
-│  │  • Central Database - Data Aggregator              │     │
+│  │  • Flexible Database Backbone (Local/Remote)       │     │
 │  └────────────────────────────────────────────────────┘     │
 │                           │                                  │
 │                           │ SSH & HTTP API (Shared Secret)   │
@@ -55,7 +56,7 @@ Salah satu fitur unggulan v3.1 adalah kemudahan dalam menambah server baru. Anda
 1.  Buka menu **Node Orchestration**.
 2.  Klik **Provision Node** dan masukkan IP, User, serta Password SSH server remote.
 3.  Simpan, lalu klik ikon **Deploy Agent** (⚡).
-4.  **Konfigurasi Database Fleksibel**: Sebuah modal akan muncul meminta Anda mengisi kustom `DB_HOST`, `DB_USER`, dan `DB_PASS` untuk Agent tersebut.
+4.  **Flexible Database Backbone**: Sebuah modal premium akan muncul memungkinkan Anda menghubungkan Agent ke host database mana pun (Lokal, Remote, atau Cloud DB) dengan kredensial kustom sesuai infrastruktur Anda.
 5.  Sistem akan otomatis:
     *   Menginstal Node.js & MariaDB.
     *   Mengunggah file Agent ke `/opt/yumnapanel/agent`.
