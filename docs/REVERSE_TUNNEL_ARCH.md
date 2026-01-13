@@ -1,7 +1,7 @@
 # Yumna Tunnel: Reverse Connection Architecture for NAT Routing
 > **Status**: Implemented / Integrated
 > **Version**: 1.0.0
-> **Released in**: Yumna Panel v3.1 (Experimental)
+> **Released in**: Yumna Panel v3.2
 
 ## 1. Overview
 Fitur ini memungkinkan **Agent Nodes** yang berada di dalam jaringan privat (di belakang NAT/Firewall) atau tanpa IP Public untuk dikelola sepenuhnya oleh **Master Node** (WHM). 
@@ -105,17 +105,17 @@ Keamanan adalah prioritas utama karena kita membuka jalan masuk ke server privat
 ## 6. Implementation Roadmap
 
 ### Milestone 1: Core Tunneling (Minggu 1)
-- [ ] Setup WebSocket Server di WHM.
-- [ ] Setup WebSocket Client di Agent.
-- [ ] Implementasi Auth Handshake.
-- [ ] Tes koneksi Keep-Alive (Ping/Pong).
+- [x] Setup WebSocket Server di WHM.
+- [x] Setup WebSocket Client di Agent.
+- [x] Implementasi Auth Handshake.
+- [x] Tes koneksi Keep-Alive (Ping/Pong).
 
 ### Milestone 2: Command Routing (Minggu 2)
-- [ ] Routing Heartbeat via Tunnel.
-- [ ] Routing Server Stats via Tunnel.
+- [x] Routing Heartbeat via Tunnel.
+- [x] Routing Server Stats via Tunnel.
 - [ ] Tampilan indikator "Tunnel Active" di Dashboard Node Orchestration.
 
-### Milestone 3: Advanced Features (Minggu 3)
+### Milestone 3: Advanced Features (Minggu 3) (Next Step)
 - [ ] Remote Shell / Terminal via Tunnel (WebSSH lewat Tunnel).
 - [ ] File Transfer via Tunnel (Chunked Binary Transfer).
 
