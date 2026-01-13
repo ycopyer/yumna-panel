@@ -43,89 +43,71 @@ router.get('/', requireAuth, async (req, res) => {
     }
 });
 
-// POST /api/ssl/letsencrypt - Issue Cert
+// POST /api/ssl/letsencrypt - Issue Cert (Centralized)
 router.post('/letsencrypt', requireAuth, async (req, res) => {
     const { domain, wildcard } = req.body;
     const userId = req.userId;
     const isAdmin = req.userRole === 'admin';
+    const SSLMasterService = require('../services/SSLMasterService');
 
     if (!domain) return res.status(400).json({ error: 'Domain name is required' });
 
     const connection = await pool.promise().getConnection();
     try {
-        // 1. Find website for root path
+        // 1. Find website and server info
         const [webs] = await connection.query('SELECT * FROM websites WHERE domain = ?', [domain]);
         if (webs.length === 0) return res.status(404).json({ error: `Website for domain ${domain} not found.` });
 
         const website = webs[0];
         if (!isAdmin && website.userId != userId) return res.status(403).json({ error: 'Access denied' });
 
-        // 2. Get server info
         const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [website.serverId || 1]);
-        if (serverRows.length === 0) {
-            throw new Error('Server not found for this website');
-        }
+        if (serverRows.length === 0) throw new Error('Server not found for this website');
         const server = serverRows[0];
 
-        // 3. Determine Agent URL
-        const agentUrl = server.is_local
-            ? (process.env.AGENT_URL || 'http://localhost:4001')
-            : `http://${server.ip}:4001`;
+        // 2. Issuance on Master -> Push to Agent
+        console.log(`[SSL] Centralized Issuance for ${domain}...`);
+        const result = await SSLMasterService.issueAndPush(domain, server.id, wildcard);
 
+        // 3. Update VHost on Agent to use the new cert
+        const agentUrl = server.is_local ? (process.env.AGENT_URL || 'http://localhost:4001') : `http://${server.ip}:4001`;
         const agentClient = axios.create({
             baseURL: agentUrl,
             headers: { 'X-Agent-Secret': AGENT_SECRET },
-            timeout: 30000 // SSL operations can take time
+            timeout: 10000
         });
 
-        // 4. Call Agent to issue cert
-        const agentRes = await agentClient.post('/ssl/letsencrypt', {
-            domain,
-            rootPath: website.rootPath,
-            wildcard
-        });
-
-        // 5. Update VHost on Agent to enable SSL
         await agentClient.post('/web/vhost', {
             domain: website.domain,
             rootPath: website.rootPath,
             phpVersion: website.phpVersion,
             stack: website.webStack,
             ssl: true
+            // WebServerService will find the certs at the default path we pushed to
         });
 
-        // 6. Record in WHM DB
+        // 4. Record in WHM DB
         const expiry = new Date();
         expiry.setMonth(expiry.getMonth() + 3);
 
+        const certPath = server.is_local ? `C:/YumnaPanel/etc/ssl/${domain}-chain.pem` : `/opt/yumnapanel/etc/ssl/${domain}-chain.pem`;
+        const keyPath = server.is_local ? `C:/YumnaPanel/etc/ssl/${domain}-key.pem` : `/opt/yumnapanel/etc/ssl/${domain}-key.pem`;
+
         await connection.query(
             'INSERT INTO ssl_certificates (userId, serverId, domain, cert_path, key_path, fullchain_path, expiry_date, provider, status, wildcard) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [
-                website.userId, website.serverId, domain,
-                `/etc/ssl/${domain}-chain.pem`,
-                `/etc/ssl/${domain}-key.pem`,
-                `/etc/ssl/${domain}-chain.pem`,
-                expiry, 'letsencrypt', 'active', wildcard ? 1 : 0
-            ]
+            [website.userId, website.serverId, domain, certPath, keyPath, certPath, expiry, 'letsencrypt', 'active', wildcard ? 1 : 0]
         );
 
-        // 7. Update website table
+        // 5. Update website table
         await connection.query('UPDATE websites SET sslEnabled = 1 WHERE id = ?', [website.id]);
 
-        console.log(`[SSL] Certificate issued for "${domain}" on server "${server.name}"`);
-
         res.json({
-            message: 'Let\'s Encrypt certificate issued and applied successfully!',
-            details: agentRes.data,
-            server: {
-                id: server.id,
-                name: server.name,
-                ip: server.ip
-            }
+            message: 'Certificate issued centralized on Master and pushed to Agent successfully!',
+            details: result
         });
     } catch (err) {
-        console.error('[WHM] SSL Issue Error:', err.response?.data || err.message);
-        res.status(500).json({ error: err.response?.data?.error || err.message });
+        console.error('[WHM-SSL] Error:', err.message);
+        res.status(500).json({ error: err.message });
     } finally {
         connection.release();
     }

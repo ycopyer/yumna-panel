@@ -67,22 +67,22 @@ class AgentDeploymentService {
                 if (isDebian) {
                     bootstrapCmds = [
                         'sudo apt-get update -y',
-                        'sudo apt-get install -y curl git build-essential python3 mariadb-server',
+                        'sudo apt-get install -y curl git build-essential python3 mariadb-server nginx apache2',
                         'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -',
                         'sudo apt-get install -y nodejs'
                     ];
                 } else if (isRHEL) {
                     bootstrapCmds = [
                         'sudo dnf update -y || sudo yum update -y',
-                        'sudo dnf install -y curl git make gcc-c++ python3 mariadb-server || sudo yum install -y curl git make gcc-c++ python3 mariadb-server',
+                        'sudo dnf install -y curl git make gcc-c++ python3 mariadb-server nginx httpd || sudo yum install -y curl git make gcc-c++ python3 mariadb-server nginx httpd',
                         'curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -',
                         'sudo dnf install -y nodejs || sudo yum install -y nodejs'
                     ];
                 } else {
-                    // Generic fallback (might fail, but gives a chance)
+                    // Generic fallback
                     bootstrapCmds = [
                         'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - || curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -',
-                        'sudo apt-get install -y nodejs mariadb-server || sudo dnf install -y nodejs mariadb-server || sudo yum install -y nodejs mariadb-server'
+                        'sudo apt-get install -y nodejs mariadb-server nginx apache2 || sudo dnf install -y nodejs mariadb-server nginx httpd'
                     ];
                 }
 
@@ -115,6 +115,12 @@ class AgentDeploymentService {
                         return base !== 'node_modules' && base !== '.env' && base !== '.git';
                     }
                 });
+
+                // Transfer etc/nginx/html for maintenance pages
+                const etcHtmlSource = 'c:/YumnaPanel/etc/nginx/html';
+                const etcHtmlDest = '/opt/yumnapanel/etc/nginx/html';
+                await ssh.execCommand(`mkdir -p ${etcHtmlDest}`);
+                await ssh.putDirectory(etcHtmlSource, etcHtmlDest, { recursive: true });
 
                 // 3. NPM Install & Config
                 console.log(`[DEPLOY] Setting up agent dependencies on ${server.name}...`);
@@ -199,6 +205,12 @@ WantedBy=multi-user.target
 
                 // Transfer
                 await ssh.putDirectory(agentDir, remoteDir, { recursive: true });
+
+                // Transfer etc/nginx/html for maintenance pages
+                const etcHtmlSource = 'c:/YumnaPanel/etc/nginx/html';
+                const etcHtmlDest = `${path.dirname(remoteDir)}/etc/nginx/html`;
+                await ssh.execCommand(`mkdir -p ${etcHtmlDest}`);
+                await ssh.putDirectory(etcHtmlSource, etcHtmlDest, { recursive: true });
 
                 // Config
                 const envContent = envEntries.join('\n');

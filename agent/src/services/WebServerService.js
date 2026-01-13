@@ -10,17 +10,21 @@ class WebServerService {
      */
     static getConfigs() {
         const isWin = os.platform() === 'win32';
-        const panelRoot = 'C:\\YumnaPanel';
+        const panelRoot = isWin ? 'C:/YumnaPanel' : '/opt/yumnapanel';
 
         if (isWin) {
-            const nginxBase = `${panelRoot}\\bin\\web\\nginx`;
-            const nginxConfig = `${panelRoot}\\etc\\nginx`;
+            const nginxBase = `C:\\YumnaPanel\\bin\\web\\nginx`;
+            const nginxConfig = `C:\\YumnaPanel\\etc\\nginx`;
 
-            const apacheBase = `${panelRoot}\\bin\\web\\apache`;
-            const apacheConfig = `${panelRoot}\\etc\\apache2`;
+            const apacheBase = `C:\\YumnaPanel\\bin\\web\\apache`;
+            const apacheConfig = `C:\\YumnaPanel\\etc\\apache2`;
 
             return {
                 isWin,
+                panelRoot,
+                logDir: `${panelRoot}/logs/nginx`,
+                sslPath: `${panelRoot}/etc/ssl`,
+                htmlDir: `${panelRoot}/etc/nginx/html`,
                 nginx: {
                     base: nginxBase,
                     available: `${nginxConfig}\\sites-enabled`,
@@ -38,6 +42,10 @@ class WebServerService {
 
         return {
             isWin,
+            panelRoot,
+            logDir: `${panelRoot}/logs/nginx`,
+            sslPath: `${panelRoot}/etc/ssl`,
+            htmlDir: `${panelRoot}/etc/nginx/html`,
             nginx: {
                 available: '/etc/nginx/sites-available',
                 enabled: '/etc/nginx/sites-enabled',
@@ -73,17 +81,17 @@ class WebServerService {
     }
 
     static async createNginxVHost({ domain, rootPath, phpVersion = '8.2', ssl = false, customCert = null, customKey = null, stack = 'nginx' }) {
-        const { nginx, isWin } = this.getConfigs();
+        const { nginx, isWin, logDir, sslPath, htmlDir } = this.getConfigs();
         const normalizedRoot = rootPath.replace(/\\/g, '/');
         const vPart = phpVersion.replace(/[^0-9]/g, '');
         const phpPort = isWin ? (vPart.length >= 2 ? `90${vPart.substring(0, 2)}` : '9000') : null;
 
-        // Ensure Root exists
+        // Ensure Root, Logs & SSL exist
         await this.ensureDocumentRoot(normalizedRoot, domain);
+        await fs.mkdir(logDir, { recursive: true });
+        if (ssl) await fs.mkdir(sslPath, { recursive: true });
 
         let config = '';
-        const sslPath = 'C:/YumnaPanel/etc/ssl';
-        const logDir = 'C:/YumnaPanel/logs/nginx';
 
         let locationBlock = '';
         if (stack === 'hybrid') {
@@ -141,7 +149,7 @@ server {
     }
     error_page 503 /yumna_maintenance.html;
     location = /yumna_maintenance.html {
-        alias "C:/YumnaPanel/etc/nginx/html/maintenance.html";
+        alias "${htmlDir}/maintenance.html";
         allow all;
         internal;
     }
@@ -149,7 +157,7 @@ server {
     ${locationBlock}
 
     location = /yumna_blocked.html {
-        alias "C:/YumnaPanel/etc/nginx/html/403.html";
+        alias "${htmlDir}/403.html";
         allow all;
         internal;
     }
@@ -171,7 +179,7 @@ server {
     }
     error_page 503 /yumna_maintenance.html;
     location = /yumna_maintenance.html {
-        alias "C:/YumnaPanel/etc/nginx/html/maintenance.html";
+        alias "${htmlDir}/maintenance.html";
         allow all;
         internal;
     }
@@ -179,7 +187,7 @@ server {
     ${locationBlock}
 
     location = /yumna_blocked.html {
-        alias "C:/YumnaPanel/etc/nginx/html/403.html";
+        alias "${htmlDir}/403.html";
         allow all;
         internal;
     }
@@ -357,7 +365,7 @@ server {
 
     static async getLogs(domain, type) {
         // type: access or error
-        const logDir = 'C:/YumnaPanel/logs/nginx'; // TODO: Dynamic based on stack
+        const { logDir } = this.getConfigs();
         const logFile = path.join(logDir, `${domain}.${type}.log`);
 
         try {
