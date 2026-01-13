@@ -134,9 +134,14 @@ class ServerNodeService {
             `;
 
             const result = await ssh.execCommand(cmd);
+            console.log(`[SERVER-NODES] Remote ${server.name} raw output:`, result.stdout);
+
             const isAgentRunning = await this.pingPort(server.ip, 4001);
 
-            const [cpuIdle, memTotal, memUsed, diskPct, uptime, diskTotal, diskUsed] = result.stdout.trim().split(/[\s|]+/);
+            const parts = result.stdout.trim().split(/[\s|]+/);
+            const [cpuIdle, memTotal, memUsed, diskPct, uptime, diskTotal, diskUsed] = parts;
+
+            console.log(`[SERVER-NODES] Remote ${server.name} parsed:`, { cpuIdle, memTotal, memUsed, diskPct, uptime, diskTotal, diskUsed });
 
             const cpuUsage = 100 - parseFloat(cpuIdle || 100);
             const ramUsage = (parseFloat(memUsed || 0) / parseFloat(memTotal || 1)) * 100;
@@ -161,22 +166,28 @@ class ServerNodeService {
             );
 
             // Record Historical Usage for Remote too
-            await pool.promise().query(
-                `INSERT INTO usage_metrics (serverId, cpu_load, ram_used, ram_total, disk_used, disk_total)
-                 VALUES (?, ?, ?, ?, ?, ?)`,
-                [
-                    server.id,
-                    isNaN(cpuUsage) ? 0 : cpuUsage,
-                    parseFloat(memUsed || 0) * 1024 * 1024, // Convert MB to Bytes for consistency
-                    parseFloat(memTotal || 0) * 1024 * 1024,
-                    parseFloat(diskUsed || 0) * 1024 * 1024,
-                    parseFloat(diskTotal || 0) * 1024 * 1024
-                ]
-            );
+            try {
+                await pool.promise().query(
+                    `INSERT INTO usage_metrics (serverId, cpu_load, ram_used, ram_total, disk_used, disk_total)
+                     VALUES (?, ?, ?, ?, ?, ?)`,
+                    [
+                        server.id,
+                        isNaN(cpuUsage) ? 0 : cpuUsage,
+                        parseFloat(memUsed || 0) * 1024 * 1024, // Convert MB to Bytes for consistency
+                        parseFloat(memTotal || 0) * 1024 * 1024,
+                        parseFloat(diskUsed || 0) * 1024 * 1024,
+                        parseFloat(diskTotal || 0) * 1024 * 1024
+                    ]
+                );
+                console.log(`[SERVER-NODES] Remote ${server.name} metrics recorded successfully`);
+            } catch (metricsErr) {
+                console.error(`[SERVER-NODES] Failed to record metrics for ${server.name}:`, metricsErr.message);
+            }
 
             return isAgentRunning ? 'active' : 'online';
 
         } catch (e) {
+            console.error(`[SERVER-NODES] Remote check failed for ${server.name}:`, e.message);
             return this.checkRemotePing(server);
         } finally {
             ssh.dispose();

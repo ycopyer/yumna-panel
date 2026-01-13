@@ -77,3 +77,4 @@ const initV3 = require('./migrations/init_v3');
 app.listen(PORT, () => {
     console.log(`[WHM] Control Plane running on port ${PORT}`);
 });
+
