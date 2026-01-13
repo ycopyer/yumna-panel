@@ -597,6 +597,22 @@ const initV3 = async () => {
         } catch (e) { }
 
 
+        // --- 4. SCHEMA UPDATES (Post-Create) ---
+        try {
+            await pool.promise().query("ALTER TABLE servers ADD COLUMN connection_type ENUM('direct', 'tunnel') DEFAULT 'direct'");
+            console.log('[MIGRATION] Added connection_type to servers.');
+        } catch (e) {
+            // Ignore if column exists
+        }
+
+        try {
+            await pool.promise().query("ALTER TABLE servers ADD COLUMN agent_id VARCHAR(255) AFTER id");
+            await pool.promise().query("ALTER TABLE servers ADD INDEX idx_agent_id (agent_id)");
+            console.log('[MIGRATION] Added agent_id to servers.');
+        } catch (e) {
+            // Ignore if column exists
+        }
+
         // --- SEEDING ---
 
         // Seed Usage Rates

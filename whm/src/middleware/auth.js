@@ -12,7 +12,7 @@ const getSession = async (req, res, next) => {
         // Verify session in DB
         db.query('SELECT u.id, u.role, u.username, u.status, s.lastActive FROM user_sessions s JOIN users u ON s.userId = u.id WHERE s.sessionId = ? AND s.userId = ?', [sessionId, userId], async (err, results) => {
             try {
-                if (err) return res.status(500).json({ error: 'Database error' });
+                if (err) return res.status(500).json({ error: 'Database error', details: JSON.stringify(err, Object.getOwnPropertyNames(err)) });
                 if (results.length === 0) return res.status(401).json({ error: 'Invalid or expired session' });
 
                 const user = results[0];

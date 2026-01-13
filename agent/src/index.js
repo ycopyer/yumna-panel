@@ -329,4 +329,8 @@ app.post('/docker/containers/:id/:action', async (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`[Agent] Server Executor running on port ${PORT}`);
+
+    // Yumna Tunnel (Reverse Connection)
+    const tunnelClient = require('./services/TunnelClientService');
+    tunnelClient.start();
 });

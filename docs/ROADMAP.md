@@ -169,6 +169,16 @@ These features are being maintained/completed while the v3 architecture is built
 
 ---
 
-**Last Updated**: January 12, 2026 (v3.1.0 Production Ready)
+**Last Updated**: January 13, 2026 (v3.1.0 Production Ready)
 **Version**: 3.1.0
 **Target Arch**: v3.1 Unified
+
+## 🚀 Future Roadmap (v3.2)
+
+### Phase 3.2: Yumna Tunnel (Reverse Connection)
+**Goal**: Manage Agents behind NAT/Firewall without Public IP.
+- [ ] **Architecture Design**: WebSocket Reverse Tunnel design.
+- [ ] **Master Tunnel Server**: WebSocket Server implementation in WHM.
+- [ ] **Agent Tunnel Client**: Auto-connect mechanism in Agent service.
+- [ ] **Security**: TLS 1.3 & Token-based Authentication for tunnels.
+- [ ] **Command Routing**: Routing heartbeat and exec commands via WSS.

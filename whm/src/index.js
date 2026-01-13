@@ -74,7 +74,11 @@ const initV3 = require('./migrations/init_v3');
     slaMonitor.start();
 })();
 
-app.listen(PORT, () => {
+const tunnelManager = require('./services/TunnelManagerService');
+
+const server = app.listen(PORT, () => {
     console.log(`[WHM] Control Plane running on port ${PORT}`);
 });
+
+tunnelManager.initialize(server);
 

@@ -437,4 +437,18 @@ router.post('/resend-2fa', async (req, res) => {
     }
 });
 
+// Profile Endpoint
+router.get('/profile', requireAuth, (req, res) => {
+    db.query('SELECT id, username, email, role, two_factor_enabled FROM users WHERE id = ?', [req.userId], (err, results) => {
+        if (err) {
+            console.error('[AUTH] Profile fetch error:', err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        if (results.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.json(results[0]);
+    });
+});
+
 module.exports = router;
