@@ -70,14 +70,34 @@ Frontend (useExplorerTransfer.ts)
 
 #### 2.3 File Operations via Tunnel
 **Supported Operations:**
-- ✅ `ls` - List directory contents
-- ✅ `read` - Read file content (text)
-- ✅ `write` - Write/update file
-- ✅ `mkdir` - Create directory
-- ✅ `delete` - Delete file/folder (recursive)
-- ✅ `rename` - Rename/move file
-- ✅ `download_chunked` - Stream download
-- ✅ `upload_chunk` - Chunked upload
+
+**Basic File Operations:**
+- ✅ `ls` - List directory contents with detailed metadata
+- ✅ `read` - Read file content (text files)
+- ✅ `write` - Write/update file content
+- ✅ `mkdir` - Create directory (recursive)
+- ✅ `delete` - Delete file/folder (with recursive option)
+- ✅ `rename` - Rename or move file/folder
+- ✅ `copy` - Copy file or directory (recursive for directories)
+
+**File Information & Metadata:**
+- ✅ `stat` - Get detailed file statistics (size, permissions, timestamps, ownership)
+- ✅ `exists` - Check if file or directory exists
+- ✅ `touch` - Create empty file or update timestamp
+
+**Permissions & Ownership (Unix/Linux):**
+- ✅ `chmod` - Change file permissions (e.g., `0755`, `0644`)
+- ✅ `chown` - Change file ownership (uid/gid) - *Unix only*
+
+**Symbolic Links:**
+- ✅ `symlink` - Create symbolic link
+- ✅ `readlink` - Read symbolic link target
+
+**Transfer Operations:**
+- ✅ `download_chunked` - Stream download (binary-safe, any size)
+- ✅ `upload_chunk` - Chunked upload (resumable, progress tracking)
+
+**Total: 17 file operations** - Equivalent to common CLI tools like `ls`, `cp`, `mv`, `rm`, `chmod`, `ln`, etc.
 
 **Components:**
 - `whm/src/routes/files.js` - Unified file API (Direct + Tunnel)
@@ -340,6 +360,76 @@ Content-Type: application/json
 #### Get Output
 ```http
 GET /api/terminal/output?agentId=agent-abc123&shellId=uuid
+```
+
+### Additional File Operations
+
+#### Change Permissions (chmod)
+```http
+POST /api/chmod
+Content-Type: application/json
+Authorization: Bearer <token>
+{ "path": "/websites/example.com/script.sh", "mode": "0755" }
+```
+
+#### Copy File/Directory
+```http
+POST /api/copy
+Content-Type: application/json
+Authorization: Bearer <token>
+{ 
+  "sourcePath": "/websites/example.com/config.php",
+  "destPath": "/websites/example.com/config.php.backup"
+}
+```
+
+#### Get File Statistics
+```http
+GET /api/stat?path=/websites/example.com/index.html
+Authorization: Bearer <token>
+
+Response:
+{
+  "size": 4096,
+  "mode": 33188,
+  "uid": 1000,
+  "gid": 1000,
+  "atime": 1705219200000,
+  "mtime": 1705219200000,
+  "ctime": 1705219200000,
+  "birthtime": 1705219200000,
+  "isFile": true,
+  "isDirectory": false,
+  "isSymbolicLink": false
+}
+```
+
+#### Touch File (Create or Update Timestamp)
+```http
+POST /api/touch
+Content-Type: application/json
+Authorization: Bearer <token>
+{ "path": "/websites/example.com/cache/.gitkeep" }
+```
+
+#### Create Symbolic Link
+```http
+POST /api/symlink
+Content-Type: application/json
+Authorization: Bearer <token>
+{
+  "path": "/websites/example.com/current",
+  "target": "/websites/example.com/releases/v1.2.3"
+}
+```
+
+#### Check if File Exists
+```http
+GET /api/exists?path=/websites/example.com/config.php
+Authorization: Bearer <token>
+
+Response:
+{ "exists": true }
 ```
 
 ---

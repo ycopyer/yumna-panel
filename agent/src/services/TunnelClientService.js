@@ -308,10 +308,108 @@ class TunnelClientService {
                 });
                 return;
             }
+            else if (action === 'chmod') {
+                // Change file permissions (Unix-like systems)
+                const { mode } = data; // mode should be octal string like '0755' or number
+                const numericMode = typeof mode === 'string' ? parseInt(mode, 8) : mode;
+                await fsPromises.chmod(targetPath, numericMode);
+                result = { success: true, mode: numericMode };
+            }
+            else if (action === 'chown') {
+                // Change file ownership (Unix-like systems only)
+                const { uid, gid } = data;
+                if (process.platform !== 'win32') {
+                    await fsPromises.chown(targetPath, uid, gid);
+                    result = { success: true, uid, gid };
+                } else {
+                    throw new Error('chown not supported on Windows');
+                }
+            }
+            else if (action === 'copy') {
+                // Copy file or directory
+                const destPath = resolvePath(data.destPath);
+                await fsPromises.mkdir(path.dirname(destPath), { recursive: true });
+
+                const stats = await fsPromises.stat(targetPath);
+                if (stats.isDirectory()) {
+                    // Recursive directory copy
+                    await this.copyDirectory(targetPath, destPath);
+                } else {
+                    await fsPromises.copyFile(targetPath, destPath);
+                }
+                result = { success: true, destination: destPath };
+            }
+            else if (action === 'stat') {
+                // Get detailed file statistics
+                const stats = await fsPromises.stat(targetPath);
+                result = {
+                    size: stats.size,
+                    mode: stats.mode,
+                    uid: stats.uid,
+                    gid: stats.gid,
+                    atime: stats.atimeMs,
+                    mtime: stats.mtimeMs,
+                    ctime: stats.ctimeMs,
+                    birthtime: stats.birthtimeMs,
+                    isFile: stats.isFile(),
+                    isDirectory: stats.isDirectory(),
+                    isSymbolicLink: stats.isSymbolicLink()
+                };
+            }
+            else if (action === 'touch') {
+                // Create empty file or update timestamp
+                try {
+                    await fsPromises.access(targetPath);
+                    // File exists, update timestamp
+                    const now = new Date();
+                    await fsPromises.utimes(targetPath, now, now);
+                } catch {
+                    // File doesn't exist, create it
+                    await fsPromises.writeFile(targetPath, '');
+                }
+                result = { success: true };
+            }
+            else if (action === 'symlink') {
+                // Create symbolic link
+                const { target: linkTarget } = data;
+                await fsPromises.symlink(linkTarget, targetPath);
+                result = { success: true, target: linkTarget };
+            }
+            else if (action === 'readlink') {
+                // Read symbolic link target
+                const linkTarget = await fsPromises.readlink(targetPath);
+                result = { target: linkTarget };
+            }
+            else if (action === 'exists') {
+                // Check if file/directory exists
+                try {
+                    await fsPromises.access(targetPath);
+                    result = { exists: true };
+                } catch {
+                    result = { exists: false };
+                }
+            }
 
             this.sendResponse(requestId, result);
         } catch (err) {
             this.sendError(requestId, err.message);
+        }
+    }
+
+    async copyDirectory(src, dest) {
+        // Recursive directory copy helper
+        await fsPromises.mkdir(dest, { recursive: true });
+        const entries = await fsPromises.readdir(src, { withFileTypes: true });
+
+        for (const entry of entries) {
+            const srcPath = path.join(src, entry.name);
+            const destPath = path.join(dest, entry.name);
+
+            if (entry.isDirectory()) {
+                await this.copyDirectory(srcPath, destPath);
+            } else {
+                await fsPromises.copyFile(srcPath, destPath);
+            }
         }
     }
 

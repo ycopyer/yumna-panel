@@ -242,6 +242,100 @@ router.post('/rename', requireAuth, async (req, res) => {
     }
 });
 
+// POST /api/chmod - Change file permissions
+router.post('/chmod', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, mode } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'chmod', { mode }, async (client) => {
+            const response = await client.post('/fs/chmod', { root: target.root, path: target.path, mode });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/copy - Copy file or directory
+router.post('/copy', requireAuth, async (req, res) => {
+    try {
+        const { sourcePath, destPath } = req.body;
+        const targetSrc = await resolveTarget(req, sourcePath);
+        const targetDest = await resolveTarget(req, destPath);
+
+        await dispatchAction(res, targetSrc, 'copy', { destPath: targetDest.path }, async (client) => {
+            const response = await client.post('/fs/copy', {
+                root: targetSrc.root,
+                path: targetSrc.path,
+                destPath: targetDest.path
+            });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/stat - Get detailed file statistics
+router.get('/stat', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath } = req.query;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'stat', {}, async (client) => {
+            const response = await client.get('/fs/stat', { params: { root: target.root, path: target.path } });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/touch - Create empty file or update timestamp
+router.post('/touch', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'touch', {}, async (client) => {
+            const response = await client.post('/fs/touch', { root: target.root, path: target.path });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/symlink - Create symbolic link
+router.post('/symlink', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, target: linkTarget } = req.body;
+        const targetResolved = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, targetResolved, 'symlink', { target: linkTarget }, async (client) => {
+            const response = await client.post('/fs/symlink', {
+                root: targetResolved.root,
+                path: targetResolved.path,
+                target: linkTarget
+            });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/exists - Check if file exists
+router.get('/exists', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath } = req.query;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'exists', {}, async (client) => {
+            const response = await client.get('/fs/exists', { params: { root: target.root, path: target.path } });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /api/upload/init - Initialize chunked upload
 router.post('/upload/init', requireAuth, async (req, res) => {
     try {
