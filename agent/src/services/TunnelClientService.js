@@ -4,6 +4,8 @@ const { exec, spawn } = require('child_process');
 const fs = require('fs');
 const fsPromises = fs.promises;
 const path = require('path');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
 
 class TunnelClientService {
     constructor() {
@@ -389,6 +391,173 @@ class TunnelClientService {
                     result = { exists: false };
                 }
             }
+            else if (action === 'zip') {
+                // Create ZIP archive
+                const { files, archiveName } = data; // files: array of relative paths
+                const archivePath = resolvePath(archiveName || 'archive.zip');
+
+                // Use native zip command or archiver library
+                // For simplicity, using CLI zip command
+                const fileList = Array.isArray(files) ? files.join(' ') : files;
+                const cmd = process.platform === 'win32'
+                    ? `powershell Compress-Archive -Path ${fileList} -DestinationPath "${archivePath}" -Force`
+                    : `cd "${targetPath}" && zip -r "${archivePath}" ${fileList}`;
+
+                await execAsync(cmd);
+                result = { success: true, archive: archivePath };
+            }
+            else if (action === 'unzip') {
+                // Extract ZIP archive
+                const { destination } = data;
+                const destPath = destination ? resolvePath(destination) : path.dirname(targetPath);
+
+                await fsPromises.mkdir(destPath, { recursive: true });
+
+                const cmd = process.platform === 'win32'
+                    ? `powershell Expand-Archive -Path "${targetPath}" -DestinationPath "${destPath}" -Force`
+                    : `unzip -o "${targetPath}" -d "${destPath}"`;
+
+                await execAsync(cmd);
+                result = { success: true, destination: destPath };
+            }
+            else if (action === 'tar') {
+                // Create TAR archive (with optional compression)
+                const { files, archiveName, compress } = data; // compress: 'gzip', 'bzip2', or null
+                const archivePath = resolvePath(archiveName || 'archive.tar');
+                const fileList = Array.isArray(files) ? files.join(' ') : files;
+
+                let flags = 'cf';
+                if (compress === 'gzip') flags = 'czf';
+                if (compress === 'bzip2') flags = 'cjf';
+
+                const cmd = `cd "${targetPath}" && tar ${flags} "${archivePath}" ${fileList}`;
+                await execAsync(cmd);
+                result = { success: true, archive: archivePath };
+            }
+            else if (action === 'untar') {
+                // Extract TAR archive
+                const { destination } = data;
+                const destPath = destination ? resolvePath(destination) : path.dirname(targetPath);
+
+                await fsPromises.mkdir(destPath, { recursive: true });
+
+                // Auto-detect compression
+                let flags = 'xf';
+                if (targetPath.endsWith('.tar.gz') || targetPath.endsWith('.tgz')) flags = 'xzf';
+                if (targetPath.endsWith('.tar.bz2')) flags = 'xjf';
+
+                const cmd = `tar ${flags} "${targetPath}" -C "${destPath}"`;
+                await execAsync(cmd);
+                result = { success: true, destination: destPath };
+            }
+            else if (action === 'gzip') {
+                // Compress file with gzip
+                const cmd = `gzip -k "${targetPath}"`; // -k keeps original
+                await execAsync(cmd);
+                result = { success: true, compressed: `${targetPath}.gz` };
+            }
+            else if (action === 'gunzip') {
+                // Decompress gzip file
+                const cmd = `gunzip -k "${targetPath}"`; // -k keeps original
+                await execAsync(cmd);
+                result = { success: true, decompressed: targetPath.replace(/\.gz$/, '') };
+            }
+            else if (action === 'search') {
+                // Search for files by name pattern (glob)
+                const { pattern, maxDepth } = data;
+                const { glob } = require('glob');
+
+                const options = {
+                    cwd: targetPath,
+                    maxDepth: maxDepth || 10,
+                    nodir: false
+                };
+
+                // Use glob pattern matching
+                const matches = await new Promise((resolve, reject) => {
+                    glob(pattern, options, (err, files) => {
+                        if (err) reject(err);
+                        else resolve(files);
+                    });
+                });
+
+                result = { files: matches };
+            }
+            else if (action === 'grep') {
+                // Search file content (text search)
+                const { query, recursive, ignoreCase } = data;
+
+                let flags = 'rn'; // recursive, line numbers
+                if (ignoreCase) flags += 'i';
+
+                const cmd = `grep -${flags} "${query}" "${targetPath}"`;
+
+                try {
+                    const { stdout } = await execAsync(cmd);
+                    const lines = stdout.split('\n').filter(l => l.trim());
+                    result = { matches: lines, count: lines.length };
+                } catch (err) {
+                    // grep returns non-zero if no matches
+                    result = { matches: [], count: 0 };
+                }
+            }
+            else if (action === 'du') {
+                // Disk usage (directory size)
+                const cmd = process.platform === 'win32'
+                    ? `powershell "(Get-ChildItem -Path '${targetPath}' -Recurse | Measure-Object -Property Length -Sum).Sum"`
+                    : `du -sb "${targetPath}" | cut -f1`;
+
+                const { stdout } = await execAsync(cmd);
+                const bytes = parseInt(stdout.trim());
+
+                result = {
+                    bytes,
+                    human: this.formatBytes(bytes)
+                };
+            }
+            else if (action === 'file_type') {
+                // Detect file type (MIME type)
+                const cmd = process.platform === 'win32'
+                    ? null // Windows doesn't have 'file' command by default
+                    : `file -b --mime-type "${targetPath}"`;
+
+                if (cmd) {
+                    const { stdout } = await execAsync(cmd);
+                    result = { mimeType: stdout.trim() };
+                } else {
+                    // Fallback: detect by extension
+                    const ext = path.extname(targetPath).toLowerCase();
+                    const mimeTypes = {
+                        '.txt': 'text/plain',
+                        '.html': 'text/html',
+                        '.css': 'text/css',
+                        '.js': 'application/javascript',
+                        '.json': 'application/json',
+                        '.zip': 'application/zip',
+                        '.tar': 'application/x-tar',
+                        '.gz': 'application/gzip',
+                        '.jpg': 'image/jpeg',
+                        '.png': 'image/png',
+                        '.pdf': 'application/pdf'
+                    };
+                    result = { mimeType: mimeTypes[ext] || 'application/octet-stream' };
+                }
+            }
+            else if (action === 'checksum') {
+                // Calculate file checksum (MD5, SHA256)
+                const { algorithm } = data; // 'md5', 'sha256', 'sha512'
+                const algo = algorithm || 'sha256';
+
+                const cmd = process.platform === 'win32'
+                    ? `powershell "Get-FileHash -Path '${targetPath}' -Algorithm ${algo.toUpperCase()} | Select-Object -ExpandProperty Hash"`
+                    : `${algo}sum "${targetPath}" | cut -d' ' -f1`;
+
+                const { stdout } = await execAsync(cmd);
+                result = {
+                    algorithm: algo,
+                    checksum: stdout.trim().toLowerCase()
+                };
+            }
 
             this.sendResponse(requestId, result);
         } catch (err) {
@@ -411,6 +580,14 @@ class TunnelClientService {
                 await fsPromises.copyFile(srcPath, destPath);
             }
         }
+    }
+
+    formatBytes(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     }
 
     sendResponse(requestId, data) {

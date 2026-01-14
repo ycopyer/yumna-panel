@@ -84,6 +84,9 @@ Frontend (useExplorerTransfer.ts)
 - ✅ `stat` - Get detailed file statistics (size, permissions, timestamps, ownership)
 - ✅ `exists` - Check if file or directory exists
 - ✅ `touch` - Create empty file or update timestamp
+- ✅ `du` - Calculate directory size (disk usage)
+- ✅ `file_type` - Detect file MIME type
+- ✅ `checksum` - Calculate file checksum (MD5, SHA256, SHA512)
 
 **Permissions & Ownership (Unix/Linux):**
 - ✅ `chmod` - Change file permissions (e.g., `0755`, `0644`)
@@ -93,11 +96,23 @@ Frontend (useExplorerTransfer.ts)
 - ✅ `symlink` - Create symbolic link
 - ✅ `readlink` - Read symbolic link target
 
+**Archive Operations:**
+- ✅ `zip` - Create ZIP archive from files/folders
+- ✅ `unzip` - Extract ZIP archive
+- ✅ `tar` - Create TAR archive (with optional gzip/bzip2 compression)
+- ✅ `untar` - Extract TAR archive (auto-detects compression)
+- ✅ `gzip` - Compress file with gzip
+- ✅ `gunzip` - Decompress gzip file
+
+**Search & Content Operations:**
+- ✅ `search` - Search files by name pattern (glob)
+- ✅ `grep` - Search file content (text search with regex)
+
 **Transfer Operations:**
 - ✅ `download_chunked` - Stream download (binary-safe, any size)
 - ✅ `upload_chunk` - Chunked upload (resumable, progress tracking)
 
-**Total: 17 file operations** - Equivalent to common CLI tools like `ls`, `cp`, `mv`, `rm`, `chmod`, `ln`, etc.
+**Total: 28 file operations** - Full-featured file management equivalent to CLI tools like `ls`, `cp`, `mv`, `rm`, `chmod`, `tar`, `zip`, `grep`, `find`, etc.
 
 **Components:**
 - `whm/src/routes/files.js` - Unified file API (Direct + Tunnel)
@@ -430,6 +445,144 @@ Authorization: Bearer <token>
 
 Response:
 { "exists": true }
+```
+
+### Archive Operations
+
+#### Create ZIP Archive
+```http
+POST /api/zip
+Content-Type: application/json
+Authorization: Bearer <token>
+{
+  "path": "/websites/example.com",
+  "files": ["uploads", "config.php", "index.html"],
+  "archiveName": "backup.zip"
+}
+
+Response:
+{ "success": true, "archive": "/websites/example.com/backup.zip" }
+```
+
+#### Extract ZIP Archive
+```http
+POST /api/unzip
+Content-Type: application/json
+Authorization: Bearer <token>
+{
+  "path": "/websites/example.com/backup.zip",
+  "destination": "/websites/example.com/restored"
+}
+
+Response:
+{ "success": true, "destination": "/websites/example.com/restored" }
+```
+
+#### Create TAR Archive (with compression)
+```http
+POST /api/tar
+Content-Type: application/json
+Authorization: Bearer <token>
+{
+  "path": "/websites/example.com",
+  "files": ["uploads", "public_html"],
+  "archiveName": "backup.tar.gz",
+  "compress": "gzip"
+}
+
+Response:
+{ "success": true, "archive": "/websites/example.com/backup.tar.gz" }
+```
+
+#### Extract TAR Archive
+```http
+POST /api/untar
+Content-Type: application/json
+Authorization: Bearer <token>
+{
+  "path": "/websites/example.com/backup.tar.gz",
+  "destination": "/websites/example.com/restored"
+}
+
+Response:
+{ "success": true, "destination": "/websites/example.com/restored" }
+```
+
+#### Compress with Gzip
+```http
+POST /api/gzip
+Content-Type: application/json
+Authorization: Bearer <token>
+{ "path": "/websites/example.com/large-file.sql" }
+
+Response:
+{ "success": true, "compressed": "/websites/example.com/large-file.sql.gz" }
+```
+
+### Search & Utility Operations
+
+#### Search Files by Pattern
+```http
+GET /api/search?path=/websites/example.com&pattern=*.php&maxDepth=5
+Authorization: Bearer <token>
+
+Response:
+{
+  "files": [
+    "index.php",
+    "config.php",
+    "includes/functions.php",
+    "admin/dashboard.php"
+  ]
+}
+```
+
+#### Search File Content (grep)
+```http
+GET /api/grep?path=/websites/example.com&query=database_password&recursive=true&ignoreCase=true
+Authorization: Bearer <token>
+
+Response:
+{
+  "matches": [
+    "config.php:12:$database_password = 'secret123';",
+    "includes/db.php:5:// database_password configuration"
+  ],
+  "count": 2
+}
+```
+
+#### Get Directory Size
+```http
+GET /api/du?path=/websites/example.com/uploads
+Authorization: Bearer <token>
+
+Response:
+{
+  "bytes": 524288000,
+  "human": "500 MB"
+}
+```
+
+#### Detect File Type
+```http
+GET /api/file-type?path=/websites/example.com/image.jpg
+Authorization: Bearer <token>
+
+Response:
+{ "mimeType": "image/jpeg" }
+```
+
+#### Calculate Checksum
+```http
+GET /api/checksum?path=/websites/example.com/backup.zip&algorithm=sha256
+Authorization: Bearer <token>
+
+Response:
+{
+  "algorithm": "sha256",
+  "checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
 ```
 
 ---

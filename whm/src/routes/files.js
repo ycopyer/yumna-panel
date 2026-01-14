@@ -336,6 +336,168 @@ router.get('/exists', requireAuth, async (req, res) => {
     }
 });
 
+// Archive Operations
+
+// POST /api/zip - Create ZIP archive
+router.post('/zip', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, files, archiveName } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'zip', { files, archiveName }, async (client) => {
+            const response = await client.post('/fs/zip', { root: target.root, path: target.path, files, archiveName });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/unzip - Extract ZIP archive
+router.post('/unzip', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, destination } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'unzip', { destination }, async (client) => {
+            const response = await client.post('/fs/unzip', { root: target.root, path: target.path, destination });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/tar - Create TAR archive
+router.post('/tar', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, files, archiveName, compress } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'tar', { files, archiveName, compress }, async (client) => {
+            const response = await client.post('/fs/tar', { root: target.root, path: target.path, files, archiveName, compress });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/untar - Extract TAR archive
+router.post('/untar', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, destination } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'untar', { destination }, async (client) => {
+            const response = await client.post('/fs/untar', { root: target.root, path: target.path, destination });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/gzip - Compress with gzip
+router.post('/gzip', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'gzip', {}, async (client) => {
+            const response = await client.post('/fs/gzip', { root: target.root, path: target.path });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/gunzip - Decompress gzip
+router.post('/gunzip', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'gunzip', {}, async (client) => {
+            const response = await client.post('/fs/gunzip', { root: target.root, path: target.path });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Utility Operations
+
+// GET /api/search - Search files by pattern
+router.get('/search', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, pattern, maxDepth } = req.query;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'search', { pattern, maxDepth: parseInt(maxDepth) || 10 }, async (client) => {
+            const response = await client.get('/fs/search', { params: { root: target.root, path: target.path, pattern, maxDepth } });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/grep - Search file content
+router.get('/grep', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, query, recursive, ignoreCase } = req.query;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'grep', {
+            query,
+            recursive: recursive === 'true',
+            ignoreCase: ignoreCase === 'true'
+        }, async (client) => {
+            const response = await client.get('/fs/grep', { params: { root: target.root, path: target.path, query, recursive, ignoreCase } });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/du - Get directory size
+router.get('/du', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath } = req.query;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'du', {}, async (client) => {
+            const response = await client.get('/fs/du', { params: { root: target.root, path: target.path } });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/file-type - Detect file MIME type
+router.get('/file-type', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath } = req.query;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'file_type', {}, async (client) => {
+            const response = await client.get('/fs/file-type', { params: { root: target.root, path: target.path } });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// GET /api/checksum - Calculate file checksum
+router.get('/checksum', requireAuth, async (req, res) => {
+    try {
+        const { path: targetPath, algorithm } = req.query;
+        const target = await resolveTarget(req, targetPath || '/');
+        await dispatchAction(res, target, 'checksum', { algorithm: algorithm || 'sha256' }, async (client) => {
+            const response = await client.get('/fs/checksum', { params: { root: target.root, path: target.path, algorithm } });
+            res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // POST /api/upload/init - Initialize chunked upload
 router.post('/upload/init', requireAuth, async (req, res) => {
     try {
