@@ -115,9 +115,17 @@ Keamanan adalah prioritas utama karena kita membuka jalan masuk ke server privat
 - [x] Routing Server Stats via Tunnel.
 - [x] Tampilan indikator "Tunnel Active" di Dashboard Node Orchestration.
 
-### Milestone 3: Advanced Features (Minggu 3) (Next Step)
+### Milestone 3: Advanced Features (Minggu 3) ✅ COMPLETE
 - [x] Remote Shell / Terminal via Tunnel (WebSSH lewat Tunnel).
 - [x] File Transfer via Tunnel (Chunked Binary Transfer).
+- [x] Auto-Provisioning UI & Install Script Generator.
+
+**📚 Detailed Documentation:** See [TUNNEL_FILE_TRANSFER_COMPLETE.md](./TUNNEL_FILE_TRANSFER_COMPLETE.md) for:
+- Complete API reference
+- Architecture diagrams
+- Security considerations
+- Performance benchmarks
+- Troubleshooting guide
 
 ## 7. Configuration Example
 
