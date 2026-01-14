@@ -6,8 +6,11 @@ const axios = require('axios');
 const path = require('path');
 const tunnelManager = require('../services/TunnelManagerService');
 const { v4: uuidv4 } = require('uuid');
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage() });
 
 const AGENT_SECRET = process.env.AGENT_SECRET || 'insecure_default';
+const uploadSessions = new Map(); // uploadId -> { target, name, size, ... }
 
 // Helper to get user's root path (Legacy/Local)
 async function getUserRoot(userId, role, username) {
@@ -233,6 +236,100 @@ router.post('/rename', requireAuth, async (req, res) => {
         await dispatchAction(res, targetOld, 'rename', { oldPath: targetOld.path, newPath: targetNew.path }, async (client) => {
             const response = await client.post('/fs/rename', { root: targetOld.root, oldPath: targetOld.path, newPath: targetNew.path });
             res.json(response.data);
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/upload/init - Initialize chunked upload
+router.post('/upload/init', requireAuth, async (req, res) => {
+    try {
+        const { name, size, path: targetPath } = req.body;
+        const target = await resolveTarget(req, targetPath || '/');
+        const uploadId = uuidv4();
+
+        uploadSessions.set(uploadId, {
+            id: uploadId,
+            target,
+            name,
+            size,
+            uploadedChunks: 0,
+            startTime: Date.now()
+        });
+
+        res.json({ uploadId });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/upload/chunk - Upload a single chunk
+router.post('/upload/chunk', requireAuth, upload.single('chunk'), async (req, res) => {
+    try {
+        const { uploadId, index, totalChunks } = req.body;
+        const session = uploadSessions.get(uploadId);
+
+        if (!session) {
+            return res.status(404).json({ error: 'Upload session not found' });
+        }
+
+        const buffer = req.file.buffer;
+        const chunkIndex = parseInt(index);
+
+        if (session.target.mode === 'tunnel') {
+            // Send chunk to agent via Tunnel
+            await tunnelManager.sendCommand(session.target.agentId, 'FILE_ACTION', {
+                action: 'upload_chunk',
+                uploadId,
+                index: chunkIndex,
+                totalChunks: parseInt(totalChunks),
+                data: buffer.toString('base64'),
+                root: session.target.root,
+                path: session.target.path,
+                name: session.name
+            });
+        } else {
+            // Direct: Write to local filesystem
+            const fs = require('fs');
+            const filePath = path.join(session.target.root, session.target.path, session.name);
+
+            // Ensure directory exists
+            await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+
+            // First chunk: create/overwrite file, subsequent chunks: append
+            if (chunkIndex === 0) {
+                await fs.promises.writeFile(filePath, buffer);
+            } else {
+                await fs.promises.appendFile(filePath, buffer);
+            }
+        }
+
+        session.uploadedChunks++;
+        res.json({ success: true, uploadedChunks: session.uploadedChunks });
+    } catch (err) {
+        console.error('[UPLOAD] Chunk error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/upload/complete - Finalize upload
+router.post('/upload/complete', requireAuth, async (req, res) => {
+    try {
+        const { uploadId } = req.body;
+        const session = uploadSessions.get(uploadId);
+
+        if (!session) {
+            return res.status(404).json({ error: 'Upload session not found' });
+        }
+
+        // Cleanup session
+        uploadSessions.delete(uploadId);
+
+        res.json({
+            success: true,
+            message: 'Upload completed successfully',
+            uploadedChunks: session.uploadedChunks
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

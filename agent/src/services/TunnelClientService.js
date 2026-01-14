@@ -10,9 +10,9 @@ class TunnelClientService {
         this.ws = null;
         this.reconnectTimeout = null;
         this.isConnected = false;
-        this.isConnected = false;
         this.config = {};
         this.shellSessions = new Map(); // shellId -> process
+        this.uploadStreams = new Map(); // uploadId -> { stream, path }
     }
 
     start() {
@@ -280,6 +280,33 @@ class TunnelClientService {
                     this.sendError(requestId, err.message);
                 });
                 return; // Response handled by stream events
+            }
+            else if (action === 'upload_chunk') {
+                // Upload Stream Logic
+                const { uploadId, index, totalChunks, name } = data;
+                const filePath = path.join(targetPath, name);
+
+                // Ensure directory exists
+                await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+
+                // Decode chunk data
+                const chunkBuffer = Buffer.from(data.data, 'base64');
+
+                // First chunk: create/overwrite, subsequent: append
+                if (index === 0) {
+                    await fsPromises.writeFile(filePath, chunkBuffer);
+                } else {
+                    await fsPromises.appendFile(filePath, chunkBuffer);
+                }
+
+                // Send acknowledgment
+                this.sendResponse(requestId, {
+                    success: true,
+                    uploadId,
+                    index,
+                    received: true
+                });
+                return;
             }
 
             this.sendResponse(requestId, result);
