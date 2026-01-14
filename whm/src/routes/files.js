@@ -97,6 +97,155 @@ async function dispatchAction(res, target, tunnelAction, tunnelPayload, directFn
     }
 }
 
+// GET /api/help - API Documentation
+router.get('/help', requireAuth, async (req, res) => {
+    const helpData = {
+        version: "3.2.0",
+        totalOperations: 28,
+        endpoint: "/api/help",
+        description: "YumnaPanel File Operations API - Complete reference for all available file operations",
+
+        quickReference: {
+            "List Files": "GET /api/ls?path=/path/to/directory",
+            "Read File": "GET /api/read-content?path=/path/to/file.txt",
+            "Write File": "PUT /api/save-content (body: {path, content})",
+            "Download File": "GET /api/download?path=/file.zip&name=file.zip",
+            "Create Backup": "POST /api/zip (body: {path, files, archiveName})",
+            "Search Files": "GET /api/search?path=/dir&pattern=*.php",
+            "Check Size": "GET /api/du?path=/directory"
+        },
+
+        categories: [
+            {
+                name: "Basic File Operations (7)",
+                operations: [
+                    { action: "ls", method: "GET", endpoint: "/api/ls?path=/dir", description: "List directory contents" },
+                    { action: "read", method: "GET", endpoint: "/api/read-content?path=/file", description: "Read file content" },
+                    { action: "write", method: "PUT", endpoint: "/api/save-content", body: "{path, content}", description: "Write file" },
+                    { action: "mkdir", method: "POST", endpoint: "/api/mkdir", body: "{path}", description: "Create directory" },
+                    { action: "delete", method: "DELETE", endpoint: "/api/delete?path=/file&recursive=true", description: "Delete file/folder" },
+                    { action: "rename", method: "POST", endpoint: "/api/rename", body: "{oldPath, newPath}", description: "Rename/move" },
+                    { action: "copy", method: "POST", endpoint: "/api/copy", body: "{sourcePath, destPath}", description: "Copy file/folder" }
+                ]
+            },
+            {
+                name: "File Information & Metadata (6)",
+                operations: [
+                    { action: "stat", method: "GET", endpoint: "/api/stat?path=/file", description: "Get file statistics" },
+                    { action: "exists", method: "GET", endpoint: "/api/exists?path=/file", description: "Check if exists" },
+                    { action: "touch", method: "POST", endpoint: "/api/touch", body: "{path}", description: "Create/update timestamp" },
+                    { action: "du", method: "GET", endpoint: "/api/du?path=/dir", description: "Directory size" },
+                    { action: "file_type", method: "GET", endpoint: "/api/file-type?path=/file", description: "Detect MIME type" },
+                    { action: "checksum", method: "GET", endpoint: "/api/checksum?path=/file&algorithm=sha256", description: "Calculate checksum" }
+                ]
+            },
+            {
+                name: "Permissions & Ownership (2) - Unix/Linux",
+                operations: [
+                    { action: "chmod", method: "POST", endpoint: "/api/chmod", body: "{path, mode: '0755'}", description: "Change permissions" },
+                    { action: "chown", method: "POST", endpoint: "/api/chown", body: "{path, uid, gid}", description: "Change ownership" }
+                ]
+            },
+            {
+                name: "Symbolic Links (2)",
+                operations: [
+                    { action: "symlink", method: "POST", endpoint: "/api/symlink", body: "{path, target}", description: "Create symlink" },
+                    { action: "readlink", method: "GET", endpoint: "/api/readlink?path=/link", description: "Read symlink target" }
+                ]
+            },
+            {
+                name: "Archive Operations (6)",
+                operations: [
+                    { action: "zip", method: "POST", endpoint: "/api/zip", body: "{path, files: [], archiveName}", description: "Create ZIP" },
+                    { action: "unzip", method: "POST", endpoint: "/api/unzip", body: "{path, destination}", description: "Extract ZIP" },
+                    { action: "tar", method: "POST", endpoint: "/api/tar", body: "{path, files: [], archiveName, compress: 'gzip'}", description: "Create TAR" },
+                    { action: "untar", method: "POST", endpoint: "/api/untar", body: "{path, destination}", description: "Extract TAR" },
+                    { action: "gzip", method: "POST", endpoint: "/api/gzip", body: "{path}", description: "Compress with gzip" },
+                    { action: "gunzip", method: "POST", endpoint: "/api/gunzip", body: "{path}", description: "Decompress gzip" }
+                ]
+            },
+            {
+                name: "Search & Content (2)",
+                operations: [
+                    { action: "search", method: "GET", endpoint: "/api/search?path=/dir&pattern=*.php&maxDepth=5", description: "Search files by pattern" },
+                    { action: "grep", method: "GET", endpoint: "/api/grep?path=/dir&query=text&recursive=true&ignoreCase=true", description: "Search file content" }
+                ]
+            },
+            {
+                name: "Transfer Operations (2)",
+                operations: [
+                    { action: "download", method: "GET", endpoint: "/api/download?path=/file&name=file.zip", description: "Download file (streaming)" },
+                    { action: "upload", method: "POST", endpoint: "/api/upload/init, /chunk, /complete", description: "Upload file (chunked)" }
+                ]
+            }
+        ],
+
+        authentication: {
+            required: true,
+            method: "Bearer Token",
+            header: "Authorization: Bearer <your-token>",
+            note: "All endpoints require authentication"
+        },
+
+        modes: {
+            tunnel: "Operations via WebSocket tunnel (for NAT/Firewall environments)",
+            direct: "Operations via direct HTTP to agent",
+            note: "Mode is automatically detected based on server configuration"
+        },
+
+        examples: {
+            createBackup: {
+                description: "Create a ZIP backup of website",
+                request: "POST /api/zip",
+                body: {
+                    path: "/websites/example.com",
+                    files: ["public_html", "config.php", ".htaccess"],
+                    archiveName: "backup-2026-01-14.zip"
+                },
+                response: {
+                    success: true,
+                    archive: "/websites/example.com/backup-2026-01-14.zip"
+                }
+            },
+            searchAndReplace: {
+                description: "Find all PHP files containing specific text",
+                request: "GET /api/grep?path=/websites/example.com&query=mysql_connect&recursive=true",
+                response: {
+                    matches: [
+                        "config.php:15:$conn = mysql_connect($host, $user, $pass);",
+                        "includes/db.php:8:// mysql_connect deprecated"
+                    ],
+                    count: 2
+                }
+            },
+            diskAnalysis: {
+                description: "Check directory sizes",
+                request: "GET /api/du?path=/websites/example.com/uploads",
+                response: {
+                    bytes: 524288000,
+                    human: "500 MB"
+                }
+            }
+        },
+
+        errorHandling: {
+            format: "JSON",
+            example: { error: "File not found" },
+            statusCodes: {
+                200: "Success",
+                400: "Bad Request (invalid parameters)",
+                401: "Unauthorized (missing/invalid token)",
+                404: "Not Found (file/directory doesn't exist)",
+                500: "Server Error"
+            }
+        },
+
+        documentation: "For detailed documentation, see: docs/TUNNEL_FILE_TRANSFER_COMPLETE.md"
+    };
+
+    res.json(helpData);
+});
+
 // GET /api/ls
 router.get('/ls', requireAuth, async (req, res) => {
     try {
