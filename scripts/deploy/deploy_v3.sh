@@ -175,6 +175,55 @@ case $PM in
         ;;
 esac
 
+# --- CLEANUP UTILITY ---
+cleanup_web_servers() {
+    echo -e "${RED}========================================${NC}"
+    echo -e "${RED}        CLEANUP / PURGE UTILITY         ${NC}"
+    echo -e "${RED}========================================${NC}"
+    echo "1) Purge Apache (Total Removal)"
+    echo "2) Purge Nginx (Total Removal)"
+    echo "3) Purge Both (Total Removal)"
+    echo "4) Skip & Continue Installation"
+    read -p "Choice [1-4]: " CLEANUP_CHOICE
+
+    case $CLEANUP_CHOICE in
+        1|3)
+            echo -e "${YELLOW}Purging Apache...${NC}"
+            systemctl stop apache2 httpd 2>/dev/null || true
+            pkill -9 apache2 2>/dev/null || true
+            pkill -9 httpd 2>/dev/null || true
+            if [ "$PM" == "apt" ]; then
+                apt-get purge -y "apache2*" "libapache2*"
+            elif [ "$PM" == "dnf" ]; then
+                dnf remove -y httpd
+            fi
+            rm -rf /etc/apache2 /etc/httpd /var/lib/apache2 /var/log/apache2 /var/log/httpd
+            echo -e "${GREEN}Apache Purged.${NC}"
+            ;;
+    esac
+
+    case $CLEANUP_CHOICE in
+        2|3)
+            echo -e "${YELLOW}Purging Nginx...${NC}"
+            systemctl stop nginx 2>/dev/null || true
+            pkill -9 nginx 2>/dev/null || true
+            if [ "$PM" == "apt" ]; then
+                apt-get purge -y "nginx*" "nginx-common"
+            elif [ "$PM" == "dnf" ]; then
+                dnf remove -y nginx
+            fi
+            rm -rf /etc/nginx /var/lib/nginx /var/log/nginx
+            echo -e "${GREEN}Nginx Purged.${NC}"
+            ;;
+    esac
+    echo "----------------------------------------"
+}
+
+read -p "Run Cleanup Utility first? (Recommended if previous install failed) [y/N]: " RUN_CLEANUP
+if [[ "$RUN_CLEANUP" =~ ^[Yy]$ ]]; then
+    cleanup_web_servers
+fi
+
 # --- MODE SELECTION ---
 echo -e "${YELLOW}------------------------------------------------${NC}"
 echo -e "${YELLOW} Installation Mode Selection ${NC}"
