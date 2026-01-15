@@ -205,7 +205,7 @@ install_nginx() {
         pkg) pkg install -y nginx; sysrc nginx_enable="YES" ;;
         brew) brew_install nginx; sudo brew services start nginx ;;
     esac
-    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable --now nginx; elif [ "$PM" == "pkg" ]; then service nginx start; fi
+    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable nginx; elif [ "$PM" == "pkg" ]; then service nginx start; fi
 }
 install_apache() {
     case $PM in
@@ -215,7 +215,7 @@ install_apache() {
         pkg) pkg install -y $HTTPD_PKG; sysrc apache24_enable="YES" ;;
         brew) brew_install httpd; sudo brew services start httpd ;;
     esac
-    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable --now $HTTPD_SVC; elif [ "$PM" == "pkg" ]; then service $HTTPD_SVC start; fi
+    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable $HTTPD_SVC; elif [ "$PM" == "pkg" ]; then service $HTTPD_SVC start; fi
 }
 disable_apache() {
     if [ "$PM" == "brew" ]; then
@@ -302,6 +302,8 @@ else
             elif [ "$PM" != "pkg" ]; then
                  [ -f /etc/$HTTPD_SVC/conf/httpd.conf ] && sed -i 's/Listen 80/Listen 8080/g' /etc/$HTTPD_SVC/conf/httpd.conf 2>/dev/null || true
             fi
+            # Start Nginx
+            if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl restart nginx; fi
             ;;
     esac
 fi
