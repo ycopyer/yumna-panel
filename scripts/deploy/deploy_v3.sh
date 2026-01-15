@@ -267,8 +267,10 @@ else
                 systemctl stop nginx apache2 2>/dev/null || true
                 pkill -9 nginx 2>/dev/null || true
                 pkill -9 apache2 2>/dev/null || true
-                pkill -9 httpd 2>/dev/null || true
-                sleep 2
+                
+                # Disable Default OS Configurations that lock port 80
+                rm /etc/nginx/sites-enabled/default 2>/dev/null || true
+                rm /etc/apache2/sites-enabled/000-default.conf 2>/dev/null || true
                 
                 # Prevent auto-start during installation
                 echo "exit 101" > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
@@ -285,11 +287,6 @@ else
                 echo -e "${YELLOW}Applying port 8080 to Apache configurations...${NC}"
                 find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/Listen 80/Listen 8080/g' {} + 2>/dev/null || true
                 find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/:80>/:8080>/g' {} + 2>/dev/null || true
-                
-                # Explicitly fix default site if it exists
-                if [ -f /etc/apache2/sites-available/000-default.conf ]; then
-                    sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf
-                fi
                 
                 # Enable required modules
                 a2enmod proxy proxy_http rewrite remoteip 2>/dev/null || true
