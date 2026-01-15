@@ -312,12 +312,16 @@ else
         3) # Hybrid
             echo -e "${YELLOW}Configuring Hybrid Stack (Nginx Proxy + Apache Backend)...${NC}"
             if [ "$PM" == "apt" ]; then
-                # Aggressive cleanup: stop services and kill anything on port 80/443
+                # Aggressive cleanup: stop services and kill anything on standard ports
                 systemctl stop nginx apache2 2>/dev/null || true
                 pkill -9 nginx 2>/dev/null || true
                 pkill -9 apache2 2>/dev/null || true
+                pkill -9 httpd 2>/dev/null || true
+                # Kill anything specifically on 8080/8181 just in case
+                fuser -k 8080/tcp 2>/dev/null || true
+                fuser -k 8181/tcp 2>/dev/null || true
                 
-                # Disable Default OS Configurations that lock port 80
+                # Disable Default OS Configurations
                 rm /etc/nginx/sites-enabled/default 2>/dev/null || true
                 rm /etc/apache2/sites-enabled/000-default.conf 2>/dev/null || true
                 
@@ -329,16 +333,23 @@ else
                 
                 rm /usr/sbin/policy-rc.d
                 
-                # Configure Apache to listen on 8080 ONLY
-                echo "Listen 8080" > /etc/apache2/ports.conf
+                # Configure Apache to listen on 8181 ONLY (Avoid 8080 as it's common)
+                echo "Listen 8181" > /etc/apache2/ports.conf
                 
-                # Safer port replacement: only target .conf files and ports.conf
-                echo -e "${YELLOW}Applying port 8080 to Apache configurations...${NC}"
-                find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/Listen 80/Listen 8080/g' {} + 2>/dev/null || true
-                find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/:80>/:8080>/g' {} + 2>/dev/null || true
+                # Surgical precision: only replace actual port directives in config files
+                echo -e "${YELLOW}Applying port 8181 to Apache configurations...${NC}"
+                find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/Listen 80/Listen 8181/g' {} + 2>/dev/null || true
+                find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/:80>/:8181>/g' {} + 2>/dev/null || true
                 
                 # Enable required modules
                 a2enmod proxy proxy_http rewrite remoteip 2>/dev/null || true
+                
+                # Validation test
+                if ! apache2ctl -t; then
+                    echo -e "${RED}Apache config validation failed! Fixing common issues...${NC}"
+                    # Emergency fix: restore ports.conf if empty or broken
+                    echo "Listen 8181" > /etc/apache2/ports.conf
+                fi
                 
                 # Final check and start
                 echo -e "${BLUE}Restarting services...${NC}"
