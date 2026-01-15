@@ -263,8 +263,12 @@ else
         3) # Hybrid
             echo -e "${YELLOW}Configuring Hybrid Stack (Nginx Proxy + Apache Backend)...${NC}"
             if [ "$PM" == "apt" ]; then
-                # Stop services first to avoid conflicts during installation/config
+                # Aggressive cleanup: stop services and kill anything on port 80/443
                 systemctl stop nginx apache2 2>/dev/null || true
+                pkill -9 nginx 2>/dev/null || true
+                pkill -9 apache2 2>/dev/null || true
+                pkill -9 httpd 2>/dev/null || true
+                sleep 2
                 
                 # Prevent auto-start during installation
                 echo "exit 101" > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
@@ -274,16 +278,18 @@ else
                 
                 rm /usr/sbin/policy-rc.d
                 
-                # Configure Apache to listen on 8080
+                # Configure Apache to listen on 8080 ONLY
                 echo "Listen 8080" > /etc/apache2/ports.conf
-                # Replace 80 with 8080 in all virtualhosts
-                find /etc/apache2/sites-available/ -type f -name "*.conf" -exec sed -i 's/:80/:8080/g' {} + 2>/dev/null || true
-                find /etc/apache2/sites-enabled/ -type f -name "*.conf" -exec sed -i 's/:80/:8080/g' {} + 2>/dev/null || true
                 
-                # Enable proxy modules
-                a2enmod proxy proxy_http rewrite 2>/dev/null || true
+                # Replace 80 with 8080 in EVERYTHING under /etc/apache2 to be safe
+                grep -rl "80" /etc/apache2 | xargs sed -i 's/:80/:8080/g' 2>/dev/null || true
+                grep -rl "Listen 80" /etc/apache2 | xargs sed -i 's/Listen 80/Listen 8080/g' 2>/dev/null || true
                 
-                # Start services explicitly
+                # Enable required modules
+                a2enmod proxy proxy_http rewrite remoteip 2>/dev/null || true
+                
+                # Final check and start
+                echo -e "${BLUE}Restarting services...${NC}"
                 systemctl restart apache2
                 systemctl restart nginx
             elif [ "$PM" == "brew" ]; then
