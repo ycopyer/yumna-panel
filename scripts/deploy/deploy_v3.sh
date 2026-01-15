@@ -421,8 +421,39 @@ if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
     npm install --production
 
     if [ "$INSTALL_MODE" == "1" ]; then
+        echo -e "${BLUE}=== BUILDING DASHBOARD ===${NC}"
         cd "$INSTALL_DIR/panel"
         npm install && npm run build
+
+        # --- AUTOMATIC NGINX DASHBOARD SETUP ---
+        echo -e "${BLUE}=== CONFIGURING NGINX FOR DASHBOARD ===${NC}"
+        DASH_CONF="server {
+    listen 80;
+    server_name _;
+    root $INSTALL_DIR/panel/dist;
+    index index.html;
+
+    location / {
+        try_files \$uri \$uri/ /index.html;
+    }
+
+    location /api {
+        proxy_pass http://localhost:4000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+}"
+        if [ "$PM" == "apt" ]; then
+            echo "$DASH_CONF" | sudo tee /etc/nginx/sites-available/yumna-panel > /dev/null
+            sudo ln -sf /etc/nginx/sites-available/yumna-panel /etc/nginx/sites-enabled/
+            sudo rm /etc/nginx/sites-enabled/default 2>/dev/null || true
+        elif [ "$PM" == "dnf" ] || [ "$PM" == "pacman" ]; then
+            echo "$DASH_CONF" | sudo tee /etc/nginx/conf.d/yumna-panel.conf > /dev/null
+        fi
+        sudo systemctl restart nginx 2>/dev/null || true
     fi
 
     # DB Config
