@@ -205,7 +205,7 @@ install_nginx() {
         pkg) pkg install -y nginx; sysrc nginx_enable="YES" ;;
         brew) brew_install nginx; sudo brew services start nginx ;;
     esac
-    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable nginx; elif [ "$PM" == "pkg" ]; then service nginx start; fi
+    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable nginx || true; elif [ "$PM" == "pkg" ]; then service nginx start; fi
 }
 install_apache() {
     case $PM in
@@ -215,7 +215,7 @@ install_apache() {
         pkg) pkg install -y $HTTPD_PKG; sysrc apache24_enable="YES" ;;
         brew) brew_install httpd; sudo brew services start httpd ;;
     esac
-    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable $HTTPD_SVC; elif [ "$PM" == "pkg" ]; then service $HTTPD_SVC start; fi
+    if [ "$PM" != "pkg" ] && [ "$PM" != "brew" ]; then systemctl enable $HTTPD_SVC || true; elif [ "$PM" == "pkg" ]; then service $HTTPD_SVC start; fi
 }
 disable_apache() {
     if [ "$PM" == "brew" ]; then
@@ -263,7 +263,10 @@ else
         3) # Hybrid
             echo -e "${YELLOW}Configuring Hybrid Stack (Nginx Proxy + Apache Backend)...${NC}"
             if [ "$PM" == "apt" ]; then
-                # Prevent auto-start during installation to avoid port 80 conflict
+                # Stop services first to avoid conflicts during installation/config
+                systemctl stop nginx apache2 2>/dev/null || true
+                
+                # Prevent auto-start during installation
                 echo "exit 101" > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
                 
                 install_nginx
@@ -273,9 +276,14 @@ else
                 
                 # Configure Apache to listen on 8080
                 echo "Listen 8080" > /etc/apache2/ports.conf
-                sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf 2>/dev/null || true
+                # Replace 80 with 8080 in all virtualhosts
+                find /etc/apache2/sites-available/ -type f -name "*.conf" -exec sed -i 's/:80/:8080/g' {} + 2>/dev/null || true
+                find /etc/apache2/sites-enabled/ -type f -name "*.conf" -exec sed -i 's/:80/:8080/g' {} + 2>/dev/null || true
                 
-                # Start services
+                # Enable proxy modules
+                a2enmod proxy proxy_http rewrite 2>/dev/null || true
+                
+                # Start services explicitly
                 systemctl restart apache2
                 systemctl restart nginx
             elif [ "$PM" == "brew" ]; then
