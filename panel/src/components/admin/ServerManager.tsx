@@ -4,6 +4,7 @@ import { Server, Plus, Trash2, Edit2, Shield, Activity, X, Save, Loader2, Globe,
 import { motion, AnimatePresence } from 'framer-motion';
 import NodeUsageChart from './NodeUsageChart';
 import TunnelTerminal from './TunnelTerminal';
+import Terminal from '../system/Terminal';
 
 interface ServerNode {
     id: number;
@@ -21,6 +22,7 @@ interface ServerNode {
     ram_usage: number;
     disk_usage: number;
     uptime: number;
+    agent_version?: string;
     createdAt: string;
     is_syncing?: boolean;
 }
@@ -87,6 +89,7 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
     const [editingServer, setEditingServer] = useState<ServerNode | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [expandedNodes, setExpandedNodes] = useState<number[]>([]);
+    const [masterVersion, setMasterVersion] = useState('0.0.0');
 
     // Form states
     const [name, setName] = useState('');
@@ -109,6 +112,7 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
     // Deploy Auth/DB states
     const [showDeployModal, setShowDeployModal] = useState<number | null>(null);
     const [showTerminal, setShowTerminal] = useState<number | null>(null); // New Terminal State
+    const [showSystemTerminal, setShowSystemTerminal] = useState<number | null>(null);
     const [deployDbHost, setDeployDbHost] = useState('localhost');
     const [deployDbUser, setDeployDbUser] = useState('yumna_agent');
     const [deployDbPass, setDeployDbPass] = useState('yumna_password');
@@ -139,6 +143,41 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
         }
     };
 
+    const handleUpgradeAgent = async (id: number) => {
+        if (!confirm('Warning: This will push latest source code and restart the agent. Proceed?')) return;
+
+        setServers(prev => prev.map(s => s.id === id ? { ...s, is_syncing: true } : s));
+        try {
+            await axios.post(`/api/servers/${id}/upgrade-agent`, {}, {
+                headers: { 'x-user-id': userId }
+            });
+
+            // Poll for Upgrade Status
+            const poll = setInterval(async () => {
+                const res = await axios.get(`/api/servers/${id}/upgrade-status`, { headers: { 'x-user-id': userId } });
+                const status = res.data.status;
+
+                if (status === 'success') {
+                    clearInterval(poll);
+                    setServers(prev => prev.map(s => s.id === id ? { ...s, is_syncing: false } : s));
+                    // Force final sync to get the new version
+                    await axios.post(`/api/servers/${id}/sync`, {}, { headers: { 'x-user-id': userId } }).catch(() => { });
+                    fetchServers();
+                } else if (status.startsWith('error')) {
+                    clearInterval(poll);
+                    setServers(prev => prev.map(s => s.id === id ? { ...s, is_syncing: false } : s));
+                    alert(`Upgrade Failed: ${status}`);
+                    fetchServers();
+                }
+            }, 3000);
+
+        } catch (err: any) {
+            alert(`FAILED: ${err.response?.data?.error || 'Unknown error during upgrade'}`);
+        } finally {
+            setServers(prev => prev.map(s => s.id === id ? { ...s, is_syncing: false } : s));
+        }
+    };
+
     useEffect(() => {
         fetchServers();
         const interval = setInterval(fetchServers, 30000);
@@ -149,7 +188,12 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
         if (servers.length === 0) setLoading(true);
         try {
             const res = await axios.get('/api/servers', { headers: { 'x-user-id': userId } });
-            setServers(res.data);
+            if (res.data.servers) {
+                setServers(res.data.servers);
+                setMasterVersion(res.data.masterVersion);
+            } else {
+                setServers(res.data);
+            }
         } catch (err) {
             console.error(err);
         } finally {
@@ -549,10 +593,19 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                                     {server.last_seen ? new Date(server.last_seen).toLocaleTimeString() : 'N/A'}
                                                                 </span>
                                                             </div>
+                                                            <div className="w-px h-8 bg-white/5" />
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="text-[9px] font-black text-white/20 uppercase tracking-widest flex items-center gap-1.5">
+                                                                    <Shield size={10} /> Agent
+                                                                </span>
+                                                                <span className="text-xs font-bold text-white font-mono tracking-wide">
+                                                                    v{server.agent_version || '?.?.?'}
+                                                                </span>
+                                                            </div>
                                                         </div>
 
                                                         <div className="flex gap-2">
-                                                            {server.connection_type === 'tunnel' && (
+                                                            {server.connection_type === 'tunnel' ? (
                                                                 <button
                                                                     onClick={() => setShowTerminal(server.id)}
                                                                     className="p-3 bg-emerald-500/10 hover:bg-emerald-500 hover:text-white text-emerald-400 rounded-xl transition-all border border-emerald-500/20 hover:scale-110 active:scale-95 hover:shadow-lg hover:shadow-emerald-500/20 flex items-center gap-2"
@@ -562,7 +615,16 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                                         <Server size={16} />
                                                                         <div className="absolute -bottom-1 -right-1 w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                                                                     </div>
-                                                                    <span className="text-[9px] font-black uppercase hidden 2xl:block">Shell</span>
+                                                                    <span className="text-[9px] font-black uppercase hidden 2xl:block">Tunnel Shell</span>
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    onClick={() => setShowSystemTerminal(server.id)}
+                                                                    className="p-3 bg-blue-500/10 hover:bg-blue-500 hover:text-white text-blue-400 rounded-xl transition-all border border-blue-500/20 hover:scale-110 active:scale-95 hover:shadow-lg hover:shadow-blue-500/20 flex items-center gap-2"
+                                                                    title="Open System Terminal"
+                                                                >
+                                                                    <Server size={16} />
+                                                                    <span className="text-[9px] font-black uppercase hidden 2xl:block">System Shell</span>
                                                                 </button>
                                                             )}
                                                             {!server.is_local && (
@@ -586,6 +648,20 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                                                                 title="Force Sync"
                                                             >
                                                                 <RefreshCw size={16} className={server.is_syncing ? 'animate-spin' : ''} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleUpgradeAgent(server.id)}
+                                                                className={`p-3 rounded-xl transition-all border hover:scale-110 active:scale-95 hover:shadow-lg ${server.agent_version !== masterVersion
+                                                                    ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-400 shadow-lg shadow-orange-500/20"
+                                                                    : "bg-orange-500/10 hover:bg-orange-500 hover:text-white text-orange-400 border-orange-500/20 hover:shadow-orange-500/20"
+                                                                    }`}
+                                                                title={server.agent_version !== masterVersion ? `Upgrade Required (Latest: v${masterVersion})` : "Upgrade Agent Source"}
+                                                            >
+                                                                {server.is_syncing ? (
+                                                                    <Loader2 size={16} className="animate-spin" />
+                                                                ) : (
+                                                                    <Zap size={16} />
+                                                                )}
                                                             </button>
                                                             <button
                                                                 onClick={() => startEdit(server)}
@@ -633,6 +709,13 @@ const ServerManager: React.FC<ServerManagerProps> = ({ userId, onClose }) => {
                         serverId={showTerminal}
                         userId={userId}
                         onClose={() => setShowTerminal(null)}
+                    />
+                )}
+                {showSystemTerminal && (
+                    <Terminal
+                        serverId={showSystemTerminal}
+                        onClose={() => setShowSystemTerminal(null)}
+                        contextTitle={servers.find(s => s.id === showSystemTerminal)?.name + " - System Shell"}
                     />
                 )}
                 {showDeployModal && (

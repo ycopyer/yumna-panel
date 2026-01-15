@@ -606,6 +606,16 @@ const initV3 = async () => {
         }
 
         try {
+            await pool.promise().query("ALTER TABLE servers ADD COLUMN agent_version VARCHAR(20) AFTER status");
+            console.log('[MIGRATION] Added agent_version to servers.');
+        } catch (e) { }
+
+        try {
+            await pool.promise().query("ALTER TABLE servers ADD COLUMN agent_path VARCHAR(255) DEFAULT '/opt/yumnapanel/agent' AFTER agent_version");
+            console.log('[MIGRATION] Added agent_path to servers.');
+        } catch (e) { }
+
+        try {
             await pool.promise().query("ALTER TABLE servers ADD COLUMN agent_id VARCHAR(255) AFTER id");
             await pool.promise().query("ALTER TABLE servers ADD INDEX idx_agent_id (agent_id)");
             console.log('[MIGRATION] Added agent_id to servers.');

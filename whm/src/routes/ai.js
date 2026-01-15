@@ -11,8 +11,8 @@ const { requireAuth } = require('../middleware/auth');
 router.post('/ask', requireAuth, async (req, res) => {
     const { prompt, context } = req.body;
     try {
-        const answer = await aiService.ask(prompt, context);
-        res.json({ answer });
+        const result = await aiService.ask(prompt, context);
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

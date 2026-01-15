@@ -8,12 +8,22 @@ const serverNodeService = require('../services/ServerNodeService');
 const { encrypt } = require('../utils/helpers');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
+const agentDeploymentService = require('../services/AgentDeploymentService');
+const agentUpgradeService = require('../services/AgentUpgradeService');
 
 // List all servers
 router.get('/', requireAuth, async (req, res) => {
     try {
-        const [servers] = await pool.promise().query('SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage, last_seen, connection_type, agent_id FROM servers');
-        res.json(servers);
+        const [servers] = await pool.promise().query('SELECT id, name, hostname, ip, is_local, status, cpu_usage, ram_usage, disk_usage, last_seen, agent_version, connection_type, agent_id FROM servers');
+        const path = require('path');
+        const fs = require('fs');
+        let masterVersion = '0.0.0';
+        try {
+            const agentPkg = JSON.parse(fs.readFileSync(path.join(process.cwd(), '..', 'agent', 'package.json'), 'utf8'));
+            masterVersion = agentPkg.version;
+        } catch (e) { }
+
+        res.json({ servers, masterVersion });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -166,7 +176,6 @@ router.get('/:id/logs', requireAdmin, async (req, res) => {
     }
 });
 
-const agentDeploymentService = require('../services/AgentDeploymentService');
 
 // Deploy Agent to Remote Server
 router.post('/:id/deploy-agent', requireAdmin, async (req, res) => {
@@ -310,6 +319,22 @@ echo "========================================"
     } catch (e) {
         res.status(403).send('Link Expired or Invalid');
     }
+});
+
+// Upgrade Agent on Remote Server (Background Task)
+router.post('/:id/upgrade-agent', requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const result = await agentUpgradeService.upgrade(id, req);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+router.get('/:id/upgrade-status', requireAdmin, (req, res) => {
+    const { id } = req.params;
+    res.json({ status: agentUpgradeService.getUpgradeStatus(id) });
 });
 
 module.exports = router;

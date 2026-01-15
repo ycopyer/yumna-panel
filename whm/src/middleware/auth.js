@@ -55,8 +55,56 @@ const getSession = async (req, res, next) => {
     }
 };
 
-const requireAuth = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) return null;
+
+    const token = authHeader.split(' ')[1]; // Bearer <token>
+    if (!token) return null;
+
+    return new Promise((resolve) => {
+        db.query('SELECT t.userId, t.scopes, u.role, u.username, u.id FROM api_tokens t JOIN users u ON t.userId = u.id WHERE t.token = ?', [token], (err, results) => {
+            if (err || results.length === 0) return resolve(null);
+
+            // Update usage
+            db.query('UPDATE api_tokens SET last_used_at = NOW() WHERE token = ?', [token]);
+
+            resolve({
+                userId: results[0].userId,
+                role: results[0].role,
+                username: results[0].username,
+                scopes: results[0].scopes ? JSON.parse(results[0].scopes) : []
+            });
+        });
+    });
+};
+
+const requireAuth = async (req, res, next) => {
+    // Check for API Token first
+    if (req.headers['authorization']) {
+        const tokenUser = await verifyToken(req, res, next);
+        if (tokenUser) {
+            req.userId = tokenUser.userId;
+            req.userRole = tokenUser.role;
+            req.user = { id: tokenUser.userId, role: tokenUser.role, username: tokenUser.username };
+            req.tokenScopes = tokenUser.scopes;
+            return next();
+        }
+    }
+
+    // Fallback to Session
     getSession(req, res, next);
+};
+
+const requireScope = (scope) => {
+    return (req, res, next) => {
+        if (!req.tokenScopes) return next(); // Not using token, assume full access (session) or handle otherwise
+        if (req.tokenScopes.includes(scope) || req.tokenScopes.includes('admin')) {
+            next();
+        } else {
+            res.status(403).json({ error: `Missing required scope: ${scope}` });
+        }
+    };
 };
 
 const requireAdmin = (req, res, next) => {
@@ -76,8 +124,14 @@ const requireAdmin = (req, res, next) => {
         }
 
         // Also verify session for admin
-        db.query('SELECT userId FROM user_sessions WHERE sessionId = ? AND userId = ?', [sessionId, userId], (sErr, sResults) => {
+        db.query('SELECT u.id, u.role, u.username FROM user_sessions s JOIN users u ON s.userId = u.id WHERE s.sessionId = ? AND s.userId = ?', [sessionId, userId], (sErr, sResults) => {
             if (sErr || sResults.length === 0) return res.status(401).json({ error: 'Invalid admin session' });
+
+            const user = sResults[0];
+            req.userId = user.id;
+            req.userRole = user.role;
+            req.user = { id: user.id, role: user.role, username: user.username };
+
             next();
         });
     });
@@ -172,5 +226,6 @@ module.exports = {
     requireReseller,
     requirePrivileged,
     requirePermission,
+    requireScope,
     tryGetSession
 };

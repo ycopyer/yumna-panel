@@ -1,13 +1,18 @@
 require('dotenv').config();
 const express = require('express');
 const si = require('systeminformation');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || process.env.AGENT_PORT || 3000;
 
 // Utility for async error handling
-const asyncHandler = fn => (req, res, next) =>
-    Promise.resolve(fn(req, res, next)).catch(next);
+const asyncHandler = fn => (req, res, next) => {
+    return Promise.resolve(fn(req, res, next)).catch(err => {
+        console.error(`[Agent] Async Error in ${req.method} ${req.path}:`, err);
+        next(err);
+    });
+};
 
 app.use(express.json());
 
@@ -17,16 +22,23 @@ const AGENT_SECRET = process.env.AGENT_SECRET || 'insecure_default';
 
 // Auth Middleware
 const requireAuth = (req, res, next) => {
+    // Exempt heartbeat from auth for easier status checks
+    if (req.path === '/heartbeat') return next();
+
     const token = req.headers['x-agent-secret'];
     if (!token || token !== AGENT_SECRET) {
         // Log unauthorized attempt
-        console.warn(`[AUTH] Unauthorized access attempt from ${req.ip}`);
+        console.warn(`[AUTH] Unauthorized access attempt from ${req.ip} to ${req.path}`);
         return res.status(401).json({ error: 'Unauthorized' });
     }
     next();
 };
 
-// Protect Routes (except simple health check if needed, but heartbeat reveals stats so protect it)
+// Protect Routes
+app.use((req, res, next) => {
+    console.log(`[Agent] ${req.method} ${req.url}`);
+    next();
+});
 app.use(requireAuth);
 
 // --- Internal API: WebServer Management ---
@@ -99,6 +111,52 @@ app.get('/system/logs', asyncHandler(async (req, res) => {
     const { lines } = req.query;
     const result = await systemService.getSystemLogs(lines);
     res.json(result);
+}));
+
+app.post('/system/exec', asyncHandler(async (req, res) => {
+    let { command, cwd, root } = req.body;
+    const { exec } = require('child_process');
+
+    // Resolve absolute base
+    const baseDir = cwd || root || process.cwd();
+
+    // If command is 'cd something'
+    if (command.trim().startsWith('cd ')) {
+        const targetDir = command.trim().substring(3).trim();
+        const newPath = path.resolve(baseDir, targetDir);
+
+        // Root Jail Enforcement
+        if (root && !newPath.startsWith(path.resolve(root))) {
+            return res.json({
+                output: `cd: ${targetDir}: Access denied (Jailed to ${root})`,
+                error: 'Jail violation',
+                cwd: baseDir
+            });
+        }
+
+        const fs = require('fs').promises;
+        try {
+            const stats = await fs.stat(newPath);
+            if (stats.isDirectory()) {
+                return res.json({ output: '', stdout: '', stderr: '', error: null, cwd: newPath });
+            }
+        } catch (e) {
+            return res.json({ output: `cd: ${targetDir}: No such directory`, error: e.message, cwd: baseDir });
+        }
+    }
+
+    // Regular Command Execution with Jail enforcement
+    const finalCwd = (root && !baseDir.startsWith(path.resolve(root))) ? path.resolve(root) : baseDir;
+
+    exec(command, { cwd: finalCwd }, (error, stdout, stderr) => {
+        res.json({
+            output: stdout || stderr || (error ? error.message : ''),
+            stdout,
+            stderr,
+            error: error ? error.message : null,
+            cwd: finalCwd
+        });
+    });
 }));
 
 
@@ -233,9 +291,141 @@ app.get('/fs/read', asyncHandler(async (req, res) => {
 
 app.post('/fs/write', asyncHandler(async (req, res) => {
     const FileService = require('./services/FileService');
-    const { root, path, content } = req.body;
-    const result = await FileService.writeFile(root, path, content);
+    const { root, path, content, encoding } = req.body;
+    const result = await FileService.writeFile(root, path, content, encoding);
     res.json(result);
+}));
+
+app.post('/fs/copy', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, destPath } = req.body;
+    const result = await FileService.copy(root, path, destPath);
+    res.json(result);
+}));
+
+app.post('/fs/touch', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path } = req.body;
+    const result = await FileService.touch(root, path);
+    res.json(result);
+}));
+
+app.post('/fs/symlink', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, target } = req.body;
+    const result = await FileService.symlink(root, path, target);
+    res.json(result);
+}));
+
+app.get('/fs/exists', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path } = req.query;
+    const result = await FileService.exists(root, path);
+    res.json(result);
+}));
+
+app.post('/fs/zip', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, files, archiveName } = req.body;
+    const result = await FileService.zip(root, path, files, archiveName);
+    res.json(result);
+}));
+
+app.post('/fs/unzip', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, destination } = req.body;
+    const result = await FileService.unzip(root, path, destination);
+    res.json(result);
+}));
+
+app.post('/fs/tar', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, files, archiveName, compress } = req.body;
+    const result = await FileService.tar(root, path, files, archiveName, compress);
+    res.json(result);
+}));
+
+app.post('/fs/untar', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, destination } = req.body;
+    const result = await FileService.untar(root, path, destination);
+    res.json(result);
+}));
+
+app.post('/fs/gzip', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path } = req.body;
+    const result = await FileService.gzip(root, path);
+    res.json(result);
+}));
+
+app.post('/fs/gunzip', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path } = req.body;
+    const result = await FileService.gunzip(root, path);
+    res.json(result);
+}));
+
+app.get('/fs/search', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, pattern, maxDepth } = req.query;
+    const result = await FileService.search(root, path, pattern, parseInt(maxDepth));
+    res.json(result);
+}));
+
+app.get('/fs/grep', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, query, recursive, ignoreCase } = req.query;
+    const result = await FileService.grep(root, path, query, recursive === 'true', ignoreCase === 'true');
+    res.json(result);
+}));
+
+app.get('/fs/du', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path } = req.query;
+    const result = await FileService.du(root, path);
+    res.json(result);
+}));
+
+app.get('/fs/file-type', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path } = req.query;
+    const result = await FileService.fileType(root, path);
+    res.json(result);
+}));
+
+app.get('/fs/checksum', asyncHandler(async (req, res) => {
+    const FileService = require('./services/FileService');
+    const { root, path, algorithm } = req.query;
+    const result = await FileService.checksum(root, path, algorithm);
+    res.json(result);
+}));
+
+app.post('/fs/upload/init', asyncHandler(async (req, res) => {
+    const { name, size } = req.body;
+    // Just a placeholder for compatibility, actual chunking handled in /chunk
+    res.json({ success: true, message: 'Upload initialized' });
+}));
+
+app.post('/fs/upload/chunk', asyncHandler(async (req, res) => {
+    const { root, path: relPath, name, data, index } = req.body;
+    const FileService = require('./services/FileService');
+    const fullPath = FileService.resolveSafePath(root, relPath);
+    const filePath = path.join(fullPath, name);
+
+    await require('fs').promises.mkdir(path.dirname(filePath), { recursive: true });
+    const buffer = Buffer.from(data, 'base64');
+
+    if (parseInt(index) === 0) {
+        await require('fs').promises.writeFile(filePath, buffer);
+    } else {
+        await require('fs').promises.appendFile(filePath, buffer);
+    }
+    res.json({ success: true, index });
+}));
+
+app.post('/fs/upload/complete', asyncHandler(async (req, res) => {
+    res.json({ success: true, message: 'Upload complete' });
 }));
 
 app.get('/fs/download', (req, res) => {
@@ -276,6 +466,7 @@ app.get('/heartbeat', async (req, res) => {
 
         res.json({
             agentId: AGENT_ID,
+            version: require('../package.json').version,
             status: 'online',
             components: {
                 docker: dockerStatus ? 'running' : 'unavailable'
@@ -326,6 +517,27 @@ app.post('/docker/containers/:id/:action', async (req, res) => {
     }
 });
 
+
+// Custom error handler for JSON responses
+app.use((err, req, res, next) => {
+    const status = err.status || 500;
+    const message = err.message || 'Internal Server Error';
+
+    console.error(`[Agent Error Handler] ${req.method} ${req.path} -> ${status}: ${message}`);
+    if (err.stack) console.error(err.stack);
+
+    // If headers already sent, delegate to default Express error handler
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    res.status(status).json({
+        success: false,
+        error: message,
+        code: err.code || 'UNKNOWN_ERROR',
+        ...(process.env.NODE_ENV === 'development' || true ? { stack: err.stack } : {}) // Keep stack for now to debug
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`[Agent] Server Executor running on port ${PORT}`);

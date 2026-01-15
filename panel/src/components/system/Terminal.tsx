@@ -6,14 +6,15 @@ interface TerminalProps {
     onClose: () => void;
     sshAccountId?: number;
     websiteId?: number;
+    serverId?: number;
     contextTitle?: string;
     embedded?: boolean;
 }
 
-const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, websiteId, contextTitle, embedded }) => {
+const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, websiteId, serverId, contextTitle, embedded }) => {
     const [history, setHistory] = useState<{ type: 'input' | 'output', content: string }[]>([]);
     const [input, setInput] = useState('');
-    const [cwd, setCwd] = useState('~');
+    const [cwd, setCwd] = useState('');
     const [loading, setLoading] = useState(false);
     const terminalEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
@@ -24,32 +25,40 @@ const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, websiteId, c
 
     useEffect(() => {
         inputRef.current?.focus();
+        // Initial path discovery (silent)
+        executeCommand('pwd', true);
     }, []);
 
-    const executeCommand = async (cmd: string) => {
+    const executeCommand = async (cmd: string, silent: boolean = false) => {
         if (!cmd.trim()) return;
 
-        setHistory(prev => [...prev, { type: 'input', content: `${cwd} $ ${cmd}` }]);
+        if (!silent) {
+            setHistory(prev => [...prev, { type: 'input', content: `${cwd || '~'} $ ${cmd}` }]);
+        }
         setInput('');
         setLoading(true);
 
         try {
-            const response = await axios.post('/api/terminal/exec', {
-                command: cmd,
+            const response = await axios.post('/api/exec', {
+                command: silent && cmd === 'pwd' ? 'pwd' : cmd, // Ensure we actually run pwd
+                cwd: cwd,
                 sshAccountId: sshAccountId,
-                websiteId: websiteId
+                websiteId: websiteId,
+                serverId: serverId
             });
             const { output, cwd: newCwd } = response.data;
 
             if (newCwd) setCwd(newCwd);
-            if (output) {
+            if (!silent && output) {
                 setHistory(prev => [...prev, { type: 'output', content: output }]);
             }
         } catch (err: any) {
-            setHistory(prev => [...prev, {
-                type: 'output',
-                content: `Error: ${err.response?.data?.error || err.message}`
-            }]);
+            if (!silent) {
+                setHistory(prev => [...prev, {
+                    type: 'output',
+                    content: `Error: ${err.response?.data?.error || err.message}`
+                }]);
+            }
         } finally {
             setLoading(false);
         }
@@ -100,6 +109,9 @@ const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, websiteId, c
                 {/* Terminal Output */}
                 <div className="flex-1 overflow-y-auto p-4 font-mono text-sm custom-scrollbar bg-[#1e1e1e]">
                     <div className="space-y-1">
+                        {!history.length && !loading && (
+                            <div className="text-white/40 italic">Terminal session started. Type a command to begin...</div>
+                        )}
                         {history.map((item, idx) => (
                             <div key={idx} className={item.type === 'input' ? 'text-emerald-400' : 'text-white/80'}>
                                 {item.type === 'input' ? (
@@ -119,7 +131,7 @@ const Terminal: React.FC<TerminalProps> = ({ onClose, sshAccountId, websiteId, c
                 {/* Input Area */}
                 <div className="p-4 border-t border-white/10 bg-[#252526]">
                     <div className="flex items-center gap-2 font-mono text-sm">
-                        <span className="text-blue-400 font-bold">{cwd} $</span>
+                        <span className="text-blue-400 font-bold">{cwd || (loading ? '...' : '~')} $</span>
                         <input
                             ref={inputRef}
                             type="text"

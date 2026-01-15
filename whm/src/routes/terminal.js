@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const tunnelManager = require('../services/TunnelManagerService');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireAuth } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
+const axios = require('axios');
 
 // Start Shell Session (Tunnel Only for now)
 router.post('/start', requireAdmin, async (req, res) => {

@@ -100,16 +100,45 @@ class TunnelClientService {
 
     async executeCommand(payload) {
         const { requestId, data } = payload;
-        // data: { cmd }
-        // Very basic implementation: Execute shell command
-        // SECURITY WARNING: This allows remote root execution. Only Master should send this.
+        const cmd = data.command || (data.service === 'shell' ? data.cmd : null);
+        let { cwd, root } = data;
 
-        if (data.service === 'shell' && data.cmd) {
-            exec(data.cmd, (error, stdout, stderr) => {
+        if (cmd) {
+            const baseDir = cwd || root || process.cwd();
+
+            // Handle 'cd' for stateless persistence
+            if (cmd.trim().startsWith('cd ')) {
+                const targetDir = cmd.trim().substring(3).trim();
+                const newPath = path.resolve(baseDir, targetDir);
+
+                // Jail enforcement
+                if (root && !newPath.startsWith(path.resolve(root))) {
+                    return this.sendResponse(requestId, {
+                        output: `cd: ${targetDir}: Access denied (Jailed to ${root})`,
+                        exitCode: 1,
+                        cwd: baseDir
+                    });
+                }
+
+                try {
+                    const stats = await fsPromises.stat(newPath);
+                    if (stats.isDirectory()) {
+                        return this.sendResponse(requestId, { output: '', stdout: '', stderr: '', exitCode: 0, cwd: newPath });
+                    }
+                } catch (e) {
+                    return this.sendResponse(requestId, { output: `cd: ${targetDir}: No such directory`, exitCode: 1, cwd: baseDir });
+                }
+            }
+
+            const finalCwd = (root && !baseDir.startsWith(path.resolve(root))) ? path.resolve(root) : baseDir;
+
+            exec(cmd, { cwd: finalCwd }, (error, stdout, stderr) => {
                 this.sendResponse(requestId, {
+                    output: stdout || stderr || '',
                     stdout: stdout,
                     stderr: stderr,
-                    exitCode: error ? error.code : 0
+                    exitCode: error ? error.code : 0,
+                    cwd: finalCwd
                 });
             });
             return;
@@ -125,7 +154,7 @@ class TunnelClientService {
             return;
         }
 
-        this.sendError(requestId, 'Unknown command service');
+        this.sendError(requestId, 'Unknown command service or missing command data');
     }
 
     startShell({ requestId, data }) {
@@ -205,358 +234,114 @@ class TunnelClientService {
     }
 
     async handleFileAction({ requestId, data }) {
-        const { action, root, path: relPath, content, recursive, oldPath, newPath } = data;
-
-        // Basic resolution (Security: Production should implement Jail/Chroot check)
-        // Assume root is safe (provided by Master)
-        const resolvePath = (p) => path.resolve(root, (p || '').replace(/^\//, ''));
-        const targetPath = resolvePath(relPath);
+        const { action, root, path: relPath } = data;
+        const FileService = require('./FileService');
 
         try {
             let result = null;
 
-            if (action === 'ls') {
-                const items = await fsPromises.readdir(targetPath, { withFileTypes: true });
-                result = await Promise.all(items.map(async (item) => {
-                    const itemPath = path.join(targetPath, item.name);
-                    let stats;
-                    try { stats = await fsPromises.stat(itemPath); } catch { return null; } // Skip broken links
-                    if (!stats) return null;
-
-                    return {
-                        name: item.name,
-                        type: item.isDirectory() ? 'directory' : 'file',
-                        size: stats.size,
-                        mtime: Math.floor(stats.mtimeMs / 1000),
-                        permissions: stats.mode // Send raw mode, frontend can parse
-                    };
-                }));
-                result = result.filter(x => x); // filter nulls
-            }
-            else if (action === 'read') {
-                result = await fsPromises.readFile(targetPath, 'utf8');
-            }
-            else if (action === 'write') {
-                await fsPromises.writeFile(targetPath, content); // Auto creates file
-                result = { success: true };
-            }
-            else if (action === 'mkdir') {
-                await fsPromises.mkdir(targetPath, { recursive: true });
-                result = { success: true };
-            }
-            else if (action === 'delete') {
-                await fsPromises.rm(targetPath, { recursive, force: true });
-                result = { success: true };
-            }
-            else if (action === 'rename') {
-                const p1 = resolvePath(oldPath);
-                const p2 = resolvePath(newPath);
-                await fsPromises.rename(p1, p2);
-                result = { success: true };
-            }
-            else if (action === 'download_chunked') {
-                // Download Stream Logic
-                const stream = fs.createReadStream(targetPath, { highWaterMark: 64 * 1024 }); // 64KB chunks
-
-                stream.on('data', (chunk) => {
-                    if (!this.isConnected) { stream.destroy(); return; }
-                    this.ws.send(JSON.stringify({
-                        type: 'FILE_CHUNK',
-                        requestId,
-                        data: chunk.toString('base64'),
-                        isLast: false
-                    }));
-                });
-
-                stream.on('end', () => {
-                    if (!this.isConnected) return;
-                    this.ws.send(JSON.stringify({
-                        type: 'FILE_CHUNK',
-                        requestId,
-                        data: '',
-                        isLast: true
-                    }));
-                });
-
-                stream.on('error', (err) => {
-                    this.sendError(requestId, err.message);
-                });
-                return; // Response handled by stream events
-            }
-            else if (action === 'upload_chunk') {
-                // Upload Stream Logic
-                const { uploadId, index, totalChunks, name } = data;
-                const filePath = path.join(targetPath, name);
-
-                // Ensure directory exists
-                await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
-
-                // Decode chunk data
-                const chunkBuffer = Buffer.from(data.data, 'base64');
-
-                // First chunk: create/overwrite, subsequent: append
-                if (index === 0) {
-                    await fsPromises.writeFile(filePath, chunkBuffer);
-                } else {
-                    await fsPromises.appendFile(filePath, chunkBuffer);
-                }
-
-                // Send acknowledgment
-                this.sendResponse(requestId, {
-                    success: true,
-                    uploadId,
-                    index,
-                    received: true
-                });
-                return;
-            }
-            else if (action === 'chmod') {
-                // Change file permissions (Unix-like systems)
-                const { mode } = data; // mode should be octal string like '0755' or number
-                const numericMode = typeof mode === 'string' ? parseInt(mode, 8) : mode;
-                await fsPromises.chmod(targetPath, numericMode);
-                result = { success: true, mode: numericMode };
-            }
-            else if (action === 'chown') {
-                // Change file ownership (Unix-like systems only)
-                const { uid, gid } = data;
-                if (process.platform !== 'win32') {
-                    await fsPromises.chown(targetPath, uid, gid);
-                    result = { success: true, uid, gid };
-                } else {
-                    throw new Error('chown not supported on Windows');
-                }
-            }
-            else if (action === 'copy') {
-                // Copy file or directory
-                const destPath = resolvePath(data.destPath);
-                await fsPromises.mkdir(path.dirname(destPath), { recursive: true });
-
-                const stats = await fsPromises.stat(targetPath);
-                if (stats.isDirectory()) {
-                    // Recursive directory copy
-                    await this.copyDirectory(targetPath, destPath);
-                } else {
-                    await fsPromises.copyFile(targetPath, destPath);
-                }
-                result = { success: true, destination: destPath };
-            }
-            else if (action === 'stat') {
-                // Get detailed file statistics
-                const stats = await fsPromises.stat(targetPath);
-                result = {
-                    size: stats.size,
-                    mode: stats.mode,
-                    uid: stats.uid,
-                    gid: stats.gid,
-                    atime: stats.atimeMs,
-                    mtime: stats.mtimeMs,
-                    ctime: stats.ctimeMs,
-                    birthtime: stats.birthtimeMs,
-                    isFile: stats.isFile(),
-                    isDirectory: stats.isDirectory(),
-                    isSymbolicLink: stats.isSymbolicLink()
-                };
-            }
-            else if (action === 'touch') {
-                // Create empty file or update timestamp
-                try {
-                    await fsPromises.access(targetPath);
-                    // File exists, update timestamp
-                    const now = new Date();
-                    await fsPromises.utimes(targetPath, now, now);
-                } catch {
-                    // File doesn't exist, create it
-                    await fsPromises.writeFile(targetPath, '');
-                }
-                result = { success: true };
-            }
-            else if (action === 'symlink') {
-                // Create symbolic link
-                const { target: linkTarget } = data;
-                await fsPromises.symlink(linkTarget, targetPath);
-                result = { success: true, target: linkTarget };
-            }
-            else if (action === 'readlink') {
-                // Read symbolic link target
-                const linkTarget = await fsPromises.readlink(targetPath);
-                result = { target: linkTarget };
-            }
-            else if (action === 'exists') {
-                // Check if file/directory exists
-                try {
-                    await fsPromises.access(targetPath);
-                    result = { exists: true };
-                } catch {
-                    result = { exists: false };
-                }
-            }
-            else if (action === 'zip') {
-                // Create ZIP archive
-                const { files, archiveName } = data; // files: array of relative paths
-                const archivePath = resolvePath(archiveName || 'archive.zip');
-
-                // Use native zip command or archiver library
-                // For simplicity, using CLI zip command
-                const fileList = Array.isArray(files) ? files.join(' ') : files;
-                const cmd = process.platform === 'win32'
-                    ? `powershell Compress-Archive -Path ${fileList} -DestinationPath "${archivePath}" -Force`
-                    : `cd "${targetPath}" && zip -r "${archivePath}" ${fileList}`;
-
-                await execAsync(cmd);
-                result = { success: true, archive: archivePath };
-            }
-            else if (action === 'unzip') {
-                // Extract ZIP archive
-                const { destination } = data;
-                const destPath = destination ? resolvePath(destination) : path.dirname(targetPath);
-
-                await fsPromises.mkdir(destPath, { recursive: true });
-
-                const cmd = process.platform === 'win32'
-                    ? `powershell Expand-Archive -Path "${targetPath}" -DestinationPath "${destPath}" -Force`
-                    : `unzip -o "${targetPath}" -d "${destPath}"`;
-
-                await execAsync(cmd);
-                result = { success: true, destination: destPath };
-            }
-            else if (action === 'tar') {
-                // Create TAR archive (with optional compression)
-                const { files, archiveName, compress } = data; // compress: 'gzip', 'bzip2', or null
-                const archivePath = resolvePath(archiveName || 'archive.tar');
-                const fileList = Array.isArray(files) ? files.join(' ') : files;
-
-                let flags = 'cf';
-                if (compress === 'gzip') flags = 'czf';
-                if (compress === 'bzip2') flags = 'cjf';
-
-                const cmd = `cd "${targetPath}" && tar ${flags} "${archivePath}" ${fileList}`;
-                await execAsync(cmd);
-                result = { success: true, archive: archivePath };
-            }
-            else if (action === 'untar') {
-                // Extract TAR archive
-                const { destination } = data;
-                const destPath = destination ? resolvePath(destination) : path.dirname(targetPath);
-
-                await fsPromises.mkdir(destPath, { recursive: true });
-
-                // Auto-detect compression
-                let flags = 'xf';
-                if (targetPath.endsWith('.tar.gz') || targetPath.endsWith('.tgz')) flags = 'xzf';
-                if (targetPath.endsWith('.tar.bz2')) flags = 'xjf';
-
-                const cmd = `tar ${flags} "${targetPath}" -C "${destPath}"`;
-                await execAsync(cmd);
-                result = { success: true, destination: destPath };
-            }
-            else if (action === 'gzip') {
-                // Compress file with gzip
-                const cmd = `gzip -k "${targetPath}"`; // -k keeps original
-                await execAsync(cmd);
-                result = { success: true, compressed: `${targetPath}.gz` };
-            }
-            else if (action === 'gunzip') {
-                // Decompress gzip file
-                const cmd = `gunzip -k "${targetPath}"`; // -k keeps original
-                await execAsync(cmd);
-                result = { success: true, decompressed: targetPath.replace(/\.gz$/, '') };
-            }
-            else if (action === 'search') {
-                // Search for files by name pattern (glob)
-                const { pattern, maxDepth } = data;
-                const { glob } = require('glob');
-
-                const options = {
-                    cwd: targetPath,
-                    maxDepth: maxDepth || 10,
-                    nodir: false
-                };
-
-                // Use glob pattern matching
-                const matches = await new Promise((resolve, reject) => {
-                    glob(pattern, options, (err, files) => {
-                        if (err) reject(err);
-                        else resolve(files);
+            switch (action) {
+                case 'ls':
+                    result = await FileService.list(root, relPath);
+                    break;
+                case 'read':
+                    result = await FileService.readFile(root, relPath);
+                    break;
+                case 'write':
+                    result = await FileService.writeFile(root, relPath, data.content);
+                    break;
+                case 'mkdir':
+                    result = await FileService.mkdir(root, relPath, true);
+                    break;
+                case 'delete':
+                    result = await FileService.delete(root, relPath, data.recursive);
+                    break;
+                case 'rename':
+                    result = await FileService.rename(root, data.oldPath, data.newPath);
+                    break;
+                case 'chmod':
+                    result = await FileService.chmod(root, relPath, data.mode);
+                    break;
+                case 'copy':
+                    result = await FileService.copy(root, data.sourcePath, data.destPath);
+                    break;
+                case 'stat':
+                    result = await FileService.stat(root, relPath);
+                    break;
+                case 'touch':
+                    result = await FileService.touch(root, relPath);
+                    break;
+                case 'symlink':
+                    result = await FileService.symlink(root, relPath, data.target);
+                    break;
+                case 'exists':
+                    result = await FileService.exists(root, relPath);
+                    break;
+                case 'zip':
+                    result = await FileService.zip(root, relPath, data.files, data.archiveName);
+                    break;
+                case 'unzip':
+                    result = await FileService.unzip(root, relPath, data.destination);
+                    break;
+                case 'tar':
+                    result = await FileService.tar(root, relPath, data.files, data.archiveName, data.compress);
+                    break;
+                case 'untar':
+                    result = await FileService.untar(root, relPath, data.destination);
+                    break;
+                case 'gzip':
+                    result = await FileService.gzip(root, relPath);
+                    break;
+                case 'gunzip':
+                    result = await FileService.gunzip(root, relPath);
+                    break;
+                case 'search':
+                    result = await FileService.search(root, relPath, data.pattern, data.maxDepth);
+                    break;
+                case 'grep':
+                    result = await FileService.grep(root, relPath, data.query, data.recursive, data.ignoreCase);
+                    break;
+                case 'du':
+                    result = await FileService.du(root, relPath);
+                    break;
+                case 'file_type':
+                    result = await FileService.fileType(root, relPath);
+                    break;
+                case 'checksum':
+                    result = await FileService.checksum(root, relPath, data.algorithm);
+                    break;
+                case 'download_chunked':
+                    const stream = FileService.createReadStream(root, relPath);
+                    stream.on('data', (chunk) => {
+                        if (!this.isConnected) { stream.destroy(); return; }
+                        this.ws.send(JSON.stringify({
+                            type: 'FILE_CHUNK',
+                            requestId,
+                            data: chunk.toString('base64'),
+                            isLast: false
+                        }));
                     });
-                });
-
-                result = { files: matches };
-            }
-            else if (action === 'grep') {
-                // Search file content (text search)
-                const { query, recursive, ignoreCase } = data;
-
-                let flags = 'rn'; // recursive, line numbers
-                if (ignoreCase) flags += 'i';
-
-                const cmd = `grep -${flags} "${query}" "${targetPath}"`;
-
-                try {
-                    const { stdout } = await execAsync(cmd);
-                    const lines = stdout.split('\n').filter(l => l.trim());
-                    result = { matches: lines, count: lines.length };
-                } catch (err) {
-                    // grep returns non-zero if no matches
-                    result = { matches: [], count: 0 };
-                }
-            }
-            else if (action === 'du') {
-                // Disk usage (directory size)
-                const cmd = process.platform === 'win32'
-                    ? `powershell "(Get-ChildItem -Path '${targetPath}' -Recurse | Measure-Object -Property Length -Sum).Sum"`
-                    : `du -sb "${targetPath}" | cut -f1`;
-
-                const { stdout } = await execAsync(cmd);
-                const bytes = parseInt(stdout.trim());
-
-                result = {
-                    bytes,
-                    human: this.formatBytes(bytes)
-                };
-            }
-            else if (action === 'file_type') {
-                // Detect file type (MIME type)
-                const cmd = process.platform === 'win32'
-                    ? null // Windows doesn't have 'file' command by default
-                    : `file -b --mime-type "${targetPath}"`;
-
-                if (cmd) {
-                    const { stdout } = await execAsync(cmd);
-                    result = { mimeType: stdout.trim() };
-                } else {
-                    // Fallback: detect by extension
-                    const ext = path.extname(targetPath).toLowerCase();
-                    const mimeTypes = {
-                        '.txt': 'text/plain',
-                        '.html': 'text/html',
-                        '.css': 'text/css',
-                        '.js': 'application/javascript',
-                        '.json': 'application/json',
-                        '.zip': 'application/zip',
-                        '.tar': 'application/x-tar',
-                        '.gz': 'application/gzip',
-                        '.jpg': 'image/jpeg',
-                        '.png': 'image/png',
-                        '.pdf': 'application/pdf'
-                    };
-                    result = { mimeType: mimeTypes[ext] || 'application/octet-stream' };
-                }
-            }
-            else if (action === 'checksum') {
-                // Calculate file checksum (MD5, SHA256)
-                const { algorithm } = data; // 'md5', 'sha256', 'sha512'
-                const algo = algorithm || 'sha256';
-
-                const cmd = process.platform === 'win32'
-                    ? `powershell "Get-FileHash -Path '${targetPath}' -Algorithm ${algo.toUpperCase()} | Select-Object -ExpandProperty Hash"`
-                    : `${algo}sum "${targetPath}" | cut -d' ' -f1`;
-
-                const { stdout } = await execAsync(cmd);
-                result = {
-                    algorithm: algo,
-                    checksum: stdout.trim().toLowerCase()
-                };
+                    stream.on('end', () => {
+                        if (!this.isConnected) return;
+                        this.ws.send(JSON.stringify({ type: 'FILE_CHUNK', requestId, data: '', isLast: true }));
+                    });
+                    stream.on('error', (err) => this.sendError(requestId, err.message));
+                    return;
+                case 'upload_chunk':
+                    const { uploadId, index, name } = data;
+                    const fullPath = FileService.resolveSafePath(root, relPath);
+                    const filePath = path.join(fullPath, name);
+                    await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+                    const chunkBuffer = Buffer.from(data.data, 'base64');
+                    if (parseInt(index) === 0) {
+                        await fsPromises.writeFile(filePath, chunkBuffer);
+                    } else {
+                        await fsPromises.appendFile(filePath, chunkBuffer);
+                    }
+                    result = { success: true, uploadId, index };
+                    break;
+                default:
+                    throw new Error(`Unsupported action: ${action}`);
             }
 
             this.sendResponse(requestId, result);
@@ -565,30 +350,7 @@ class TunnelClientService {
         }
     }
 
-    async copyDirectory(src, dest) {
-        // Recursive directory copy helper
-        await fsPromises.mkdir(dest, { recursive: true });
-        const entries = await fsPromises.readdir(src, { withFileTypes: true });
 
-        for (const entry of entries) {
-            const srcPath = path.join(src, entry.name);
-            const destPath = path.join(dest, entry.name);
-
-            if (entry.isDirectory()) {
-                await this.copyDirectory(srcPath, destPath);
-            } else {
-                await fsPromises.copyFile(srcPath, destPath);
-            }
-        }
-    }
-
-    formatBytes(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
-    }
 
     sendResponse(requestId, data) {
         if (!this.ws || !this.isConnected) return;

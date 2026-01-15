@@ -70,13 +70,15 @@ class ServerNodeService {
                      cpu_usage = ?, 
                      ram_usage = ?, 
                      disk_usage = ?, 
-                     uptime = ? 
+                     uptime = ?,
+                     agent_version = ?
                      WHERE id = ?`,
                     [
                         metrics.cpu_load || 0,
                         metrics.mem_total ? ((metrics.mem_used / metrics.mem_total) * 100) : 0,
                         metrics.storage?.use || 0,
                         metrics.uptime || 0,
+                        response.data.version || 'unknown',
                         server.id
                     ]
                 );
@@ -137,6 +139,20 @@ class ServerNodeService {
             console.log(`[SERVER-NODES] Remote ${server.name} raw output:`, result.stdout);
 
             const isAgentRunning = await this.pingPort(server.ip, 4001);
+            let agentVersion = 'unknown';
+
+            if (isAgentRunning) {
+                try {
+                    const agentSecret = server.agentSecret || process.env.AGENT_SECRET || 'insecure_default';
+                    const response = await axios.get(`http://${server.ip}:4001/heartbeat`, {
+                        timeout: 2000,
+                        headers: { 'X-Agent-Secret': agentSecret }
+                    });
+                    agentVersion = response.data.version || 'unknown';
+                } catch (e) {
+                    // Fail silently for version check, we might be on an old agent
+                }
+            }
 
             const parts = result.stdout.trim().split(/[\s|]+/);
             const [cpuIdle, memTotal, memUsed, diskPct, uptime, diskTotal, diskUsed] = parts;
@@ -153,7 +169,8 @@ class ServerNodeService {
                  cpu_usage = ?, 
                  ram_usage = ?, 
                  disk_usage = ?, 
-                 uptime = ? 
+                 uptime = ?,
+                 agent_version = ?
                  WHERE id = ?`,
                 [
                     isAgentRunning ? 'active' : 'online',
@@ -161,6 +178,7 @@ class ServerNodeService {
                     isNaN(ramUsage) ? 0 : ramUsage,
                     parseFloat(diskPct) || 0,
                     parseFloat(uptime) || 0,
+                    agentVersion,
                     server.id
                 ]
             );
