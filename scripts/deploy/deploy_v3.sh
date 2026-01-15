@@ -261,18 +261,34 @@ else
             fi
             ;;
         3) # Hybrid
-            install_nginx
-            install_apache
+            echo -e "${YELLOW}Configuring Hybrid Stack (Nginx Proxy + Apache Backend)...${NC}"
             if [ "$PM" == "apt" ]; then
+                # Prevent auto-start during installation to avoid port 80 conflict
+                echo "exit 101" > /usr/sbin/policy-rc.d && chmod +x /usr/sbin/policy-rc.d
+                
+                install_nginx
+                install_apache
+                
+                rm /usr/sbin/policy-rc.d
+                
+                # Configure Apache to listen on 8080
                 echo "Listen 8080" > /etc/apache2/ports.conf
                 sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf 2>/dev/null || true
+                
+                # Start services
                 systemctl restart apache2
+                systemctl restart nginx
             elif [ "$PM" == "brew" ]; then
+                install_nginx
+                install_apache
                 CONF_PATH=$(find /usr/local/etc /opt/homebrew/etc -name httpd.conf 2>/dev/null | head -n 1)
                 gsed -i 's/Listen 80/Listen 8080/g' "$CONF_PATH" 2>/dev/null || true
                 sudo brew services restart httpd
                 sudo brew services restart nginx
             elif [ "$PM" != "pkg" ]; then
+                # RHEL/CentOS/Arch
+                install_nginx
+                install_apache
                 sed -i 's/Listen 80/Listen 8080/g' /etc/$HTTPD_SVC/conf/httpd.conf 2>/dev/null || true
                 systemctl restart $HTTPD_SVC
                 systemctl restart nginx

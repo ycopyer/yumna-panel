@@ -67,7 +67,9 @@ class AgentDeploymentService {
                 if (isDebian) {
                     bootstrapCmds = [
                         'sudo apt-get update -y',
+                        'echo "exit 101" | sudo tee /usr/sbin/policy-rc.d && sudo chmod +x /usr/sbin/policy-rc.d',
                         'sudo apt-get install -y curl git build-essential python3 mariadb-server nginx apache2',
+                        'sudo rm /usr/sbin/policy-rc.d',
                         'curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -',
                         'sudo apt-get install -y nodejs'
                     ];
