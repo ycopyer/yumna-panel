@@ -445,10 +445,16 @@ if [ "$INSTALL_MODE" == "1" ] || [ "$INSTALL_MODE" == "3" ]; then
     if command -v gsed &> /dev/null; then SED_CMD="gsed -i"; fi
     
     # Update .env
-    $SED_CMD "s/^DB_HOST=.*/DB_HOST=$DB_HOST/" .env
-    $SED_CMD "s/^DB_NAME=.*/DB_NAME=$DB_NAME/" .env
-    $SED_CMD "s/^DB_USER=.*/DB_USER=$DB_USER/" .env
-    $SED_CMD "s/^DB_PASSWORD=.*/DB_PASSWORD=$DB_PASS/" .env
+    cd "$INSTALL_DIR/whm"
+    if [ -f .env ]; then
+        # Use | as separator for sed to allow / in password
+        $SED_CMD "s|^DB_HOST=.*|DB_HOST=$DB_HOST|" .env
+        $SED_CMD "s|^DB_NAME=.*|DB_NAME=$DB_NAME|" .env
+        $SED_CMD "s|^DB_USER=.*|DB_USER=$DB_USER|" .env
+        $SED_CMD "s|^DB_PASS=.*|DB_PASS=$DB_PASS|" .env
+    else
+        echo -e "${RED}Error: .env file not found in $INSTALL_DIR/whm${NC}"
+    fi
     
     # Create DB if Local
     if [ "$DB_HOST" == "localhost" ] || [ "$DB_HOST" == "127.0.0.1" ]; then
