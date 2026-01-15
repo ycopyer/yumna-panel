@@ -281,9 +281,15 @@ else
                 # Configure Apache to listen on 8080 ONLY
                 echo "Listen 8080" > /etc/apache2/ports.conf
                 
-                # Replace 80 with 8080 in EVERYTHING under /etc/apache2 to be safe
-                grep -rl "80" /etc/apache2 | xargs sed -i 's/:80/:8080/g' 2>/dev/null || true
-                grep -rl "Listen 80" /etc/apache2 | xargs sed -i 's/Listen 80/Listen 8080/g' 2>/dev/null || true
+                # Safer port replacement: only target .conf files and ports.conf
+                echo -e "${YELLOW}Applying port 8080 to Apache configurations...${NC}"
+                find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/Listen 80/Listen 8080/g' {} + 2>/dev/null || true
+                find /etc/apache2 -type f \( -name "*.conf" -o -name "ports.conf" \) -exec sed -i 's/:80>/:8080>/g' {} + 2>/dev/null || true
+                
+                # Explicitly fix default site if it exists
+                if [ -f /etc/apache2/sites-available/000-default.conf ]; then
+                    sed -i 's/:80/:8080/g' /etc/apache2/sites-available/000-default.conf
+                fi
                 
                 # Enable required modules
                 a2enmod proxy proxy_http rewrite remoteip 2>/dev/null || true
