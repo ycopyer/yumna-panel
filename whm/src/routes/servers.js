@@ -150,17 +150,15 @@ router.post('/tunnel', requireAdmin, async (req, res) => {
         let hostWithPort = req.get('host'); // Will include :34567 if accessed that way
         const protocol = req.headers['x-forwarded-proto'] || req.protocol; // http or https
 
-        // Optimization: If accessed via dashboard port (34567), force agent to connect to backend port (4000)
-        if (hostWithPort.includes(':34567')) {
-            hostWithPort = hostWithPort.replace(':34567', ':4000');
-        } else if (!hostWithPort.includes(':')) {
-            // If no port specified, and we know we are on 4000, maybe append it? 
-            // Better to keep it as is if it's a domain, but for IP we might need the port.
-            // If it's an IP, append :4000
-            if (/^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostWithPort)) {
-                hostWithPort += ':4001'; // Default agent port? No, master port.
-                hostWithPort = hostWithPort.replace(':4001', ':4000');
-            }
+        // Optimization: Force the agent to connect to the backend port (default 4000)
+        const masterBackendPort = process.env.WHM_PORT || 4000;
+
+        if (hostWithPort.includes(':')) {
+            // Replace whatever port is there with the correct backend port
+            hostWithPort = hostWithPort.split(':')[0] + ':' + masterBackendPort;
+        } else {
+            // No port specified, append the backend port (especially for IP access)
+            hostWithPort = hostWithPort + ':' + masterBackendPort;
         }
 
         const installToken = jwt.sign({

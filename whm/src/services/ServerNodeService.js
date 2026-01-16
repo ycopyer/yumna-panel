@@ -27,19 +27,30 @@ class ServerNodeService {
                 const prevStatus = this.statusHistory.get(server.id) || server.status;
                 let currentStatus = 'unknown';
 
+                let isOnline = false;
                 if (server.is_local) {
                     currentStatus = await this.checkLocalAgent(server);
+                    isOnline = (currentStatus === 'active');
                 } else if (server.connection_type === 'tunnel') {
-                    // For tunnel servers, the TunnelManagerService handles the 'active' status.
-                    // We only check if it's already active in the map or if we need to ping for 'online' status.
                     const tunnelManager = require('./TunnelManagerService');
                     if (tunnelManager.activeTunnels.has(server.agent_id)) {
                         currentStatus = 'active';
+                        isOnline = true;
                     } else {
                         currentStatus = await this.checkRemotePing(server);
+                        isOnline = (currentStatus === 'online');
                     }
                 } else {
                     currentStatus = await this.checkRemote(server);
+                    isOnline = (currentStatus === 'active' || currentStatus === 'online');
+                }
+
+                // Only update the database if the status has genuinely changed
+                // and the server is considered online (reachable).
+                // This prevents constant DB writes if status is 'offline' but we keep trying.
+                if (currentStatus !== server.status) {
+                    // Update database
+                    await pool.promise().query('UPDATE servers SET status = ?, last_seen = NOW() WHERE id = ?', [currentStatus, server.id]);
                 }
 
                 // Handle Notification on Status Change
@@ -115,13 +126,21 @@ class ServerNodeService {
             if (e.response) {
                 console.error(`[SERVER-NODES] Agent Response:`, e.response.status, e.response.data);
             }
-            await pool.promise().query(`UPDATE servers SET status = 'connection_error' WHERE id = ?`, [server.id]);
+            // The checkNodes loop will handle the database update if status changes
             return 'connection_error';
         }
     }
 
     async checkRemote(server) {
+        // First, check if the SSH port is open. If not, no point in trying SSH.
+        const isSshPortOpen = await this.pingPort(server.ip, server.ssh_port || 22);
+        if (!isSshPortOpen) {
+            console.log(`[SERVER-NODES] SSH port ${server.ssh_port || 22} not open for ${server.name}. Falling back to ping.`);
+            return this.checkRemotePing(server);
+        }
+
         if (!server.ssh_user || !server.ssh_password) {
+            console.log(`[SERVER-NODES] SSH credentials missing for ${server.name}. Falling back to ping.`);
             return this.checkRemotePing(server);
         }
 
@@ -215,6 +234,7 @@ class ServerNodeService {
 
         } catch (e) {
             console.error(`[SERVER-NODES] Remote check failed for ${server.name}:`, e.message);
+            // The checkNodes loop will handle the database update if status changes
             return this.checkRemotePing(server);
         } finally {
             ssh.dispose();
@@ -225,10 +245,7 @@ class ServerNodeService {
         const isOnline = await this.pingPort(server.ip, server.ssh_port || 22);
         const status = isOnline ? 'online' : 'offline';
 
-        await pool.promise().query(
-            `UPDATE servers SET status = ?, last_seen = NOW() WHERE id = ?`,
-            [status, server.id]
-        );
+        // The checkNodes loop will handle the database update if status changes
         return status;
     }
 
