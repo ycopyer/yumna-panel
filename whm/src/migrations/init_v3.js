@@ -19,9 +19,15 @@ const initV3 = async () => {
             parentId INT DEFAULT NULL,
             status ENUM('active', 'suspended') DEFAULT 'active',
             two_factor_enabled TINYINT DEFAULT 0,
+            storage_quota BIGINT DEFAULT 1073741824,
             max_websites INT DEFAULT 5,
+            max_subdomains INT DEFAULT 10,
             max_databases INT DEFAULT 5,
+            max_cron_jobs INT DEFAULT 5,
+            max_ssh_accounts INT DEFAULT 5,
+            max_email_accounts INT DEFAULT 10,
             max_dns_zones INT DEFAULT 5,
+            plan_name VARCHAR(100) DEFAULT 'Starter',
             npwp VARCHAR(20),
             createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_parent (parentId)
@@ -571,6 +577,16 @@ const initV3 = async () => {
                 // Ignore errors
             }
         };
+
+        // Update users table for missing quota columns
+        try {
+            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS storage_quota BIGINT DEFAULT 1073741824");
+            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_subdomains INT DEFAULT 10");
+            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_cron_jobs INT DEFAULT 5");
+            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_ssh_accounts INT DEFAULT 5");
+            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_email_accounts INT DEFAULT 10");
+            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_name VARCHAR(100) DEFAULT 'Starter'");
+        } catch (e) { }
 
         // Run updates for legacy tables
         await ensureColumn('websites');

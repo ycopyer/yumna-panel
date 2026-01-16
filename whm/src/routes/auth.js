@@ -439,7 +439,15 @@ router.post('/resend-2fa', async (req, res) => {
 
 // Profile Endpoint
 router.get('/profile', requireAuth, (req, res) => {
-    db.query('SELECT id, username, email, role, two_factor_enabled FROM users WHERE id = ?', [req.userId], (err, results) => {
+    const query = `
+        SELECT 
+            u.*, 
+            s.host, s.port, s.username as sftp_username, s.name as sftp_name, s.rootPath as sftp_rootPath
+        FROM users u 
+        LEFT JOIN sftp_configs s ON u.id = s.userId
+        WHERE u.id = ?
+    `;
+    db.query(query, [req.userId], (err, results) => {
         if (err) {
             console.error('[AUTH] Profile fetch error:', err);
             return res.status(500).json({ error: 'Database error' });
@@ -481,11 +489,39 @@ router.put('/profile', requireAuth, upload.single('avatar'), async (req, res) =>
         }
 
         params.push(userId);
-        db.query(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`, params, (err) => {
+        db.query(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`, params, async (err) => {
             if (err) {
                 console.error('[AUTH] Profile update error:', err);
                 return res.status(500).json({ error: 'Failed to update profile' });
             }
+
+            // Update SFTP if provided in FormData
+            if (req.body.sftp) {
+                try {
+                    const sftp = JSON.parse(req.body.sftp);
+                    const { host, port, username, password: sftpPassword, name, rootPath } = sftp;
+
+                    const [existing] = await pool.promise().query('SELECT id FROM sftp_configs WHERE userId = ?', [userId]);
+                    if (existing.length > 0) {
+                        let sftpFields = ['host = ?', 'port = ?', 'username = ?', 'name = ?', 'rootPath = ?'];
+                        let sftpParams = [host, port || 22, username, name, rootPath];
+                        if (sftpPassword) {
+                            sftpFields.push('password = ?');
+                            sftpParams.push(sftpPassword);
+                        }
+                        sftpParams.push(userId);
+                        await pool.promise().query(`UPDATE sftp_configs SET ${sftpFields.join(', ')} WHERE userId = ?`, sftpParams);
+                    } else {
+                        await pool.promise().query(
+                            'INSERT INTO sftp_configs (userId, host, port, username, password, name, rootPath) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                            [userId, host, port || 22, username, sftpPassword, name, rootPath]
+                        );
+                    }
+                } catch (pErr) {
+                    console.error('[AUTH] SFTP parse/update error:', pErr);
+                }
+            }
+
             logActivity(userId, 'update_profile', 'Updated profile information', req);
             res.json({ success: true, message: 'Profile updated successfully. Please login again if you changed your password.' });
         });

@@ -8,7 +8,15 @@ const { logActivity } = require('../utils/logger');
 // Get Users (Admin sees all, Reseller sees their sub-users)
 router.get('/', requirePrivileged, async (req, res) => {
     try {
-        let query = 'SELECT u.id, u.username, u.email, u.role, u.status, u.parentId, u.createdAt, p.username as parentName FROM users u LEFT JOIN users p ON u.parentId = p.id';
+        let query = `
+            SELECT 
+                u.*, 
+                p.username as parentName,
+                s.host, s.port, s.username as sftp_username, s.name as sftp_name, s.rootPath as sftp_rootPath
+            FROM users u 
+            LEFT JOIN users p ON u.parentId = p.id
+            LEFT JOIN sftp_configs s ON u.id = s.userId
+        `;
         let params = [];
 
         if (req.userRole !== 'admin') {
@@ -25,7 +33,13 @@ router.get('/', requirePrivileged, async (req, res) => {
 
 // Create User
 router.post('/', requirePrivileged, async (req, res) => {
-    const { username, email, password, role, max_websites, max_databases } = req.body;
+    const {
+        username, email, password, role,
+        storage_quota, max_websites, max_subdomains,
+        max_databases, max_cron_jobs, max_ssh_accounts,
+        max_email_accounts, max_dns_zones, plan_name,
+        sftp
+    } = req.body;
 
     // Validation
     if (!username || !email || !password) {
@@ -41,12 +55,33 @@ router.post('/', requirePrivileged, async (req, res) => {
     try {
         const hashedPassword = await argon2.hash(password);
         const [result] = await pool.promise().query(
-            'INSERT INTO users (username, email, password, role, parentId, max_websites, max_databases) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [username, email, hashedPassword, targetRole, req.userId, max_websites || 5, max_databases || 5]
+            `INSERT INTO users (
+                username, email, password, role, parentId, 
+                storage_quota, max_websites, max_subdomains, 
+                max_databases, max_cron_jobs, max_ssh_accounts, 
+                max_email_accounts, max_dns_zones, plan_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                username, email, hashedPassword, targetRole, req.userId,
+                storage_quota || 1073741824, max_websites || 5, max_subdomains || 10,
+                max_databases || 5, max_cron_jobs || 5, max_ssh_accounts || 5,
+                max_email_accounts || 10, max_dns_zones || 5, plan_name || 'Starter'
+            ]
         );
 
+        const newUserId = result.insertId;
+
+        // Create SFTP Config if provided
+        if (sftp) {
+            const { host, port, username: sUser, password: sPass, name, rootPath } = sftp;
+            await pool.promise().query(
+                'INSERT INTO sftp_configs (userId, host, port, username, password, name, rootPath) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                [newUserId, host, port || 22, sUser, sPass, name, rootPath]
+            );
+        }
+
         logActivity(req.userId, 'create_user', `Created user ${username} with role ${targetRole}`, req);
-        res.json({ success: true, userId: result.insertId });
+        res.json({ success: true, userId: newUserId });
     } catch (err) {
         if (err.code === 'ER_DUP_ENTRY') {
             return res.status(400).json({ error: 'Username or email already exists' });
@@ -57,7 +92,13 @@ router.post('/', requirePrivileged, async (req, res) => {
 
 // Update User
 router.put('/:id', requirePrivileged, async (req, res) => {
-    const { status, max_websites, max_databases } = req.body;
+    const {
+        username, email, password, role, status,
+        two_factor_enabled, storage_quota, max_websites,
+        max_subdomains, max_databases, max_cron_jobs,
+        max_ssh_accounts, max_email_accounts, max_dns_zones,
+        plan_name, sftp
+    } = req.body;
     const targetUserId = req.params.id;
 
     try {
@@ -69,14 +110,69 @@ router.put('/:id', requirePrivileged, async (req, res) => {
             }
         }
 
-        await pool.promise().query(
-            'UPDATE users SET status = ?, max_websites = ?, max_databases = ? WHERE id = ?',
-            [status, max_websites, max_databases, targetUserId]
-        );
+        // 1. Update users table partially
+        let updateFields = [];
+        let params = [];
 
-        logActivity(req.userId, 'update_user', `Updated user ID ${targetUserId}`, req);
-        res.json({ success: true });
+        const allowedFields = {
+            username, email, role, status, two_factor_enabled,
+            storage_quota, max_websites, max_subdomains,
+            max_databases, max_cron_jobs, max_ssh_accounts,
+            max_email_accounts, max_dns_zones, plan_name
+        };
+
+        for (const [key, value] of Object.entries(allowedFields)) {
+            if (value !== undefined) {
+                updateFields.push(`${key} = ?`);
+                params.push(value);
+            }
+        }
+
+        if (password && password.trim() !== '') {
+            const hashedPassword = await argon2.hash(password);
+            updateFields.push('password = ?');
+            params.push(hashedPassword);
+        }
+
+        if (updateFields.length > 0) {
+            params.push(targetUserId);
+            await pool.promise().query(
+                `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
+                params
+            );
+        }
+
+        // 2. Update SFTP Config if provided
+        if (sftp) {
+            const { host, port, username, password: sftpPassword, name, rootPath } = sftp;
+            const [existingSftp] = await pool.promise().query('SELECT id FROM sftp_configs WHERE userId = ?', [targetUserId]);
+
+            if (existingSftp.length > 0) {
+                let sftpFields = ['host = ?', 'port = ?', 'username = ?', 'name = ?', 'rootPath = ?'];
+                let sftpParams = [host, port || 22, username, name, rootPath];
+
+                if (sftpPassword) {
+                    sftpFields.push('password = ?');
+                    sftpParams.push(sftpPassword);
+                }
+
+                sftpParams.push(targetUserId);
+                await pool.promise().query(
+                    `UPDATE sftp_configs SET ${sftpFields.join(', ')} WHERE userId = ?`,
+                    sftpParams
+                );
+            } else {
+                await pool.promise().query(
+                    'INSERT INTO sftp_configs (userId, host, port, username, password, name, rootPath) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [targetUserId, host, port || 22, username, sftpPassword, name, rootPath]
+                );
+            }
+        }
+
+        logActivity(req.userId, 'update_user', `Updated user ${username || `ID ${targetUserId}`}`, req);
+        res.json({ success: true, message: 'User updated successfully' });
     } catch (err) {
+        console.error('[USERS] Update failed:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -135,7 +231,12 @@ router.get('/:id/profile', requireAuth, async (req, res) => {
             return res.status(403).json({ error: 'Access denied' });
         }
         const [rows] = await pool.promise().query(
-            'SELECT id, username, email, role, status, two_factor_enabled, createdAt FROM users WHERE id = ?',
+            `SELECT 
+                u.*, 
+                s.host, s.port, s.username as sftp_username, s.name as sftp_name, s.rootPath as sftp_rootPath
+            FROM users u 
+            LEFT JOIN sftp_configs s ON u.id = s.userId
+            WHERE u.id = ?`,
             [targetId]
         );
         if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
