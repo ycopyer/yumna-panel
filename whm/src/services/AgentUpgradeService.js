@@ -117,6 +117,12 @@ class AgentUpgradeService {
             root: target.root || './'
         });
 
+        // 2.5 Install Dependencies
+        console.log(`[UPGRADE] Installing dependencies on Agent ${target.agentId}...`);
+        await agentDispatcher.dispatchExec(target, 'npm install --production', { cwd: target.root || './' }).catch(e => {
+            console.warn(`[UPGRADE] npm install warning on ${target.agentId}: ${e.message}`);
+        });
+
         // 3. Remove zip
         await agentDispatcher.dispatchFileAction(target, 'delete', {
             path: 'update.zip',

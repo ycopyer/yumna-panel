@@ -256,7 +256,7 @@ class TunnelClientService {
                     result = await FileService.readFile(root, relPath);
                     break;
                 case 'write':
-                    result = await FileService.writeFile(root, relPath, data.content);
+                    result = await FileService.writeFile(root, relPath, data.content, data.encoding || 'utf8');
                     break;
                 case 'mkdir':
                     result = await FileService.mkdir(root, relPath, true);
