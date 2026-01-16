@@ -145,7 +145,42 @@ router.get('/:id/profile', requireAuth, async (req, res) => {
     }
 });
 
-// Toggle 2FA
+// Update current user profile
+router.put('/profile', requireAuth, async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        let updateFields = [];
+        let params = [];
+
+        if (email) {
+            updateFields.push('email = ?');
+            params.push(email);
+        }
+
+        if (password) {
+            const hashedPassword = await argon2.hash(password);
+            updateFields.push('password = ?');
+            params.push(hashedPassword);
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        params.push(req.userId);
+        await pool.promise().query(
+            `UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`,
+            params
+        );
+
+        logActivity(req.userId, 'update_profile', 'Updated profile information', req);
+        res.json({ success: true, message: 'Profile updated successfully' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Toggle 2FA (Legacy - moving to security routes but keeping for compatibility)
 router.post('/toggle-2fa', requireAuth, async (req, res) => {
     const { enabled } = req.body;
     try {

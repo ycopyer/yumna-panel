@@ -451,4 +451,40 @@ router.get('/profile', requireAuth, (req, res) => {
     });
 });
 
+// Update Profile
+router.put('/profile', requireAuth, async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        let updateFields = [];
+        let params = [];
+
+        if (email) {
+            updateFields.push('email = ?');
+            params.push(email);
+        }
+
+        if (password) {
+            const hashedPassword = await argon2.hash(password);
+            updateFields.push('password = ?');
+            params.push(hashedPassword);
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({ error: 'No fields to update' });
+        }
+
+        params.push(req.userId);
+        db.query(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`, params, (err) => {
+            if (err) {
+                console.error('[AUTH] Profile update error:', err);
+                return res.status(500).json({ error: 'Failed to update profile' });
+            }
+            logActivity(req.userId, 'update_profile', 'Updated profile information', req);
+            res.json({ success: true, message: 'Profile updated successfully' });
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;
