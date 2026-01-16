@@ -538,7 +538,7 @@ if [ "$INSTALL_MODE" != "3" ]; then
         if [ "$INSTALL_MODE" == "1" ]; then
              WHM_ENV="$INSTALL_DIR/whm/.env"
              if [ -f "$WHM_ENV" ]; then
-                 CURRENT_AGENT_SECRET=$(grep AGENT_SECRET "$WHM_ENV" | cut -d '=' -f2)
+                 CURRENT_AGENT_SECRET=$(grep AGENT_SECRET "$WHM_ENV" | cut -d '=' -f2 | tr -d '\r')
                  S=$CURRENT_AGENT_SECRET
              fi
         fi
