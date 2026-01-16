@@ -441,10 +441,12 @@ router.post('/resend-2fa', async (req, res) => {
 router.get('/profile', requireAuth, (req, res) => {
     const query = `
         SELECT 
-            u.id, u.username, u.email, u.role, u.status, u.two_factor_enabled, u.createdAt,
-            u.storage_quota, u.max_websites, u.max_subdomains, u.max_databases, 
-            u.max_cron_jobs, u.max_ssh_accounts, u.max_email_accounts, u.max_dns_zones, u.plan_name,
-            s.host, s.port, s.username as sftp_username, s.name as sftp_name, s.rootPath as sftp_rootPath
+            u.*, 
+            s.host as sftp_host, 
+            s.port as sftp_port, 
+            s.username as sftp_username, 
+            s.name as sftp_name, 
+            s.rootPath as sftp_rootPath
         FROM users u 
         LEFT JOIN sftp_configs s ON u.id = s.userId
         WHERE u.id = ?
