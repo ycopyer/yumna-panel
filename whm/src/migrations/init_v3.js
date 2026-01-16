@@ -585,6 +585,7 @@ const initV3 = async () => {
             await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_cron_jobs INT DEFAULT 5");
             await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_ssh_accounts INT DEFAULT 5");
             await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_email_accounts INT DEFAULT 10");
+            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_dns_zones INT DEFAULT 5");
             await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_name VARCHAR(100) DEFAULT 'Starter'");
         } catch (e) { }
 

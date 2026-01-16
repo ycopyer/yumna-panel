@@ -10,7 +10,7 @@ router.get('/', requirePrivileged, async (req, res) => {
     try {
         let query = `
             SELECT 
-                u.id, u.username, u.email, u.role, u.status, u.parentId, u.createdAt,
+                u.id, u.username, u.email, u.role, u.status, u.parentId, u.createdAt, u.two_factor_enabled,
                 u.storage_quota, u.max_websites, u.max_subdomains, u.max_databases, 
                 u.max_cron_jobs, u.max_ssh_accounts, u.max_email_accounts, u.max_dns_zones, u.plan_name,
                 p.username as parentName,
