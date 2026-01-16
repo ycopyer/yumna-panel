@@ -578,18 +578,25 @@ const initV3 = async () => {
             }
         };
 
-        // Update users table for missing quota columns
-        try {
-            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS storage_quota BIGINT DEFAULT 1073741824");
-            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_subdomains INT DEFAULT 10");
-            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_cron_jobs INT DEFAULT 5");
-            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_ssh_accounts INT DEFAULT 5");
-            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_email_accounts INT DEFAULT 10");
-            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS max_dns_zones INT DEFAULT 5");
-            await pool.promise().query("ALTER TABLE users ADD COLUMN IF NOT EXISTS plan_name VARCHAR(100) DEFAULT 'Starter'");
-        } catch (e) { }
+        // Update users table for missing quota columns (Compatible with MySQL/MariaDB)
+        const addColumnSafe = async (column, def) => {
+            try {
+                await pool.promise().query(`ALTER TABLE users ADD COLUMN ${column} ${def}`);
+                console.log(`[MIGRATION] Added column ${column} to users.`);
+            } catch (e) {
+                // Ignore error if column already exists (Error 1060)
+            }
+        };
 
-        // Run updates for legacy tables
+        await addColumnSafe('storage_quota', 'BIGINT DEFAULT 1073741824');
+        await addColumnSafe('max_subdomains', 'INT DEFAULT 10');
+        await addColumnSafe('max_cron_jobs', 'INT DEFAULT 5');
+        await addColumnSafe('max_ssh_accounts', 'INT DEFAULT 5');
+        await addColumnSafe('max_email_accounts', 'INT DEFAULT 10');
+        await addColumnSafe('max_dns_zones', 'INT DEFAULT 5');
+        await addColumnSafe('plan_name', "VARCHAR(100) DEFAULT 'Starter'");
+
+        // Run updates for legacy tables (ensureColumn already has catch)
         await ensureColumn('websites');
         await ensureColumn('databases');
         await ensureColumn('ssl_certificates');
