@@ -29,6 +29,23 @@ router.get('/', requireAuth, async (req, res) => {
     }
 });
 
+// Public Agent Package (Zip of current master agent source)
+router.get('/agent-package', async (req, res) => {
+    const os = require('os');
+    const path = require('path');
+    const fs = require('fs');
+    const zipPath = path.join(os.tmpdir(), `yumna-agent-latest.zip`);
+
+    try {
+        await agentUpgradeService.createAgentZip(zipPath);
+        res.download(zipPath, 'agent.zip', () => {
+            fs.unlink(zipPath, () => { });
+        });
+    } catch (e) {
+        res.status(500).send('Failed to prepare agent package');
+    }
+});
+
 // Public Install Script Generator
 router.get('/install-script', async (req, res) => {
     const { token } = req.query;
@@ -40,6 +57,8 @@ router.get('/install-script', async (req, res) => {
 
         const wsProto = secure ? 'wss' : 'ws';
         const wsUrl = `${wsProto}://${masterHost}/tunnel`;
+        const httpProto = secure ? 'https' : 'http';
+        const masterBaseUrl = `${httpProto}://${req.get('host')}`;
 
         const script = `#!/bin/bash
 # YumnaPanel Agent Installer
@@ -60,19 +79,19 @@ fi
 
 # 2. Setup Directory
 INSTALL_DIR="/opt/yumna-agent"
-mkdir -p $INSTALL_DIR
+sudo mkdir -p $INSTALL_DIR
+sudo chown $USER:$USER $INSTALL_DIR
 cd $INSTALL_DIR
 
-# 3. Clone Agent Code
-echo "[+] Fetching Agent Code..."
-if [ ! -d ".git" ]; then
-    git clone https://github.com/ycopyer/yumna-panel.git temp_repo || echo "Git clone failed."
-    if [ -d "temp_repo" ]; then
-        cp -r temp_repo/agent/* .
-        rm -rf temp_repo
-    else
-        echo "[-] FAILED to download agent code."
-    fi
+# 3. Download Agent Code from Master (No GitHub needed on client)
+echo "[+] Fetching Agent Code from Master..."
+curl -sL "${masterBaseUrl}/api/servers/agent-package" -o agent.zip
+if [ -f "agent.zip" ]; then
+    unzip -o agent.zip
+    rm agent.zip
+else
+    echo "[-] FAILED to download agent package from Master."
+    exit 1
 fi
 
 # 4. Create .env
