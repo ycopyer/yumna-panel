@@ -442,8 +442,8 @@ router.get('/profile', requireAuth, (req, res) => {
     const query = `
         SELECT 
             u.*, 
-            s.host as sftp_host, 
-            s.port as sftp_port, 
+            s.host, 
+            s.port, 
             s.username as sftp_username, 
             s.name as sftp_name, 
             s.rootPath as sftp_rootPath

@@ -12,8 +12,8 @@ router.get('/', requirePrivileged, async (req, res) => {
             SELECT 
                 u.*, 
                 p.username as parentName,
-                s.host as sftp_host, 
-                s.port as sftp_port, 
+                s.host, 
+                s.port, 
                 s.username as sftp_username, 
                 s.name as sftp_name, 
                 s.rootPath as sftp_rootPath
@@ -29,7 +29,6 @@ router.get('/', requirePrivileged, async (req, res) => {
         }
 
         const [rows] = await pool.promise().query(query, params);
-        console.log(`[USERS] Found ${rows.length} users for requester ${req.userId} (Role: ${req.userRole})`);
         res.json(rows);
     } catch (err) {
         console.error('[USERS] Fetch error:', err);
