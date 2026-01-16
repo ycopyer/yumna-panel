@@ -58,7 +58,7 @@ router.post('/', requirePrivileged, async (req, res) => {
     }
 
     try {
-        const hashedPassword = await argon2.hash(password);
+        const hashedPassword = await argon2.hash(password.trim(), { type: argon2.argon2id });
         const [result] = await pool.promise().query(
             `INSERT INTO users (
                 username, email, password, role, parentId, 
@@ -134,7 +134,7 @@ router.put('/:id', requirePrivileged, async (req, res) => {
         }
 
         if (password && password.trim() !== '') {
-            const hashedPassword = await argon2.hash(password);
+            const hashedPassword = await argon2.hash(password.trim(), { type: argon2.argon2id });
             updateFields.push('password = ?');
             params.push(hashedPassword);
         }
