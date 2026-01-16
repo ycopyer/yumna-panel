@@ -402,6 +402,7 @@ const initV3 = async () => {
         CREATE TABLE IF NOT EXISTS sftp_configs (
             id INT AUTO_INCREMENT PRIMARY KEY,
             userId INT UNIQUE NOT NULL,
+            name VARCHAR(255) DEFAULT 'SFTP Server',
             host VARCHAR(255),
             port INT DEFAULT 22,
             username VARCHAR(255),
@@ -595,6 +596,14 @@ const initV3 = async () => {
         await addColumnSafe('max_email_accounts', 'INT DEFAULT 10');
         await addColumnSafe('max_dns_zones', 'INT DEFAULT 5');
         await addColumnSafe('plan_name', "VARCHAR(100) DEFAULT 'Starter'");
+
+        // Update sftp_configs table for missing name column
+        try {
+            await pool.promise().query("ALTER TABLE sftp_configs ADD COLUMN IF NOT EXISTS name VARCHAR(255) DEFAULT 'SFTP Server' AFTER userId");
+        } catch (e) {
+            // MySQL/standard fallback
+            try { await pool.promise().query("ALTER TABLE sftp_configs ADD COLUMN name VARCHAR(255) DEFAULT 'SFTP Server' AFTER userId"); } catch (e2) { }
+        }
 
         // Run updates for legacy tables (ensureColumn already has catch)
         await ensureColumn('websites');
