@@ -29,6 +29,128 @@ router.get('/', requireAuth, async (req, res) => {
     }
 });
 
+// Public Install Script Generator
+router.get('/install-script', async (req, res) => {
+    const { token } = req.query;
+    if (!token) return res.status(401).send('Missing token');
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'yumna-secret');
+        const { agentId, agentSecret, masterHost, secure } = decoded;
+
+        const wsProto = secure ? 'wss' : 'ws';
+        const wsUrl = `${wsProto}://${masterHost}/tunnel`;
+
+        const script = `#!/bin/bash
+# YumnaPanel Agent Installer
+# Auto-generated for Agent ID: ${agentId}
+# Host: ${masterHost}
+
+echo "========================================"
+echo "   YumnaPanel Agent Installer"
+echo "========================================"
+
+# 1. Install Node.js
+if ! command -v node &> /dev/null; then
+    echo "[+] Installing Node.js..."
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+else
+    echo "[+] Node.js is already installed."
+fi
+
+# 2. Setup Directory
+INSTALL_DIR="/opt/yumna-agent"
+mkdir -p $INSTALL_DIR
+cd $INSTALL_DIR
+
+# 3. Clone Agent Code
+echo "[+] Fetching Agent Code..."
+if [ ! -d ".git" ]; then
+    git clone https://github.com/ycopyer/yumna-panel.git temp_repo || echo "Git clone failed."
+    if [ -d "temp_repo" ]; then
+        cp -r temp_repo/agent/* .
+        rm -rf temp_repo
+    else
+        echo "[-] FAILED to download agent code. Please manually extract 'agent' folder to $INSTALL_DIR"
+    fi
+fi
+
+# 4. Create .env
+echo "[+] Configuring .env..."
+cat > .env <<EOF
+CONNECTION_MODE=tunnel
+MASTER_URL=${wsUrl}
+AGENT_ID=${agentId}
+AGENT_SECRET=${agentSecret}
+EOF
+
+# 5. Install Dependencies
+echo "[+] Installing Dependencies..."
+npm install --production
+
+# 6. Start Service
+echo "[+] Starting Service..."
+npm install -g pm2
+pm2 delete yumna-agent 2>/dev/null || true
+pm2 start src/index.js --name yumna-agent
+pm2 save
+pm2 startup
+
+echo "========================================"
+echo "   Agent Installed & Started!"
+echo "   Check status: pm2 status yumna-agent"
+echo "========================================"
+`;
+        res.setHeader('Content-Type', 'text/plain');
+        res.send(script);
+
+    } catch (e) {
+        res.status(403).send('Link Expired or Invalid');
+    }
+});
+
+// Create Tunnel Server & Get Install Config
+router.post('/tunnel', requireAdmin, async (req, res) => {
+    const { name, agentId, agentSecret } = req.body;
+
+    // Auto-generate if missing
+    const finalAgentId = agentId || `agent-${uuidv4().split('-')[0]}-${Math.floor(Date.now() / 1000)}`;
+    const finalSecret = agentSecret || require('crypto').randomBytes(16).toString('hex');
+
+    try {
+        const [result] = await pool.promise().query(
+            `INSERT INTO servers (name, hostname, ip, is_local, status, connection_type, agent_id, agentSecret)
+             VALUES (?, ?, ?, 0, 'offline', 'tunnel', ?, ?)`,
+            [name || `Tunnel Server ${finalAgentId}`, `tunnel-${finalAgentId}`, '0.0.0.0', finalAgentId, finalSecret]
+        );
+
+        // Generate Token for Installation Script (valid 1 hour)
+        const hostWithPort = req.get('host'); // Will include :34567 if accessed that way
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol; // http or https
+
+        const installToken = jwt.sign({
+            agentId: finalAgentId,
+            agentSecret: finalSecret,
+            masterHost: hostWithPort,
+            secure: protocol === 'https'
+        }, process.env.JWT_SECRET || 'yumna-secret', { expiresIn: '1h' });
+
+        const installUrl = `${protocol}://${hostWithPort}/api/servers/install-script?token=${installToken}`;
+
+        res.json({
+            success: true,
+            id: result.insertId,
+            agentId: finalAgentId,
+            agentSecret: finalSecret,
+            installCommand: `curl -sL "${installUrl}" | bash`
+        });
+
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Get server details
 router.get('/:id', requireAuth, async (req, res) => {
     const { id } = req.params;
@@ -196,130 +318,6 @@ router.get('/:id/deploy-status', requireAdmin, (req, res) => {
     res.json({ status });
 });
 
-// Create Tunnel Server & Get Install Config
-router.post('/tunnel', requireAdmin, async (req, res) => {
-    const { name, agentId, agentSecret } = req.body;
-
-    // Auto-generate if missing
-    const finalAgentId = agentId || `agent-${uuidv4().split('-')[0]}-${Math.floor(Date.now() / 1000)}`;
-    const finalSecret = agentSecret || require('crypto').randomBytes(16).toString('hex');
-
-    try {
-        const [result] = await pool.promise().query(
-            `INSERT INTO servers (name, hostname, ip, is_local, status, connection_type, agent_id, agentSecret)
-             VALUES (?, ?, ?, 0, 'offline', 'tunnel', ?, ?)`,
-            [name || `Tunnel Server ${finalAgentId}`, `tunnel-${finalAgentId}`, '0.0.0.0', finalAgentId, finalSecret]
-        );
-
-        // Generate Token for Installation Script (valid 1 hour)
-        const hostWithPort = req.get('host'); // Will include :34567 if accessed that way
-        const protocol = req.headers['x-forwarded-proto'] || req.protocol; // http or https
-
-        const installToken = jwt.sign({
-            agentId: finalAgentId,
-            agentSecret: finalSecret,
-            masterHost: hostWithPort,
-            secure: protocol === 'https'
-        }, process.env.JWT_SECRET || 'yumna-secret', { expiresIn: '1h' });
-
-        const installUrl = `${protocol}://${hostWithPort}/api/servers/install-script?token=${installToken}`;
-
-        res.json({
-            success: true,
-            id: result.insertId,
-            agentId: finalAgentId,
-            agentSecret: finalSecret,
-            installCommand: `curl -sL "${installUrl}" | bash`
-        });
-
-    } catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-
-// Public Install Script Generator
-router.get('/install-script', async (req, res) => {
-    const { token } = req.query;
-    if (!token) return res.status(401).send('Missing token');
-
-    try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'yumna-secret');
-        const { agentId, agentSecret, masterHost, secure } = decoded;
-
-        const wsProto = secure ? 'wss' : 'ws';
-        const wsUrl = `${wsProto}://${masterHost}/tunnel`;
-
-        const script = `#!/bin/bash
-# YumnaPanel Agent Installer
-# Auto-generated for Agent ID: ${agentId}
-# Host: ${masterHost}
-
-echo "========================================"
-echo "   YumnaPanel Agent Installer"
-echo "========================================"
-
-# 1. Install Node.js
-if ! command -v node &> /dev/null; then
-    echo "[+] Installing Node.js..."
-    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-else
-    echo "[+] Node.js is already installed."
-fi
-
-# 2. Setup Directory
-INSTALL_DIR="/opt/yumna-agent"
-mkdir -p $INSTALL_DIR
-cd $INSTALL_DIR
-
-# 3. Clone Agent Code
-echo "[+] Fetching Agent Code..."
-if [ ! -d ".git" ]; then
-    # Clone from public repo (replace with actual logic/zip download if needed)
-    # Using a placeholder valid repo logic, ideally this downloads a release zip from WHM logic
-    # For now, we assume git clone works, or we fail gracefully
-    git clone https://github.com/ycopyer/yumna-panel.git temp_repo || echo "Git clone failed."
-    if [ -d "temp_repo" ]; then
-        cp -r temp_repo/agent/* .
-        rm -rf temp_repo
-    else
-        echo "[-] FAILED to download agent code. Please manually extract 'agent' folder to $INSTALL_DIR"
-    fi
-fi
-
-# 4. Create .env
-echo "[+] Configuring .env..."
-cat > .env <<EOF
-CONNECTION_MODE=tunnel
-MASTER_URL=${wsUrl}
-AGENT_ID=${agentId}
-AGENT_SECRET=${agentSecret}
-EOF
-
-# 5. Install Dependencies
-echo "[+] Installing Dependencies..."
-npm install --production
-
-# 6. Start Service
-echo "[+] Starting Service..."
-npm install -g pm2
-pm2 delete yumna-agent 2>/dev/null || true
-pm2 start src/index.js --name yumna-agent
-pm2 save
-pm2 startup
-
-echo "========================================"
-echo "   Agent Installed & Started!"
-echo "   Check status: pm2 status yumna-agent"
-echo "========================================"
-`;
-        res.setHeader('Content-Type', 'text/plain');
-        res.send(script);
-
-    } catch (e) {
-        res.status(403).send('Link Expired or Invalid');
-    }
-});
 
 // Upgrade Agent on Remote Server (Background Task)
 router.post('/:id/upgrade-agent', requireAdmin, async (req, res) => {
