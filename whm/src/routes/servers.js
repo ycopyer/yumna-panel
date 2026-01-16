@@ -44,7 +44,6 @@ router.get('/install-script', async (req, res) => {
         const script = `#!/bin/bash
 # YumnaPanel Agent Installer
 # Auto-generated for Agent ID: ${agentId}
-# Host: ${masterHost}
 
 echo "========================================"
 echo "   YumnaPanel Agent Installer"
@@ -72,17 +71,39 @@ if [ ! -d ".git" ]; then
         cp -r temp_repo/agent/* .
         rm -rf temp_repo
     else
-        echo "[-] FAILED to download agent code. Please manually extract 'agent' folder to $INSTALL_DIR"
+        echo "[-] FAILED to download agent code."
     fi
 fi
 
 # 4. Create .env
 echo "[+] Configuring .env..."
 cat > .env <<EOF
+# CORE SETTINGS
+NODE_ENV=production
+PORT=4001
+AGENT_PORT=4001
+
+# CONNECTION SETTINGS
 CONNECTION_MODE=tunnel
 MASTER_URL=${wsUrl}
+# Fallback for older agents
+WHM_URL=${wsUrl.replace('ws', 'http').replace('/tunnel', '')}
+
+# AGENT IDENTITY
 AGENT_ID=${agentId}
 AGENT_SECRET=${agentSecret}
+AGENT_HOSTNAME=$(hostname)
+AGENT_IP=$(hostname -I | awk '{print $1}')
+
+# DATABASE CREDENTIALS (Default for Agent)
+DB_HOST=localhost
+DB_USER=root
+DB_PASS=
+
+# FEATURES
+ENABLE_DNS=true
+ENABLE_WEB=true
+ENABLE_DB=true
 EOF
 
 # 5. Install Dependencies
