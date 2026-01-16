@@ -451,9 +451,15 @@ router.get('/profile', requireAuth, (req, res) => {
     });
 });
 
-// Update Profile
-router.put('/profile', requireAuth, async (req, res) => {
+// Setup multer for avatar uploads (optional but needed for multipart parsing)
+const multer = require('multer');
+const upload = multer({ limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
+
+// Update Profile (Handles Multipart for Avatar)
+router.put('/profile', requireAuth, upload.single('avatar'), async (req, res) => {
     const { email, password } = req.body;
+    const userId = req.userId;
+
     try {
         let updateFields = [];
         let params = [];
@@ -463,8 +469,9 @@ router.put('/profile', requireAuth, async (req, res) => {
             params.push(email);
         }
 
-        if (password) {
-            const hashedPassword = await argon2.hash(password);
+        if (password && password.trim() !== '') {
+            // Using argon2id for consistency with login migration
+            const hashedPassword = await argon2.hash(password.trim(), { type: argon2.argon2id });
             updateFields.push('password = ?');
             params.push(hashedPassword);
         }
@@ -473,16 +480,17 @@ router.put('/profile', requireAuth, async (req, res) => {
             return res.status(400).json({ error: 'No fields to update' });
         }
 
-        params.push(req.userId);
+        params.push(userId);
         db.query(`UPDATE users SET ${updateFields.join(', ')} WHERE id = ?`, params, (err) => {
             if (err) {
                 console.error('[AUTH] Profile update error:', err);
                 return res.status(500).json({ error: 'Failed to update profile' });
             }
-            logActivity(req.userId, 'update_profile', 'Updated profile information', req);
-            res.json({ success: true, message: 'Profile updated successfully' });
+            logActivity(userId, 'update_profile', 'Updated profile information', req);
+            res.json({ success: true, message: 'Profile updated successfully. Please login again if you changed your password.' });
         });
     } catch (err) {
+        console.error('[AUTH] Profile put error:', err);
         res.status(500).json({ error: err.message });
     }
 });
