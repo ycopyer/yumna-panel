@@ -212,17 +212,17 @@ router.post('/tunnel', requireAdmin, async (req, res) => {
         );
 
         // Generate Token for Installation Script (valid 1 hour)
-        const host = req.get('host'); // e.g. panel.com
+        const hostWithPort = req.get('host'); // Will include :34567 if accessed that way
         const protocol = req.headers['x-forwarded-proto'] || req.protocol; // http or https
 
         const installToken = jwt.sign({
             agentId: finalAgentId,
             agentSecret: finalSecret,
-            masterHost: host,
+            masterHost: hostWithPort,
             secure: protocol === 'https'
         }, process.env.JWT_SECRET || 'yumna-secret', { expiresIn: '1h' });
 
-        const installUrl = `${protocol}://${host}/api/servers/install-script?token=${installToken}`;
+        const installUrl = `${protocol}://${hostWithPort}/api/servers/install-script?token=${installToken}`;
 
         res.json({
             success: true,
