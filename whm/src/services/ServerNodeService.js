@@ -29,6 +29,15 @@ class ServerNodeService {
 
                 if (server.is_local) {
                     currentStatus = await this.checkLocalAgent(server);
+                } else if (server.connection_type === 'tunnel') {
+                    // For tunnel servers, the TunnelManagerService handles the 'active' status.
+                    // We only check if it's already active in the map or if we need to ping for 'online' status.
+                    const tunnelManager = require('./TunnelManagerService');
+                    if (tunnelManager.activeTunnels.has(server.agent_id)) {
+                        currentStatus = 'active';
+                    } else {
+                        currentStatus = await this.checkRemotePing(server);
+                    }
                 } else {
                     currentStatus = await this.checkRemote(server);
                 }

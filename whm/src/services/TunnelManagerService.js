@@ -101,6 +101,10 @@ class TunnelManagerService {
         ws.on('close', () => {
             console.log(`[TUNNEL] Agent disconnected: ${agentId}`);
             this.activeTunnels.delete(agentId);
+
+            // Update status to offline (or let heartbeat service handle it, but immediate update is better)
+            pool.promise().query('UPDATE servers SET status = "offline" WHERE agent_id = ? AND status = "active"', [agentId])
+                .catch(e => console.error('[TUNNEL] Failed to set offline status:', e.message));
         });
 
         ws.on('error', (err) => {

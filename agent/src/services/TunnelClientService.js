@@ -23,9 +23,17 @@ class TunnelClientService {
             return;
         }
 
-        const whmUrl = process.env.WHM_URL || 'http://localhost:4000';
-        // Replace http/https with ws/wss and append /tunnel
-        const tunnelUrl = whmUrl.replace(/^http/, 'ws') + '/tunnel';
+        const whmUrl = process.env.MASTER_URL || process.env.WHM_URL || 'http://localhost:4000';
+        // If it already starts with ws/wss, use as is, otherwise convert http to ws
+        let tunnelUrl = whmUrl;
+        if (!tunnelUrl.startsWith('ws')) {
+            tunnelUrl = whmUrl.replace(/^http/, 'ws');
+        }
+
+        // Ensure it ends with /tunnel
+        if (!tunnelUrl.endsWith('/tunnel')) {
+            tunnelUrl = tunnelUrl.replace(/\/$/, '') + '/tunnel';
+        }
 
         this.config = {
             url: tunnelUrl,
