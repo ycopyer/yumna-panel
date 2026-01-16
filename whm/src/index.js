@@ -6,7 +6,10 @@ const helmet = require('helmet');
 const app = express();
 const PORT = process.env.WHM_PORT || 4000;
 
-app.use(helmet());
+app.set('trust proxy', true);
+app.use(helmet({
+    crossOriginOpenerPolicy: false, // Allow for remote script fetching if needed
+}));
 app.use(cors());
 app.use(express.json());
 
