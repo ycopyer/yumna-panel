@@ -534,9 +534,18 @@ if [ "$INSTALL_MODE" != "3" ]; then
         SED_CMD="sed -i"
         if command -v gsed &> /dev/null; then SED_CMD="gsed -i"; fi
 
+        # SYNC AGENT_SECRET from WHM if on Master node
+        if [ "$INSTALL_MODE" == "1" ]; then
+             WHM_ENV="$INSTALL_DIR/whm/.env"
+             if [ -f "$WHM_ENV" ]; then
+                 CURRENT_AGENT_SECRET=$(grep AGENT_SECRET "$WHM_ENV" | cut -d '=' -f2)
+                 S=$CURRENT_AGENT_SECRET
+             fi
+        fi
+
+        $SED_CMD "s/^AGENT_SECRET=.*/AGENT_SECRET=$S/" .env
         $SED_CMD "s|WHM_URL=.*|WHM_URL=$WHM_URL|g" .env
         $SED_CMD "s/change_this_shared_secret_for_nodes/$S/" .env
-        $SED_CMD "s/^AGENT_SECRET=.*/AGENT_SECRET=$S/" .env
         
         if grep -q "WEB_SERVER_STACK" .env; then
             $SED_CMD "s/WEB_SERVER_STACK=.*/WEB_SERVER_STACK=$WEB_STACK_NAME/" .env
