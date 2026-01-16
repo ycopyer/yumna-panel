@@ -5,15 +5,26 @@ const getSession = async (req, res, next) => {
     const userId = req.headers['x-user-id'] || req.query.userId || req.body.userId;
     const sessionId = req.headers['x-session-id'] || req.query.sessionId;
 
-    if (!userId || userId === 'undefined' || userId === 'null' || userId === '') return res.status(401).json({ error: 'User not logged in' });
-    if (!sessionId || sessionId === 'undefined' || sessionId === 'null') return res.status(401).json({ error: 'Session ID required' });
+    if (!userId || userId === 'undefined' || userId === 'null' || userId === '') {
+        return res.status(401).json({ error: 'User not logged in (Missing UserID)' });
+    }
+    if (!sessionId || sessionId === 'undefined' || sessionId === 'null') {
+        return res.status(401).json({ error: 'Session ID required' });
+    }
 
     try {
         // Verify session in DB
         db.query('SELECT u.id, u.role, u.username, u.status, s.lastActive FROM user_sessions s JOIN users u ON s.userId = u.id WHERE s.sessionId = ? AND s.userId = ?', [sessionId, userId], async (err, results) => {
             try {
-                if (err) return res.status(500).json({ error: 'Database error', details: JSON.stringify(err, Object.getOwnPropertyNames(err)) });
-                if (results.length === 0) return res.status(401).json({ error: 'Invalid or expired session' });
+                if (err) {
+                    console.error('[AUTH] DB Error:', err);
+                    return res.status(500).json({ error: 'Database error' });
+                }
+
+                if (results.length === 0) {
+                    console.warn(`[AUTH] Session not found or UserID mismatch. SID: ${sessionId}, UID: ${userId}`);
+                    return res.status(401).json({ error: 'Invalid or expired session' });
+                }
 
                 const user = results[0];
 
@@ -21,13 +32,13 @@ const getSession = async (req, res, next) => {
                     return res.status(403).json({ error: 'Your account has been suspended by the administrator.' });
                 }
 
-                // Check for session expiry (30 minutes)
+                // Check for session expiry (Extend to 24h for debug if needed, now 30m)
                 const lastActive = new Date(user.lastActive).getTime();
                 const now = Date.now();
-                const thirtyMinutes = 30 * 60 * 1000;
+                const timeout = 30 * 60 * 1000;
 
-                if (now - lastActive > thirtyMinutes) {
-                    // Session expired
+                if (now - lastActive > timeout) {
+                    console.warn(`[AUTH] Session expired for ${user.username}. Last active: ${new Date(lastActive).toISOString()}, Now: ${new Date(now).toISOString()}`);
                     db.query('DELETE FROM user_sessions WHERE sessionId = ?', [sessionId]);
                     return res.status(401).json({ error: 'Session expired due to inactivity' });
                 }
