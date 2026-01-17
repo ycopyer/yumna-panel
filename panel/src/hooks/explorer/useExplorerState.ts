@@ -28,7 +28,7 @@ export const useExplorerState = (user: any) => {
     const [showActivityHistory, setShowActivityHistory] = useState(false);
     const [showTrash, setShowTrash] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
-    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins' | 'mail' | 'backups' | 'ssh' | 'cron' | 'ssl' | 'ftp' | 'apps' | 'monitor' | 'fail2ban' | 'audit' | 'waf' | 'malware' | 'integrity' | 'vulnerability' | '2fa' | 'security-dashboard' | 'domains' | 'collaboration' | 'security-center' | 'nodes' | 'docker' | 'billing' | 'admin-billing' | 'fraud' | 'cloud'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
+    const [activeView, setActiveView] = useState<'drive' | 'shared' | 'recent' | 'documents' | 'favorites' | 'websites' | 'databases' | 'dns' | 'php' | 'plugins' | 'mail' | 'backups' | 'ssh' | 'cron' | 'ssl' | 'ftp' | 'apps' | 'monitor' | 'fail2ban' | 'audit' | 'waf' | 'malware' | 'integrity' | 'vulnerability' | '2fa' | 'security-dashboard' | 'domains' | 'collaboration' | 'security-center' | 'nodes' | 'docker' | 'billing' | 'admin-billing' | 'fraud' | 'cloud' | 'port-forwarding'>(() => (localStorage.getItem('explorer_view') as any) || 'drive');
     const [propertiesItem, setPropertiesItem] = useState<FileItem | null>(null);
     const [showAnalytics, setShowAnalytics] = useState(false);
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });

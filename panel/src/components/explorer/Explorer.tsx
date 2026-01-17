@@ -41,6 +41,7 @@ import BillingManager from '../hosting/BillingManager';
 import AdminBillingManager from '../admin/AdminBillingManager';
 import FraudMonitor from '../admin/FraudMonitor';
 import CloudManager from '../hosting/CloudManager';
+import PortForwardingManager from '../system/PortForwardingManager';
 
 interface ExplorerProps {
     user: { userId?: number, id?: number, username: string, role: string };
@@ -151,6 +152,7 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
         else if (view === 'docker') setActiveView('docker');
         else if (view === 'billing') setActiveView('billing');
         else if (view === 'admin-billing') setActiveView('admin-billing');
+        else if (view === 'port-forwarding') setActiveView('port-forwarding');
         setIsSidebarOpen(false);
     };
 
@@ -387,6 +389,8 @@ const Explorer: React.FC<ExplorerProps> = ({ user, onLogout }) => {
                         <FraudMonitor onClose={() => handleNavigate('drive')} />
                     ) : activeView === 'cloud' ? (
                         <CloudManager userId={userId} />
+                    ) : activeView === 'port-forwarding' ? (
+                        <PortForwardingManager />
                     ) : (
                         <ExplorerFileList
                             loading={loading} filteredFiles={filteredFiles} searchQuery={searchQuery} isSearchActive={isSearchActive} activeView={activeView} viewMode={viewMode}

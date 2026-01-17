@@ -48,6 +48,7 @@ app.use('/api/terminal', require('./routes/terminal'));
 app.use('/api/ai', require('./routes/ai'));
 app.use('/api/cloud', require('./routes/cloud'));
 app.use('/api/commercial', require('./routes/commercial'));
+app.use('/api/tunnel-mappings', require('./routes/tunnel_mappings'));
 app.use('/api/ha', require('./routes/ha'));
 app.use('/api/cdn', require('./routes/cdn'));
 app.use('/api/db-tools', require('./routes/database-tools'));
@@ -74,6 +75,10 @@ const initV3 = require('./migrations/init_v3');
     await haService.initialize();
     await dbReplication.initialize();
     await loadBalancer.initialize();
+
+    const tcpForwarder = require('./services/TcpForwarderService');
+    await tcpForwarder.initialize();
+
     serverNodeService.start();
     slaMonitor.start();
 })();

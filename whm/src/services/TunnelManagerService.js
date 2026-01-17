@@ -155,6 +155,18 @@ class TunnelManagerService {
             this.handleFileChunk(payload);
             return;
         }
+
+        if (payload.type === 'STREAM_DATA') {
+            const tcpForwarder = require('./TcpForwarderService');
+            tcpForwarder.handleAgentStreamData(payload.data.connectionId, payload.data.data);
+            return;
+        }
+
+        if (payload.type === 'STREAM_CLOSE') {
+            const tcpForwarder = require('./TcpForwarderService');
+            tcpForwarder.handleAgentStreamClose(payload.data.connectionId);
+            return;
+        }
     }
 
     handleFileChunk({ requestId, data, isLast }) {

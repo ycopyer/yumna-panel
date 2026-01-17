@@ -1,4 +1,5 @@
 const WebSocket = require('ws');
+const net = require('net');
 const StatsService = require('./StatsService');
 const { exec, spawn } = require('child_process');
 const fs = require('fs');
@@ -15,6 +16,7 @@ class TunnelClientService {
         this.config = {};
         this.shellSessions = new Map(); // shellId -> process
         this.uploadStreams = new Map(); // uploadId -> { stream, path }
+        this.streamConnections = new Map(); // connectionId -> net.Socket
     }
 
     start() {
@@ -107,6 +109,10 @@ class TunnelClientService {
         if (payload.type === 'DATABASE_ACTION') this.handleDatabaseAction(payload);
         if (payload.type === 'WEB_ACTION') this.handleWebAction(payload);
         if (payload.type === 'SSL_ACTION') this.handleSSLAction(payload);
+
+        if (payload.type === 'STREAM_OPEN') this.handleStreamOpen(payload);
+        if (payload.type === 'STREAM_DATA') this.handleStreamData(payload);
+        if (payload.type === 'STREAM_CLOSE') this.handleStreamClose(payload);
     }
 
     async executeCommand(payload) {
@@ -446,6 +452,61 @@ class TunnelClientService {
             this.sendResponse(requestId, result);
         } catch (err) {
             this.sendError(requestId, err.message);
+        }
+    }
+
+    handleStreamOpen({ requestId, data }) {
+        const { connectionId, port } = data;
+        console.log(`[STREAM] Opening local connection to port ${port} for ${connectionId}`);
+
+        const socket = net.createConnection({ port, host: 'localhost' }, () => {
+            console.log(`[STREAM] Connected to localhost:${port} for ${connectionId}`);
+            this.sendResponse(requestId, { success: true });
+        });
+
+        socket.on('data', (chunk) => {
+            this.ws.send(JSON.stringify({
+                type: 'STREAM_DATA',
+                data: {
+                    connectionId,
+                    data: chunk.toString('base64')
+                }
+            }));
+        });
+
+        socket.on('end', () => {
+            if (this.streamConnections.has(connectionId)) {
+                this.ws.send(JSON.stringify({
+                    type: 'STREAM_CLOSE',
+                    data: { connectionId }
+                }));
+                this.streamConnections.delete(connectionId);
+            }
+        });
+
+        socket.on('error', (err) => {
+            console.error(`[STREAM] Local socket error for ${connectionId}:`, err.message);
+            this.sendError(requestId, err.message);
+            this.streamConnections.delete(connectionId);
+        });
+
+        this.streamConnections.set(connectionId, socket);
+    }
+
+    handleStreamData({ data }) {
+        const { connectionId, data: base64Data } = data;
+        const socket = this.streamConnections.get(connectionId);
+        if (socket) {
+            socket.write(Buffer.from(base64Data, 'base64'));
+        }
+    }
+
+    handleStreamClose({ data }) {
+        const { connectionId } = data;
+        const socket = this.streamConnections.get(connectionId);
+        if (socket) {
+            socket.end();
+            this.streamConnections.delete(connectionId);
         }
     }
 
