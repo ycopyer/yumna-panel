@@ -414,6 +414,19 @@ const initV3 = async () => {
         )
     `;
 
+    const createTunnelMappingsTable = `
+        CREATE TABLE IF NOT EXISTS tunnel_mappings (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            serverId INT,
+            masterPort INT UNIQUE,
+            agentPort INT,
+            description VARCHAR(255),
+            isActive TINYINT(1) DEFAULT 1,
+            createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_server (serverId)
+        )
+    `;
+
     const createGitReposTable = `
         CREATE TABLE IF NOT EXISTS git_repos (
             id INT AUTO_INCREMENT PRIMARY KEY,
@@ -559,6 +572,7 @@ const initV3 = async () => {
         await pool.promise().query(createPluginsTable);
         await pool.promise().query(createPermissionsTable);
         await pool.promise().query(createPushTable);
+        await pool.promise().query(createTunnelMappingsTable);
 
         console.log('[MIGRATION] Core Tables verified.');
 
