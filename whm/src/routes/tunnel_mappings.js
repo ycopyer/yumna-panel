@@ -27,11 +27,23 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
         return res.status(400).json({ error: 'serverId, masterPort, and agentPort are required' });
     }
 
+    console.log('[TUNNEL-MAPPING] Creating mapping for server:', serverId, 'masterPort:', masterPort);
+
     try {
         // Verify server has agent_id (must be a tunnel server)
-        const [servers] = await pool.promise().query('SELECT agent_id FROM servers WHERE id = ?', [serverId]);
-        if (servers.length === 0 || !servers[0].agent_id) {
-            return res.status(400).json({ error: 'Selected server does not support tunnel port forwarding (No Agent ID)' });
+        const [serverRows] = await pool.promise().query('SELECT agent_id FROM servers WHERE id = ?', [serverId]);
+        if (serverRows.length === 0) {
+            return res.status(404).json({ error: 'Server not found' });
+        }
+
+        if (!serverRows[0].agent_id) {
+            return res.status(400).json({ error: 'Selected server does not support tunnel port forwarding (No Agent ID). Use Reverse Tunnel mode on Agent.' });
+        }
+
+        // Check if masterPort already exists
+        const [existing] = await pool.promise().query('SELECT id FROM tunnel_mappings WHERE masterPort = ?', [masterPort]);
+        if (existing.length > 0) {
+            return res.status(400).json({ error: `Master port ${masterPort} is already in use by another mapping.` });
         }
 
         await pool.promise().query(
@@ -39,12 +51,20 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
             [serverId, masterPort, agentPort, description]
         );
 
+        console.log('[TUNNEL-MAPPING] Success inserting to DB. Reloading service...');
+
         // Reload in service
         await tcpForwarder.reloadMappings();
 
+        console.log('[TUNNEL-MAPPING] Service reloaded.');
+
         res.status(201).json({ message: 'Mapping created successfully' });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error('[TUNNEL-MAPPING] Error creating mapping:', err);
+        res.status(500).json({
+            error: 'Internal Server Error: ' + err.message,
+            details: err.stack
+        });
     }
 });
 
