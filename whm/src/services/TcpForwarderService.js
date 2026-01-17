@@ -23,9 +23,18 @@ class TcpForwarderService {
             this.servers.clear();
 
             // Load from DB
-            const [rows] = await pool.promise().query('SELECT tm.*, s.agent_id FROM tunnel_mappings tm JOIN servers s ON tm.serverId = s.id WHERE tm.isActive = 1');
+            const [rows] = await pool.promise().query(`
+                SELECT tm.*, s.agent_id 
+                FROM tunnel_mappings tm 
+                JOIN servers s ON tm.serverId = s.id 
+                WHERE tm.isActive = 1
+            `);
 
             for (const mapping of rows) {
+                if (!mapping.agent_id) {
+                    console.warn(`[TCP-FORWARD] Skipping mapping ${mapping.id}: Server has no agent_id (not a tunnel server)`);
+                    continue;
+                }
                 this.startForwarder(mapping);
             }
         } catch (err) {

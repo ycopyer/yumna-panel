@@ -28,6 +28,12 @@ router.post('/', requireAuth, requireAdmin, async (req, res) => {
     }
 
     try {
+        // Verify server has agent_id (must be a tunnel server)
+        const [servers] = await pool.promise().query('SELECT agent_id FROM servers WHERE id = ?', [serverId]);
+        if (servers.length === 0 || !servers[0].agent_id) {
+            return res.status(400).json({ error: 'Selected server does not support tunnel port forwarding (No Agent ID)' });
+        }
+
         await pool.promise().query(
             'INSERT INTO tunnel_mappings (serverId, masterPort, agentPort, description) VALUES (?, ?, ?, ?)',
             [serverId, masterPort, agentPort, description]
