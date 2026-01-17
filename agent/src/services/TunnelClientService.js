@@ -104,6 +104,9 @@ class TunnelClientService {
         if (payload.type === 'SHELL_INPUT') this.inputShell(payload);
         if (payload.type === 'KILL_SHELL') this.killShell(payload);
         if (payload.type === 'FILE_ACTION') this.handleFileAction(payload);
+        if (payload.type === 'DATABASE_ACTION') this.handleDatabaseAction(payload);
+        if (payload.type === 'WEB_ACTION') this.handleWebAction(payload);
+        if (payload.type === 'SSL_ACTION') this.handleSSLAction(payload);
     }
 
     async executeCommand(payload) {
@@ -352,6 +355,91 @@ class TunnelClientService {
                     throw new Error(`Unsupported action: ${action}`);
             }
 
+            this.sendResponse(requestId, result);
+        } catch (err) {
+            this.sendError(requestId, err.message);
+        }
+    }
+
+    async handleDatabaseAction({ requestId, data }) {
+        const { action } = data;
+        const DatabaseService = require('./DatabaseService');
+        try {
+            let result;
+            switch (action) {
+                case 'stats':
+                    result = await DatabaseService.getStats(data.name);
+                    break;
+                case 'create':
+                    result = await DatabaseService.createDatabase(data.name, data.user, data.password);
+                    break;
+                case 'drop':
+                    result = await DatabaseService.dropDatabase(data.name, data.user);
+                    break;
+                case 'clone':
+                    result = await DatabaseService.cloneDatabase(data.source, data.target, data.user, data.password);
+                    break;
+                default:
+                    throw new Error(`Unsupported database action: ${action}`);
+            }
+            this.sendResponse(requestId, result);
+        } catch (err) {
+            this.sendError(requestId, err.message);
+        }
+    }
+
+    async handleWebAction({ requestId, data }) {
+        const { action } = data;
+        const WebServerService = require('./WebServerService');
+        try {
+            let result;
+            switch (action) {
+                case 'create':
+                    result = await WebServerService.createSite(data.payload);
+                    break;
+                case 'remove':
+                    result = await WebServerService.removeSite(data.domain);
+                    break;
+                case 'maintenance':
+                    result = await WebServerService.setMaintenance(data.rootPath, data.enabled);
+                    break;
+                case 'config_get':
+                    result = await WebServerService.getConfig(data.domain, data.stack);
+                    break;
+                case 'config_set':
+                    result = await WebServerService.saveConfig(data.domain, data.stack, data.content);
+                    break;
+                case 'logs':
+                    result = await WebServerService.getLogs(data.domain, data.type);
+                    break;
+                case 'install':
+                    const AppInstallerService = require('./AppInstallerService');
+                    result = await AppInstallerService.installApp(data.payload);
+                    break;
+                default:
+                    throw new Error(`Unsupported web action: ${action}`);
+            }
+            this.sendResponse(requestId, result);
+        } catch (err) {
+            this.sendError(requestId, err.message);
+        }
+    }
+
+    async handleSSLAction({ requestId, data }) {
+        const { action } = data;
+        const SSLService = require('./SSLService');
+        try {
+            let result;
+            switch (action) {
+                case 'letsencrypt':
+                    result = await SSLService.issueLetsEncrypt(data.domain, data.rootPath, data.wildcard);
+                    break;
+                case 'custom':
+                    result = await SSLService.saveCustomSSL(data.domain, data.cert, data.key, data.chain);
+                    break;
+                default:
+                    throw new Error(`Unsupported SSL action: ${action}`);
+            }
             this.sendResponse(requestId, result);
         } catch (err) {
             this.sendError(requestId, err.message);

@@ -335,6 +335,124 @@ class AgentDispatcherService {
     }
 
     /**
+     * Dispatch Database Action
+     */
+    async dispatchDbAction(serverId, action, payload = {}) {
+        const [rows] = await pool.promise().query('SELECT id, agent_id, connection_type, ip, is_local, agentSecret FROM servers WHERE id = ?', [serverId]);
+        if (rows.length === 0) throw new Error('Server not found');
+        const server = rows[0];
+
+        if (server.connection_type === 'tunnel') {
+            return await tunnelManager.sendCommand(server.agent_id, 'DATABASE_ACTION', {
+                action,
+                ...payload
+            });
+        } else {
+            const agentUrl = server.is_local
+                ? (process.env.AGENT_URL || 'http://localhost:4001')
+                : `http://${server.ip}:4001`;
+
+            const client = axios.create({
+                baseURL: agentUrl,
+                headers: { 'X-Agent-Secret': server.agentSecret || this.AGENT_SECRET },
+                timeout: 30000
+            });
+
+            const method = action === 'stats' ? 'GET' : 'POST';
+            const endpoint = `/db/${action}`;
+
+            if (method === 'GET') {
+                const res = await client.get(endpoint, { params: payload });
+                return res.data;
+            } else {
+                const res = await client.post(endpoint, payload);
+                return res.data;
+            }
+        }
+    }
+
+    /**
+     * Dispatch Web Action
+     */
+    async dispatchWebAction(serverId, action, payload = {}) {
+        const [rows] = await pool.promise().query('SELECT id, agent_id, connection_type, ip, is_local, agentSecret FROM servers WHERE id = ?', [serverId]);
+        if (rows.length === 0) throw new Error('Server not found');
+        const server = rows[0];
+
+        if (server.connection_type === 'tunnel') {
+            return await tunnelManager.sendCommand(server.agent_id, 'WEB_ACTION', {
+                action,
+                ...payload
+            });
+        } else {
+            const agentUrl = server.is_local
+                ? (process.env.AGENT_URL || 'http://localhost:4001')
+                : `http://${server.ip}:4001`;
+
+            const client = axios.create({
+                baseURL: agentUrl,
+                headers: { 'X-Agent-Secret': server.agentSecret || this.AGENT_SECRET },
+                timeout: 30000
+            });
+
+            // Map action to agent HTTP endpoint
+            const endpointMap = {
+                'create': '/web/vhost',
+                'remove': `/web/vhost/${payload.domain}`,
+                'maintenance': '/web/maintenance',
+                'install': '/web/app/install',
+                'config_get': '/web/config',
+                'config_set': '/web/config',
+                'logs': '/web/logs'
+            };
+
+            const endpoint = endpointMap[action];
+            const method = ['config_get', 'logs'].includes(action) ? 'GET' : (action === 'remove' ? 'DELETE' : 'POST');
+
+            if (method === 'GET') {
+                const res = await client.get(endpoint, { params: payload });
+                return res.data;
+            } else if (method === 'DELETE') {
+                const res = await client.delete(endpoint);
+                return res.data;
+            } else {
+                const res = await client.post(endpoint, payload);
+                return res.data;
+            }
+        }
+    }
+
+    /**
+     * Dispatch SSL Action
+     */
+    async dispatchSSLAction(serverId, action, payload = {}) {
+        const [rows] = await pool.promise().query('SELECT id, agent_id, connection_type, ip, is_local, agentSecret FROM servers WHERE id = ?', [serverId]);
+        if (rows.length === 0) throw new Error('Server not found');
+        const server = rows[0];
+
+        if (server.connection_type === 'tunnel') {
+            return await tunnelManager.sendCommand(server.agent_id, 'SSL_ACTION', {
+                action,
+                ...payload
+            });
+        } else {
+            const agentUrl = server.is_local
+                ? (process.env.AGENT_URL || 'http://localhost:4001')
+                : `http://${server.ip}:4001`;
+
+            const client = axios.create({
+                baseURL: agentUrl,
+                headers: { 'X-Agent-Secret': server.agentSecret || this.AGENT_SECRET },
+                timeout: 60000 // SSL might take time
+            });
+
+            const endpoint = `/ssl/${action === 'letsencrypt' ? 'letsencrypt' : 'custom'}`;
+            const res = await client.post(endpoint, payload);
+            return res.data;
+        }
+    }
+
+    /**
      * Dispatch Execution Command
      */
     async dispatchExec(target, command, options = {}) {

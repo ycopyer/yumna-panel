@@ -4,6 +4,7 @@ const pool = require('../config/db');
 const { requireAuth } = require('../middleware/auth');
 const axios = require('axios');
 const path = require('path');
+const agentDispatcher = require('../services/AgentDispatcherService');
 
 const AGENT_URL = process.env.AGENT_URL || 'http://localhost:4001';
 const AGENT_SECRET = process.env.AGENT_SECRET || 'insecure_default';
@@ -69,21 +70,15 @@ router.post('/letsencrypt', requireAuth, async (req, res) => {
         console.log(`[SSL] Centralized Issuance for ${domain}...`);
         const result = await SSLMasterService.issueAndPush(domain, server.id, wildcard);
 
-        // 3. Update VHost on Agent to use the new cert
-        const agentUrl = server.is_local ? (process.env.AGENT_URL || 'http://localhost:4001') : `http://${server.ip}:4001`;
-        const agentClient = axios.create({
-            baseURL: agentUrl,
-            headers: { 'X-Agent-Secret': AGENT_SECRET },
-            timeout: 10000
-        });
-
-        await agentClient.post('/web/vhost', {
-            domain: website.domain,
-            rootPath: website.rootPath,
-            phpVersion: website.phpVersion,
-            stack: website.webStack,
-            ssl: true
-            // WebServerService will find the certs at the default path we pushed to
+        // 3. Update VHost on Agent via Dispatcher
+        await agentDispatcher.dispatchWebAction(server.id, 'create', {
+            payload: {
+                domain: website.domain,
+                rootPath: website.rootPath,
+                phpVersion: website.phpVersion,
+                stack: website.webStack,
+                ssl: true
+            }
         });
 
         // 4. Record in WHM DB
@@ -133,32 +128,26 @@ router.post('/upload', requireAuth, async (req, res) => {
         const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [website.serverId || 1]);
         if (serverRows.length === 0) throw new Error('Server not found for this website');
         const server = serverRows[0];
-        const agentUrl = server.is_local ? (process.env.AGENT_URL || 'http://localhost:4001') : `http://${server.ip}:4001`;
+        // 2. Call Agent via Dispatcher to save files
+        const agentFileRes = await agentDispatcher.dispatchSSLAction(server.id, 'custom', { domain, cert, key, chain });
 
-        const agentClient = axios.create({
-            baseURL: agentUrl,
-            headers: { 'X-Agent-Secret': AGENT_SECRET },
-            timeout: 10000
-        });
-
-        // 2. Call Agent to save files
-        const agentFileRes = await agentClient.post('/ssl/custom', { domain, cert, key, chain });
-
-        // 3. Update VHost on Agent
-        await agentClient.post('/web/vhost', {
-            domain: website.domain,
-            rootPath: website.rootPath,
-            phpVersion: website.phpVersion,
-            stack: website.webStack,
-            ssl: true,
-            customCert: agentFileRes.data.certPath,
-            customKey: agentFileRes.data.keyPath
+        // 3. Update VHost on Agent via Dispatcher
+        await agentDispatcher.dispatchWebAction(server.id, 'create', {
+            payload: {
+                domain: website.domain,
+                rootPath: website.rootPath,
+                phpVersion: website.phpVersion,
+                stack: website.webStack,
+                ssl: true,
+                customCert: agentFileRes.certPath,
+                customKey: agentFileRes.keyPath
+            }
         });
 
         // 3. Record in DB
         await connection.query(
             'INSERT INTO ssl_certificates (userId, domain, is_auto, cert_path, key_path, fullchain_path, provider, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [website.userId, domain, 0, agentFileRes.data.certPath, agentFileRes.data.keyPath, agentFileRes.data.chainPath, 'custom', 'active']
+            [website.userId, domain, 0, agentFileRes.certPath, agentFileRes.keyPath, agentFileRes.chainPath, 'custom', 'active']
         );
 
         // 4. Update website

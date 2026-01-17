@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const axios = require('axios');
+const agentDispatcher = require('../services/AgentDispatcherService');
 
 // GET /api/databases/servers - Get available servers for database deployment
 router.get('/servers', requireAuth, async (req, res) => {
@@ -40,25 +41,8 @@ router.get('/', requireAuth, async (req, res) => {
         // Fetch real stats from Agent (for each server)
         const enriched = await Promise.all(rows.map(async (db) => {
             try {
-                // Get server info
-                const [serverRows] = await pool.promise().query('SELECT * FROM servers WHERE id = ?', [db.serverId || 1]);
-                if (serverRows.length === 0) {
-                    return { ...db, size_mb: 0, table_count: 0, error: 'Server not found' };
-                }
-
-                const server = serverRows[0];
-                const agentUrl = server.is_local
-                    ? (process.env.AGENT_URL || 'http://localhost:4001')
-                    : `http://${server.ip}:4001`;
-
-                const agentClient = axios.create({
-                    baseURL: agentUrl,
-                    headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
-                    timeout: 5000
-                });
-
-                const statsRes = await agentClient.get('/db/stats', { params: { name: db.name } });
-                return { ...db, ...statsRes.data, serverName: server.name };
+                const stats = await agentDispatcher.dispatchDbAction(db.serverId || 1, 'stats', { name: db.name });
+                return { ...db, ...stats, serverName: db.serverName || 'Server' };
             } catch (e) {
                 return { ...db, size_mb: 0, table_count: 0, error: 'Agent error' };
             }
@@ -106,19 +90,8 @@ router.post('/', requireAuth, async (req, res) => {
         const [existing] = await connection.query('SELECT id FROM `databases` WHERE name = ?', [name]);
         if (existing.length > 0) throw new Error('Database name already exists');
 
-        // Determine Agent URL
-        const agentUrl = selectedServer.is_local
-            ? (process.env.AGENT_URL || 'http://localhost:4001')
-            : `http://${selectedServer.ip}:4001`;
-
-        const agentClient = axios.create({
-            baseURL: agentUrl,
-            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
-            timeout: 10000
-        });
-
-        // Trigger Agent to create database
-        await agentClient.post('/db/create', { name, user, password });
+        // Trigger Agent to create database via Dispatcher
+        await agentDispatcher.dispatchDbAction(selectedServerId, 'create', { name, user, password });
 
         // Record in WHM with serverId
         await connection.query(
@@ -160,26 +133,14 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
         const db = rows[0];
 
-        // Get server info
-        const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [db.serverId || 1]);
-        if (serverRows.length > 0) {
-            const server = serverRows[0];
-            const agentUrl = server.is_local
-                ? (process.env.AGENT_URL || 'http://localhost:4001')
-                : `http://${server.ip}:4001`;
-
-            const agentClient = axios.create({
-                baseURL: agentUrl,
-                headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
-                timeout: 10000
-            });
-
-            // Trigger Agent
-            await agentClient.post('/db/drop', { name: db.name, user: db.user });
+        // Trigger Agent via Dispatcher
+        if (db.serverId) {
+            await agentDispatcher.dispatchDbAction(db.serverId, 'drop', { name: db.name, user: db.user });
         }
 
         // Delete Record
         await connection.query('DELETE FROM `databases` WHERE id = ?', [dbId]);
+        await connection.commit();
 
         res.json({ message: 'Database deleted successfully' });
     } catch (err) {
@@ -204,25 +165,8 @@ router.post('/:id/clone', requireAuth, async (req, res) => {
 
         const sourceDb = rows[0];
 
-        // Get server info
-        const [serverRows] = await connection.query('SELECT * FROM servers WHERE id = ?', [sourceDb.serverId || 1]);
-        if (serverRows.length === 0) {
-            throw new Error('Server not found');
-        }
-
-        const server = serverRows[0];
-        const agentUrl = server.is_local
-            ? (process.env.AGENT_URL || 'http://localhost:4001')
-            : `http://${server.ip}:4001`;
-
-        const agentClient = axios.create({
-            baseURL: agentUrl,
-            headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
-            timeout: 30000 // Clone might take longer
-        });
-
-        // Trigger Agent
-        await agentClient.post('/db/clone', {
+        // Trigger Agent via Dispatcher
+        await agentDispatcher.dispatchDbAction(sourceDb.serverId || 1, 'clone', {
             source: sourceDb.name,
             target: newName,
             user: sourceDb.user,

@@ -4,22 +4,7 @@ const pool = require('../config/db');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const axios = require('axios');
 
-// Helper to get Agent Client for a specific server or website
-async function getAgentClient(serverId) {
-    const [rows] = await pool.promise().query('SELECT * FROM servers WHERE id = ?', [serverId]);
-    if (rows.length === 0) throw new Error('Server not found');
-    const server = rows[0];
-
-    const agentUrl = server.is_local
-        ? (process.env.AGENT_URL || 'http://localhost:4001')
-        : `http://${server.ip}:4001`;
-
-    return axios.create({
-        baseURL: agentUrl,
-        headers: { 'X-Agent-Secret': process.env.AGENT_SECRET || 'insecure_default' },
-        timeout: 10000
-    });
-}
+const agentDispatcher = require('../services/AgentDispatcherService');
 
 // GET /api/websites/defaults
 router.get('/defaults', async (req, res) => {
@@ -131,15 +116,16 @@ router.post('/', requireAuth, async (req, res) => {
             await connection.query('INSERT INTO dns_zones (userId, domain, serverId) VALUES (?, ?, ?)', [userId, domain, serverId]);
         }
 
-        // Call Agent
+        // Call Agent via Dispatcher
         try {
-            const agentClient = await getAgentClient(serverId);
-            await agentClient.post('/web/vhost', {
-                domain,
-                rootPath,
-                phpVersion,
-                stack: webStack,
-                ssl: false
+            await agentDispatcher.dispatchWebAction(serverId, 'create', {
+                payload: {
+                    domain,
+                    rootPath,
+                    phpVersion,
+                    stack: webStack,
+                    ssl: false
+                }
             });
         } catch (agentErr) {
             console.error('[WHM] Agent VHost creation failed:', agentErr.message);
@@ -182,10 +168,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
         // Delete from DB
         await connection.query('DELETE FROM websites WHERE id = ?', [websiteId]);
 
-        // Call Agent
+        // Call Agent via Dispatcher
         try {
-            const agentClient = await getAgentClient(website.serverId);
-            await agentClient.delete(`/web/vhost/${website.domain}`);
+            await agentDispatcher.dispatchWebAction(website.serverId, 'remove', { domain: website.domain });
         } catch (agentErr) {
             console.error('[WHM] Agent VHost removal failed:', agentErr.message);
         }
@@ -219,15 +204,16 @@ router.put('/:id', requireAuth, async (req, res) => {
             [rootPath, phpVersion, webStack, sslEnabled ? 1 : 0, websiteId]
         );
 
-        // Notify Agent
+        // Notify Agent via Dispatcher
         try {
-            const agentClient = await getAgentClient(website.serverId);
-            await agentClient.post('/web/vhost', {
-                domain: website.domain,
-                rootPath,
-                phpVersion,
-                stack: webStack,
-                ssl: sslEnabled
+            await agentDispatcher.dispatchWebAction(website.serverId, 'create', {
+                payload: {
+                    domain: website.domain,
+                    rootPath,
+                    phpVersion,
+                    stack: webStack,
+                    ssl: sslEnabled
+                }
             });
         } catch (agentErr) {
             console.error('[WHM] Agent VHost update failed:', agentErr.message);
@@ -253,8 +239,7 @@ router.put('/:id/maintenance', requireAuth, async (req, res) => {
 
         const website = rows[0];
 
-        const agentClient = await getAgentClient(website.serverId);
-        await agentClient.post('/web/maintenance', {
+        await agentDispatcher.dispatchWebAction(website.serverId, 'maintenance', {
             rootPath: website.rootPath,
             enabled
         });
@@ -279,29 +264,30 @@ router.post('/:id/install', requireAuth, async (req, res) => {
         if (!isAdmin && rows[0].userId != userId) return res.status(403).json({ error: 'Access denied' });
 
         const website = rows[0];
-        const agentClient = await getAgentClient(website.serverId);
 
         const dbSuffix = crypto.randomBytes(3).toString('hex');
         const dbName = `wp_${dbSuffix}`;
         const dbUser = `u_${dbSuffix}`;
         const dbPass = crypto.randomBytes(8).toString('hex') + 'Aa1!';
 
-        await agentClient.post('/db/create', { name: dbName, user: dbUser, password: dbPass });
+        await agentDispatcher.dispatchDbAction(website.serverId, 'create', { name: dbName, user: dbUser, password: dbPass });
         await pool.promise().query(
             'INSERT INTO `databases` (userId, serverId, name, user, password) VALUES (?, ?, ?, ?, ?)',
             [website.userId, website.serverId, dbName, dbUser, dbPass]
         );
 
-        const response = await agentClient.post('/web/app/install', {
-            appType,
-            domain: website.domain,
-            rootPath: website.rootPath,
-            phpVersion: website.phpVersion,
-            dbConfig: {
-                name: dbName,
-                user: dbUser,
-                password: dbPass,
-                host: 'localhost'
+        const response = await agentDispatcher.dispatchWebAction(website.serverId, 'install', {
+            payload: {
+                appType,
+                domain: website.domain,
+                rootPath: website.rootPath,
+                phpVersion: website.phpVersion,
+                dbConfig: {
+                    name: dbName,
+                    user: dbUser,
+                    password: dbPass,
+                    host: 'localhost'
+                }
             }
         });
 
@@ -319,11 +305,10 @@ router.get('/:id/config', requireAuth, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const website = rows[0];
 
-        const agentClient = await getAgentClient(website.serverId);
-        const result = await agentClient.get('/web/config', {
-            params: { domain: website.domain, stack: website.webStack }
+        const result = await agentDispatcher.dispatchWebAction(website.serverId, 'config_get', {
+            domain: website.domain, stack: website.webStack
         });
-        res.json(result.data);
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -338,13 +323,12 @@ router.put('/:id/config', requireAuth, requireAdmin, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const website = rows[0];
 
-        const agentClient = await getAgentClient(website.serverId);
-        const result = await agentClient.put('/web/config', {
+        const result = await agentDispatcher.dispatchWebAction(website.serverId, 'config_set', {
             domain: website.domain,
             stack: website.webStack,
             content: config
         });
-        res.json(result.data);
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -359,11 +343,10 @@ router.get('/:id/logs', requireAuth, async (req, res) => {
         if (rows.length === 0) return res.status(404).json({ error: 'Not found' });
         const website = rows[0];
 
-        const agentClient = await getAgentClient(website.serverId);
-        const result = await agentClient.get('/web/logs', {
-            params: { domain: website.domain, type: logType }
+        const result = await agentDispatcher.dispatchWebAction(website.serverId, 'logs', {
+            domain: website.domain, type: logType
         });
-        res.json(result.data);
+        res.json(result);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
