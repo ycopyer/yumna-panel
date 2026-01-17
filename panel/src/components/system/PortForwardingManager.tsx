@@ -40,8 +40,9 @@ const PortForwardingManager: React.FC = () => {
         try {
             const res = await axios.get('/api/tunnel-mappings');
             setMappings(res.data);
-        } catch (err) {
-            console.error('Failed to fetch mappings');
+        } catch (err: any) {
+            console.error('Failed to fetch mappings:', err.response?.data || err.message);
+            // Don't alert here to avoid spamming on load
         } finally {
             setLoading(false);
         }
@@ -50,9 +51,11 @@ const PortForwardingManager: React.FC = () => {
     const fetchServers = async () => {
         try {
             const res = await axios.get('/api/servers');
-            setServers(res.data.filter((s: any) => s.connection_type === 'tunnel'));
-        } catch (err) {
-            console.error('Failed to fetch servers');
+            const serverList = res.data.servers || (Array.isArray(res.data) ? res.data : []);
+            // Show all servers but we'll highlight tunnel ones
+            setServers(serverList);
+        } catch (err: any) {
+            console.error('Failed to fetch servers:', err.response?.data || err.message);
         }
     };
 
@@ -142,7 +145,9 @@ const PortForwardingManager: React.FC = () => {
                                 >
                                     <option value="" disabled style={{ background: '#0a0a0a' }}>Select Server</option>
                                     {servers.map(s => (
-                                        <option key={s.id} value={s.id} style={{ background: '#0a0a0a' }}>{s.name} ({s.hostname})</option>
+                                        <option key={s.id} value={s.id} style={{ background: '#0a0a0a' }}>
+                                            {s.name} ({s.connection_type === 'tunnel' ? 'TUNNEL' : 'DIRECT/IP'})
+                                        </option>
                                     ))}
                                 </select>
                             </div>
