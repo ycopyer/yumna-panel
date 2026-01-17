@@ -187,4 +187,40 @@ router.post('/:id/clone', requireAuth, async (req, res) => {
     }
 });
 
+// POST /api/databases/sync - Sync existing databases from Agent to WHM
+router.post('/sync', requireAuth, requireAdmin, async (req, res) => {
+    const { serverId } = req.body;
+    if (!serverId) return res.status(400).json({ error: 'serverId is required' });
+
+    try {
+        const dbs = await agentDispatcher.dispatchDbAction(serverId, 'list');
+
+        const connection = await pool.promise().getConnection();
+        try {
+            await connection.beginTransaction();
+
+            for (const db of dbs) {
+                // Check if already in WHM
+                const [existing] = await connection.query('SELECT id FROM `databases` WHERE serverId = ? AND name = ?', [serverId, db.name]);
+                if (existing.length === 0) {
+                    await connection.query(
+                        'INSERT INTO `databases` (userId, serverId, name, user, password) VALUES (?, ?, ?, ?, ?)',
+                        [req.userId, serverId, db.name, 'imported', 'imported']
+                    );
+                }
+            }
+
+            await connection.commit();
+            res.json({ message: `Synced ${dbs.length} databases successfully`, count: dbs.length });
+        } catch (err) {
+            await connection.rollback();
+            throw err;
+        } finally {
+            connection.release();
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 module.exports = router;

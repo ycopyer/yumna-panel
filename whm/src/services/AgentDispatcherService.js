@@ -358,7 +358,7 @@ class AgentDispatcherService {
                 timeout: 30000
             });
 
-            const method = action === 'stats' ? 'GET' : 'POST';
+            const method = ['stats', 'list'].includes(action) ? 'GET' : 'POST';
             const endpoint = `/db/${action}`;
 
             if (method === 'GET') {

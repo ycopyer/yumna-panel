@@ -121,6 +121,24 @@ class DatabaseService {
             if (adminConn) await adminConn.end();
         }
     }
+
+    static async listDatabases() {
+        let adminConn;
+        try {
+            adminConn = await this.getAdminConnection();
+            const [rows] = await adminConn.query(`
+                SELECT 
+                    table_schema AS name, 
+                    ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS size_mb,
+                    COUNT(*) AS table_count 
+                FROM information_schema.tables 
+                WHERE table_schema NOT IN ('mysql', 'information_schema', 'performance_schema', 'sys')
+                GROUP BY table_schema`);
+            return rows;
+        } finally {
+            if (adminConn) await adminConn.end();
+        }
+    }
 }
 
 module.exports = DatabaseService;

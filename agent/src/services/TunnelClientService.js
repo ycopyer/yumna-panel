@@ -367,6 +367,9 @@ class TunnelClientService {
         try {
             let result;
             switch (action) {
+                case 'list':
+                    result = await DatabaseService.listDatabases();
+                    break;
                 case 'stats':
                     result = await DatabaseService.getStats(data.name);
                     break;
